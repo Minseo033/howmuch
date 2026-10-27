@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'price_history_screen.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -9,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
@@ -18,8 +18,11 @@ import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart' show AppTextScale;
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/keep_all_text.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
+import 'package:howmuch/core/utils/text_initial.dart';
 
 final currentStoreDetailProvider = FutureProvider.autoDispose
     .family<Store, String>((ref, id) async {
@@ -53,6 +56,7 @@ class StoreDetailScreen extends ConsumerWidget {
     return _StoreDetailContent(
       store: latest?.valueOrNull ?? store,
       refreshFailed: latest?.hasError ?? false,
+      detailsLoading: latest?.isLoading ?? false,
       onRefresh: store.id.isEmpty
           ? null
           : () => ref.invalidate(currentStoreDetailProvider(store.id)),
@@ -63,10 +67,12 @@ class StoreDetailScreen extends ConsumerWidget {
 class _StoreDetailContent extends ConsumerWidget {
   final Store store;
   final bool refreshFailed;
+  final bool detailsLoading;
   final VoidCallback? onRefresh;
   const _StoreDetailContent({
     required this.store,
     this.refreshFailed = false,
+    this.detailsLoading = false,
     this.onRefresh,
   });
 
@@ -155,6 +161,17 @@ class _StoreDetailContent extends ConsumerWidget {
   void _snack(BuildContext ctx, String msg) => ScaffoldMessenger.of(
     ctx,
   ).showSnackBar(HowmuchSnackBar(content: Text(msg)));
+
+  /// The savings estimate and the visit record both need an account, so a
+  /// guest is asked before the screen opens instead of after checking in.
+  Future<void> _openVisitVerification(BuildContext ctx) async {
+    final loggedIn = await requireLogin(
+      ctx,
+      message: '로그인하면 방문을 인증하고 아낀 금액을 절약 리포트에 모을 수 있어요.',
+    );
+    if (!loggedIn || !ctx.mounted) return;
+    await ctx.push(AppRoutes.visitVerification, extra: store);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -245,21 +262,11 @@ class _StoreDetailContent extends ConsumerWidget {
                           ),
                         )
                       : refreshFailed
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 8,
-                          ),
-                          child: Row(
-                            children: [
-                              const Expanded(
-                                child: Text('최신 정보를 확인하지 못해 이전 정보를 보여드려요.'),
-                              ),
-                              TextButton(
-                                onPressed: onRefresh,
-                                child: const Text('다시 확인'),
-                              ),
-                            ],
+                      ? ColoredBox(
+                          color: AppColors.white,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                            child: _RefreshFailedNotice(onRetry: onRefresh),
                           ),
                         )
                       : const SizedBox.shrink(),
@@ -359,9 +366,13 @@ class _StoreDetailContent extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               child: Center(
-                                child: Text(
-                                  _emoji(),
-                                  style: const TextStyle(fontSize: 28),
+                                // Decorative: read first and alone, and it
+                                // put the industry before the store name.
+                                child: ExcludeSemantics(
+                                  child: Text(
+                                    _emoji(),
+                                    style: const TextStyle(fontSize: 28),
+                                  ),
                                 ),
                               ),
                             ),
@@ -476,10 +487,19 @@ class _StoreDetailContent extends ConsumerWidget {
                                       color: _ink,
                                     ),
                                   ),
-                                  const Spacer(),
-                                  const Text(
-                                    '공공데이터 기준',
-                                    style: TextStyle(fontSize: 11, color: _sub),
+                                  const SizedBox(width: 8),
+                                  // Right-aligned as before, but wraps under
+                                  // large text instead of overflowing the
+                                  // row (37px at 3.1x on a 320 screen, #5).
+                                  Expanded(
+                                    child: Text(
+                                      store.menuSourceLabel,
+                                      textAlign: TextAlign.end,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: _sub,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -555,27 +575,6 @@ class _StoreDetailContent extends ConsumerWidget {
                                         ],
                                       ),
                                     ),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: TextButton.icon(
-                                        onPressed: () => context.push(
-                                          AppRoutes.priceHistory,
-                                          extra: PriceHistoryTarget(
-                                            store: store,
-                                            menuIndex: e.value.index,
-                                          ),
-                                        ),
-                                        icon: const Icon(
-                                          Icons.history,
-                                          size: 16,
-                                        ),
-                                        label: Text('${e.value.name} 가격 이력'),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: _blue,
-                                          minimumSize: const Size(44, 44),
-                                        ),
-                                      ),
-                                    ),
                                     if (e.key < menus.length - 1)
                                       const Divider(
                                         height: 1,
@@ -635,9 +634,16 @@ class _StoreDetailContent extends ConsumerWidget {
                               icon: Icons.access_time_outlined,
                               label: '영업시간',
                               value:
-                                  store.openingHours?.text ?? '등록된 영업시간이 없어요.',
+                                  store.openingHours?.text ??
+                                  (detailsLoading
+                                      ? '영업시간을 확인하고 있어요.'
+                                      : refreshFailed
+                                      ? '영업시간을 확인하지 못했어요.'
+                                      : '등록된 영업시간이 없어요.'),
                               supportingText: store.openingHours == null
-                                  ? (hasPhone
+                                  ? (detailsLoading
+                                        ? '최신 매장 정보를 불러오고 있어요.'
+                                        : hasPhone
                                         ? '방문 전 매장에 확인해 주세요.'
                                         : '방문 전 최신 안내를 확인해 주세요.')
                                   : '${store.openingHours!.sourceLabel}\n${store.openingHours!.isStale(DateTime.now()) ? '조회한 지 오래된 정보예요. 방문 전 확인해 주세요.' : '휴무·영업시간은 매장 사정에 따라 달라질 수 있어요.'}',
@@ -723,74 +729,93 @@ class _StoreDetailContent extends ConsumerWidget {
                       horizontal: 16,
                       vertical: 10,
                     ),
-                    child: Row(
-                      children: [
-                        // 전화 버튼
-                        _BottomIconBtn(
-                          icon: Icons.phone_rounded,
-                          label: '전화',
-                          onTap: () => _call(context),
-                        ),
-                        const SizedBox(width: 10),
-                        // 제보 버튼
-                        _BottomIconBtn(
-                          icon: Icons.campaign_rounded,
-                          label: '가격 제보',
-                          onTap: store.isClosed
-                              ? null
-                              : () => context.push(
-                                  AppRoutes.priceChangeReport,
-                                  extra: store,
-                                ),
-                          muted: store.isClosed,
-                        ),
-                        const SizedBox(width: 10),
-                        // 방문 인증 버튼 (프리젠테이션 시연용)
-                        _BottomIconBtn(
-                          icon: Icons.verified_rounded,
-                          label: '방문 인증',
-                          onTap: store.isClosed
-                              ? null
-                              : () => context.push(
-                                  AppRoutes.visitVerification,
-                                  extra: store,
-                                ),
-                          muted: store.isClosed,
-                        ),
-                        const SizedBox(width: 10),
-                        // 길찾기 버튼 (메인 CTA)
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => _map(context),
-                            child: Container(
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: _blue,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.navigation_rounded,
-                                    color: AppColors.white,
-                                    size: 18,
+                    // Toolbar-like buttons keep their 48px height, so their
+                    // labels stop at the compact chrome scale instead of
+                    // spilling out at large text sizes (QA 10/7 #5).
+                    child: MediaQuery.withClampedTextScaling(
+                      maxScaleFactor: AppTextScale.compactChrome,
+                      child: Row(
+                        children: [
+                          // 전화 버튼
+                          _BottomIconBtn(
+                            icon: Icons.phone_rounded,
+                            label: '전화',
+                            onTap: () => _call(context),
+                          ),
+                          const SizedBox(width: 10),
+                          // 제보 버튼
+                          _BottomIconBtn(
+                            icon: Icons.campaign_rounded,
+                            label: '가격 제보',
+                            onTap: store.isClosed
+                                ? null
+                                : () => context.push(
+                                    AppRoutes.priceChangeReport,
+                                    extra: store,
                                   ),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    '길찾기',
-                                    style: TextStyle(
-                                      color: AppColors.white,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                            muted: store.isClosed,
+                          ),
+                          const SizedBox(width: 10),
+                          // 방문 인증 버튼 (프리젠테이션 시연용)
+                          _BottomIconBtn(
+                            icon: Icons.verified_rounded,
+                            label: '방문 인증',
+                            onTap: store.isClosed
+                                ? null
+                                : () => _openVisitVerification(context),
+                            muted: store.isClosed,
+                          ),
+                          const SizedBox(width: 10),
+                          // 길찾기 버튼 (메인 CTA)
+                          Expanded(
+                            // A button like the three beside it; it read as
+                            // plain text (QA 10/7 #54).
+                            child: Semantics(
+                              container: true,
+                              button: true,
+                              label: '길찾기',
+                              excludeSemantics: true,
+                              onTap: () => _map(context),
+                              child: GestureDetector(
+                                onTap: () => _map(context),
+                                child: Container(
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: _blue,
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
-                                ],
+                                  child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.navigation_rounded,
+                                        color: AppColors.white,
+                                        size: 18,
+                                      ),
+                                      SizedBox(width: 6),
+                                      // Shrinks instead of being cut ('길찾') when
+                                      // the button is narrow (QA 10/7 #44).
+                                      Flexible(
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            '길찾기',
+                                            style: TextStyle(
+                                              color: AppColors.white,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -868,15 +893,19 @@ class _InfoRow extends StatelessWidget {
           const SizedBox(width: 12),
           SizedBox(
             width: 68,
-            height: 20,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  height: 1.5,
-                  color: AppColors.textMuted,
+            // A minimum rather than a fixed height: large text grows the row
+            // instead of cutting the label off (QA 10/7 #5).
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 20),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.5,
+                    color: AppColors.textMuted,
+                  ),
                 ),
               ),
             ),
@@ -952,7 +981,7 @@ class _Review extends StatelessWidget {
           radius: 16,
           backgroundColor: AppColors.borderSubtle,
           child: Text(
-            name[0],
+            displayInitial(name),
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -989,7 +1018,7 @@ class _Review extends StatelessWidget {
               Row(
                 children: [
                   ...List.generate(
-                    stars,
+                    stars.clamp(0, 5),
                     (_) => const Icon(
                       Icons.star_rounded,
                       size: 12,
@@ -997,7 +1026,7 @@ class _Review extends StatelessWidget {
                     ),
                   ),
                   ...List.generate(
-                    5 - stars,
+                    5 - stars.clamp(0, 5),
                     (_) => const Icon(
                       Icons.star_rounded,
                       size: 12,
@@ -1042,9 +1071,13 @@ class _BottomIconBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = muted ? AppColors.textLight : AppColors.textBody;
     return Semantics(
+      container: true,
       label: label,
       button: true,
       enabled: onTap != null,
+      // The InkWell is kept out of the semantics tree, so the tap is
+      // declared here; without it the button had no action to activate.
+      onTap: onTap,
       excludeSemantics: true,
       child: InkWell(
         excludeFromSemantics: true,
@@ -1063,12 +1096,18 @@ class _BottomIconBtn extends StatelessWidget {
             children: [
               Icon(icon, size: 18, color: color),
               const SizedBox(height: 2),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: color,
-                  fontWeight: FontWeight.w500,
+              // One line that shrinks to the button width rather than
+              // wrapping '가격 제보' onto a second line.
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: color,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
@@ -1107,31 +1146,51 @@ class _FavoriteStoreButtonState extends ConsumerState<_FavoriteStoreButton> {
 
   Future<void> _toggleFavorite() async {
     if (_busy) return;
+    // The heart as the visitor saw it decides the action. A guest's heart is
+    // empty, so logging in from here only ever adds the store.
+    final add = !ref.read(favoriteStoresProvider.notifier).isFavorite(_storeId);
+    // Logged-in visitors go on without waiting, so a quick second tap still
+    // finds the button busy.
     if (!ApiClient.isAuthenticated) {
-      ScaffoldMessenger.of(
+      final loggedIn = await requireLogin(
         context,
-      ).showSnackBar(HowmuchSnackBar(content: Text('로그인이 필요해요.')));
-      return;
+        message: '찜한 매장은 로그인하면 저장돼요.',
+      );
+      if (!loggedIn || !mounted) return;
     }
     setState(() => _busy = true);
 
-    final notifier = ref.read(favoriteStoresProvider.notifier);
-    final wasFavorite = notifier.isFavorite(_storeId);
-
     try {
-      if (wasFavorite) {
-        await notifier.removeFavorite(_storeId);
-      } else {
+      // Right after a login the account's favorites are not loaded yet. Read
+      // them first: a store the account already has stays saved, and the
+      // favorites count is not rebuilt from an empty list.
+      if (!ref.read(favoriteStoresProvider).hasValue) {
+        await ref
+            .read(favoriteStoresProvider.notifier)
+            .loadFavorites(force: true);
+        if (!mounted) return;
+        if (!ref.read(favoriteStoresProvider).hasValue) {
+          throw StateError('favorites not loaded');
+        }
+      }
+      final notifier = ref.read(favoriteStoresProvider.notifier);
+      if (add && notifier.isFavorite(_storeId)) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(HowmuchSnackBar(content: Text('이미 찜한 매장이에요.')));
+        return;
+      }
+      if (add) {
         await notifier.addFavorite(
           storeId: _storeId,
           storeName: widget.store.storeName,
         );
+      } else {
+        await notifier.removeFavorite(_storeId);
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        HowmuchSnackBar(
-          content: Text(wasFavorite ? '찜을 해제했어요.' : '찜한 매장에 추가했어요.'),
-        ),
+        HowmuchSnackBar(content: Text(add ? '찜한 매장에 추가했어요.' : '찜을 해제했어요.')),
       );
     } catch (_) {
       if (!mounted) return;
@@ -1145,6 +1204,12 @@ class _FavoriteStoreButtonState extends ConsumerState<_FavoriteStoreButton> {
 
   @override
   Widget build(BuildContext context) {
+    // A login on a screen opened from here (review, report) starts a new
+    // favorites list for the account. Load it so the heart shows the
+    // account's choice when the visitor comes back.
+    ref.listen(favoriteStoresProvider.notifier, (_, notifier) {
+      if (ApiClient.isAuthenticated) notifier.loadFavorites();
+    });
     final favorites = ref.watch(favoriteStoresProvider);
     final isFavorite =
         favorites.valueOrNull?.any((store) => store.id == _storeId) ?? false;
@@ -1187,9 +1252,13 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
   @override
   void initState() {
     super.initState();
+    // Reload on every visit so reviews written elsewhere since the last
+    // visit appear; the reviews already loaded stay meanwhile (QA #11).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(storeReviewProvider.notifier).loadReviews(widget.storeKey);
+      ref
+          .read(storeReviewProvider.notifier)
+          .loadReviews(widget.storeKey, force: true);
     });
   }
 
@@ -1207,6 +1276,7 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
   @override
   Widget build(BuildContext context) {
     final reviewState = ref.watch(storeReviewProvider)[widget.storeKey];
+    final hasReviews = reviewState?.hasValue == true;
     final reviews = reviewState?.valueOrNull ?? const <Review>[];
     final shown = reviews.take(3).toList();
     final avg = reviews.isEmpty
@@ -1254,46 +1324,45 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
                 ),
               ],
               const Spacer(),
-              GestureDetector(
-                onTap: () =>
-                    context.push(AppRoutes.reviewList, extra: widget.store),
-                child: const Text(
-                  '전체보기',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
+              // Read as a button rather than text with a tap action.
+              Semantics(
+                container: true,
+                button: true,
+                child: GestureDetector(
+                  onTap: () =>
+                      context.push(AppRoutes.reviewList, extra: widget.store),
+                  child: const Text(
+                    '전체보기',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 14),
-          if (reviewState == null || reviewState.isLoading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('리뷰를 불러오고 있어요'),
-            )
-          else if (reviewState.hasError)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('리뷰를 불러오지 못했어요'),
-                TextButton(
-                  onPressed: () => ref
-                      .read(storeReviewProvider.notifier)
-                      .loadReviews(widget.storeKey, force: true),
-                  child: const Text('다시 시도'),
-                ),
-              ],
+          if (reviewState == null || (reviewState.isLoading && !hasReviews))
+            // Reviews are requested from the next frame on, and never for a
+            // store without an id. Nothing is loading before that, so nothing
+            // spins.
+            _ReviewsLoading(spinning: reviewState != null)
+          else if (reviewState.hasError && !hasReviews)
+            _ReviewsNotice(
+              icon: Icons.error_outline_rounded,
+              title: '리뷰를 불러오지 못했어요',
+              message: '잠시 후 다시 시도해 주세요.',
+              onRetry: () => ref
+                  .read(storeReviewProvider.notifier)
+                  .loadReviews(widget.storeKey, force: true),
             )
           else if (shown.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                '아직 리뷰가 없어요. 첫 리뷰의 주인공이 되어보세요!',
-                style: TextStyle(fontSize: 13, color: AppColors.textMuted),
-              ),
+            const _ReviewsNotice(
+              icon: Icons.rate_review_outlined,
+              title: '아직 리뷰가 없어요',
+              message: '첫 리뷰의 주인공이 되어보세요!',
             )
           else
             ...shown.asMap().entries.expand(
@@ -1341,6 +1410,187 @@ class _BenefitBadge extends StatelessWidget {
           fontSize: 11,
           fontWeight: FontWeight.w600,
           color: color,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  최신 정보 확인 실패 안내
+// ─────────────────────────────────────────────────────────
+class _RefreshFailedNotice extends StatelessWidget {
+  final VoidCallback? onRetry;
+
+  const _RefreshFailedNotice({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+      decoration: BoxDecoration(
+        color: AppColors.warningLight,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.sync_problem_rounded,
+            size: 18,
+            color: AppColors.warning,
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: KeepAllText(
+              '최신 정보를 확인하지 못해 이전 정보를 보여드려요.',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.45,
+                color: AppColors.textBody,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              backgroundColor: AppColors.white,
+              foregroundColor: AppColors.primary,
+              minimumSize: const Size(0, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              textStyle: const TextStyle(
+                fontFamily: 'Noto Sans KR',
+                fontFamilyFallback: ['Noto Sans KR'],
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            child: const Text('다시 확인'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  리뷰 불러오는 중 · 실패 · 없음
+// ─────────────────────────────────────────────────────────
+/// Shown until the reviews arrive. The text stays for screen readers.
+class _ReviewsLoading extends StatelessWidget {
+  final bool spinning;
+
+  const _ReviewsLoading({required this.spinning});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (spinning) ...[
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
+          const Flexible(
+            child: Text(
+              '리뷰를 불러오고 있어요',
+              style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The review section's error and empty states, smaller than a full screen
+/// state so they sit quietly inside the section.
+class _ReviewsNotice extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  final VoidCallback? onRetry;
+
+  const _ReviewsNotice({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
+      child: Center(
+        child: Column(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: AppColors.muted, size: 22),
+            ),
+            const SizedBox(height: 12),
+            KeepAllText(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                height: 1.4,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: 4),
+            KeepAllText(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: AppColors.textMuted,
+              ),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: onRetry,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primaryLight,
+                  foregroundColor: AppColors.primary,
+                  minimumSize: const Size(0, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  textStyle: const TextStyle(
+                    fontFamily: 'Noto Sans KR',
+                    fontFamilyFallback: ['Noto Sans KR'],
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('다시 시도'),
+              ),
+            ],
+          ],
         ),
       ),
     );

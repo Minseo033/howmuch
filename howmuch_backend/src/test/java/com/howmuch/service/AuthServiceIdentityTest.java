@@ -34,4 +34,17 @@ class AuthServiceIdentityTest {
                 "https://k.kakaocdn.net/thumb.jpg",
                 AuthService.kakaoProfileImageUrl(response));
     }
+
+    @Test
+    void acceptsOnlyTokensIssuedForTheConfiguredKakaoApp() {
+        // Kakao returns app_id and id as JSON numbers.
+        Map<String, Object> ours = Map.of("id", 4242L, "expires_in", 7199, "app_id", 1234567);
+        Map<String, Object> otherApp = Map.of("id", 4242L, "expires_in", 7199, "app_id", 7654321);
+
+        org.junit.jupiter.api.Assertions.assertTrue(AuthService.issuedForApp(ours, "1234567"));
+        org.junit.jupiter.api.Assertions.assertTrue(AuthService.issuedForApp(ours, " 1234567 "));
+        org.junit.jupiter.api.Assertions.assertFalse(AuthService.issuedForApp(otherApp, "1234567"));
+        org.junit.jupiter.api.Assertions.assertFalse(AuthService.issuedForApp(Map.of("id", 4242L), "1234567"));
+        org.junit.jupiter.api.Assertions.assertFalse(AuthService.issuedForApp(null, "1234567"));
+    }
 }

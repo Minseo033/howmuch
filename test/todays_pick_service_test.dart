@@ -1,13 +1,26 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_failure.dart';
 import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    await ApiClient.setSessionToken(null);
+  });
+
+  tearDown(() async {
+    await ApiClient.setSessionToken(null);
+  });
+
   test('sends coordinates and maps a valid today pick response', () async {
     late http.Request captured;
     final service = TodaysPickService(
@@ -31,6 +44,232 @@ void main() {
     });
     expect(result['weather'], '맑음');
     expect(result['error'], isNull);
+  });
+
+  test('waits longer than the server weather budget before giving up', () {
+    expect(TodaysPickService().requestTimeout, const Duration(seconds: 20));
+  });
+
+  test(
+    'device weather is explicit and does not delay or relabel primary picks',
+    () async {
+      final requests = <http.Request>[];
+      final service = TodaysPickService(
+        MockClient((request) async {
+          requests.add(request);
+          if (request.url.host == 'api.open-meteo.com') {
+            return http.Response.bytes(
+              utf8.encode(
+                jsonEncode({
+                  'current': {
+                    'time': '2026-10-14T01:30',
+                    'temperature_2m': 12.8,
+                    'weather_code': 0,
+                  },
+                }),
+              ),
+              200,
+            );
+          }
+          return http.Response.bytes(
+            utf8.encode(
+              jsonEncode({
+                'weatherAvailable': false,
+                'weather': '알 수 없음',
+                'temp': null,
+                'picks': <Object>[],
+              }),
+            ),
+            200,
+          );
+        }),
+      );
+
+      final result = await service.getTodaysPick(lat: 37.5, lng: 127.0);
+
+      expect(requests, hasLength(1));
+      expect(result['weatherAvailable'], isFalse);
+      expect(result['recommendationBasis'], 'nearby');
+      final weather = (await service.getDeviceWeather(lat: 37.5, lng: 127.0))!;
+      expect(requests, hasLength(2));
+      expect(requests.last.url.host, 'api.open-meteo.com');
+      expect(weather['weatherAvailable'], isTrue);
+      expect(weather['temp'], 13);
+      expect(weather['weather'], '맑음');
+      expect(weather['fcstTime'], '2026-10-14T01:30');
+      expect(weather['weatherSource'], 'OPEN_METEO_DEVICE');
+    },
+  );
+
+  test('keeps the server response when device weather also fails', () async {
+    final service = TodaysPickService(
+      MockClient((request) async {
+        if (request.url.host == 'api.open-meteo.com') {
+          return http.Response('rate limited', 429);
+        }
+        return http.Response.bytes(
+          utf8.encode(
+            jsonEncode({
+              'weatherAvailable': false,
+              'weather': '알 수 없음',
+              'temp': null,
+              'picks': <Object>[],
+            }),
+          ),
+          200,
+        );
+      }),
+    );
+
+    final result = await service.getTodaysPick(lat: 37.5, lng: 127.0);
+
+    expect(result['weatherAvailable'], isFalse);
+    expect(result['temp'], isNull);
+    expect(await service.getDeviceWeather(lat: 37.5, lng: 127.0), isNull);
+  });
+
+  test(
+    'pending server weather returns nearby picks without a device request',
+    () async {
+      var calls = 0;
+      final service = TodaysPickService(
+        MockClient((request) async {
+          calls++;
+          expect(request.url.path, '/api/recommendation/todays-pick');
+          return http.Response(
+            jsonEncode({
+              'weatherAvailable': false,
+              'weatherRefreshing': true,
+              'recommendationBasis': 'nearby',
+              'picks': <Object>[],
+            }),
+            200,
+          );
+        }),
+      );
+      final result = await service.getTodaysPick(lat: 37.5, lng: 127);
+      expect(calls, 1);
+      expect(result['weatherRefreshing'], isTrue);
+      expect(result['recommendationBasis'], 'nearby');
+    },
+  );
+
+  test('maps WMO weather codes used by the device fallback', () {
+    expect(describeWmoWeather(0), '맑음');
+    expect(describeWmoWeather(45), '안개');
+    expect(describeWmoWeather(63), '비');
+    expect(describeWmoWeather(75), '눈');
+    expect(describeWmoWeather(95), '천둥번개');
+  });
+
+  test(
+    'sends the session token when logged in and no Content-Type on GET',
+    () async {
+      final captured = <http.Request>[];
+      final service = TodaysPickService(
+        MockClient((request) async {
+          captured.add(request);
+          return http.Response(jsonEncode({'picks': <Object>[]}), 200);
+        }),
+      );
+
+      await service.getRoute(lat: 37.5, lng: 127.0);
+      await ApiClient.setSessionToken('session-token');
+      await service.getRoute(lat: 37.5, lng: 127.0);
+      await service.getTodaysPick(lat: 37.5, lng: 127.0);
+
+      expect(captured[0].headers.containsKey('Authorization'), isFalse);
+      expect(captured[1].headers['Authorization'], 'Bearer session-token');
+      expect(captured[2].headers['Authorization'], 'Bearer session-token');
+      for (final request in captured) {
+        expect(
+          request.headers.keys.map((key) => key.toLowerCase()),
+          isNot(contains('content-type')),
+        );
+      }
+    },
+  );
+
+  test('classifies a timeout separately from other failures', () async {
+    final never = Completer<http.Response>();
+    final service = TodaysPickService(
+      MockClient((_) => never.future),
+      const Duration(milliseconds: 10),
+    );
+
+    final result = await service.getTodaysPick(lat: 37.5, lng: 127.0);
+
+    expect(result['error'], isTrue);
+    expect(recommendationFailureOf(result), RecommendationFailure.timeout);
+  });
+
+  test('classifies status codes and transport errors', () async {
+    Future<RecommendationFailure> failureFor(
+      Future<http.Response> Function() respond,
+    ) async {
+      final service = TodaysPickService(MockClient((_) => respond()));
+      return recommendationFailureOf(
+        await service.getRoute(lat: 37.5, lng: 127.0),
+      );
+    }
+
+    expect(
+      await failureFor(() async => http.Response('{}', 429)),
+      RecommendationFailure.rateLimited,
+    );
+    expect(
+      await failureFor(() async => http.Response('{}', 503)),
+      RecommendationFailure.server,
+    );
+    expect(
+      await failureFor(() async => http.Response('{}', 400)),
+      RecommendationFailure.invalidRequest,
+    );
+    expect(
+      await failureFor(() async => throw http.ClientException('offline')),
+      RecommendationFailure.network,
+    );
+    expect(
+      await failureFor(() async => http.Response('not json', 200)),
+      RecommendationFailure.invalidResponse,
+    );
+    expect(
+      recommendationFailureOf(await TodaysPickService().getTodaysPick()),
+      RecommendationFailure.location,
+    );
+  });
+
+  test('each failure has its own title on both recommendation screens', () {
+    for (final route in [false, true]) {
+      final titles = RecommendationFailure.values
+          .map((failure) => recommendationFailureCopy(failure, route: route))
+          .map((copy) => copy.title)
+          .toSet();
+      // invalidResponse and unknown intentionally share the generic title.
+      expect(titles.length, RecommendationFailure.values.length - 1);
+    }
+    expect(
+      recommendationFailureCopy(
+        RecommendationFailure.invalidRequest,
+        route: false,
+        serverMessage: '올바른 위치 좌표를 입력해주세요.',
+      ).message,
+      '올바른 위치 좌표를 입력해주세요.',
+    );
+    expect(
+      recommendationFailureCopy(
+        RecommendationFailure.unknown,
+        route: true,
+      ).title,
+      '추천 루트를 불러오지 못했어요',
+    );
+    expect(
+      recommendationFailureCopy(
+        RecommendationFailure.unknown,
+        route: false,
+      ).title,
+      '오늘의 픽을 불러오지 못했어요',
+    );
   });
 
   test('does not treat a non-object JSON response as success', () async {
@@ -168,11 +407,11 @@ void main() {
     const error = '죄송합니다. AI 응답을 가져오는 중 오류가 발생했습니다.';
     expect(isAiUnavailableResponse(error), isTrue);
 
-    final message = buildLocalAiFallback(
+    final message = buildLocalAiFallbackResult(
       stores: [_store('테스트 식당', 37.5666, 126.9781)],
       lat: 37.5665,
       lng: 126.978,
-    );
+    )?.text;
     expect(message, contains('3km 안에서'));
     expect(message, contains('테스트 식당'));
     expect(message, contains('비빔밥'));
@@ -186,7 +425,10 @@ void main() {
   test('client and rate-limit errors are not disguised as AI outages', () {
     expect(isAiUnavailableResponse('서버 응답 에러: 400'), isFalse);
     expect(isAiUnavailableResponse('서버 응답 에러: 429'), isFalse);
-    expect(isAiUnavailableResponse('로그인이 필요한 기능입니다.'), isFalse);
+    expect(
+      isAiUnavailableResponse('로그인이 필요한 기능이에요. 로그인한 뒤 다시 시도해 주세요.'),
+      isFalse,
+    );
   });
 
   test('AI request context excludes stores outside the nearby radius', () {

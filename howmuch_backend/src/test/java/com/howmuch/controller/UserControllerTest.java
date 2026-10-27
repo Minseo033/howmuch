@@ -3,7 +3,8 @@ package com.howmuch.controller;
 import com.howmuch.config.SessionAuthFilter;
 import com.howmuch.dto.UserProfileRequest;
 import com.howmuch.service.FirebaseService;
-import com.howmuch.service.SessionTokenService;
+import com.howmuch.service.AccountWithdrawalService;
+import com.howmuch.service.WithdrawalJobStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -20,6 +21,23 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.ArgumentMatchers.any;
 
 class UserControllerTest {
+
+    @Test
+    void missingWithdrawalReceiptIsABadRequestAtTheHttpBoundary() throws Exception {
+        FirebaseService service = mock(FirebaseService.class);
+        AccountWithdrawalService withdrawals = mock(AccountWithdrawalService.class);
+        var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders
+                .standaloneSetup(new UserController(service, withdrawals))
+                .setControllerAdvice(new GlobalApiExceptionHandler())
+                .build();
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/user/withdrawal-status"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.success").value(false));
+
+        verifyNoInteractions(service, withdrawals);
+    }
 
     @Test
     void rejectsInvalidProfileWithoutWritingUserData() {
@@ -81,36 +99,43 @@ class UserControllerTest {
     }
 
     @Test
-    void invalidatesTheAuthenticatedSessionAfterSuccessfulAccountDeletion() throws Exception {
+    void acknowledgesOnlyAPersistedWithdrawalJobWithoutDeletingInTheRequest() throws Exception {
         FirebaseService service = mock(FirebaseService.class);
-        SessionTokenService sessions = mock(SessionTokenService.class);
-        UserController controller = new UserController(service, sessions);
+        AccountWithdrawalService withdrawals = mock(AccountWithdrawalService.class);
+        UserController controller = new UserController(service, withdrawals);
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute(SessionAuthFilter.UID_ATTRIBUTE, "user-1");
-        when(service.deleteUser("user-1")).thenReturn(java.util.Map.of("uid", "user-1"));
+        String id = "00000000-0000-4000-8000-000000000001";
+        when(withdrawals.submit("user-1", id)).thenReturn(
+                new WithdrawalJobStore.Job("user-1", id, "PENDING", 0, 0, 0, ""));
 
-        ResponseEntity<?> response = controller.deleteUser(request);
+        ResponseEntity<?> response = controller.deleteUser(request, id);
 
-        assertEquals(200, response.getStatusCode().value());
-        org.mockito.InOrder order = inOrder(sessions, service);
-        order.verify(sessions).invalidateAllForUid("user-1");
-        order.verify(service).deleteUser("user-1");
+        assertEquals(202, response.getStatusCode().value());
+        assertEquals("PENDING", ((java.util.Map<?, ?>) response.getBody()).get("state"));
+        verifyNoInteractions(service);
     }
 
     @Test
-    void doesNotDeleteAccountWhenPersistentSessionRevocationCannotBeSaved() {
+    void neverAcknowledgesAJobThatCouldNotBePersisted() throws Exception {
         FirebaseService service = mock(FirebaseService.class);
-        SessionTokenService sessions = mock(SessionTokenService.class);
-        UserController controller = new UserController(service, sessions);
+        AccountWithdrawalService withdrawals = mock(AccountWithdrawalService.class);
+        UserController controller = new UserController(service, withdrawals);
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute(SessionAuthFilter.UID_ATTRIBUTE, "user-1");
         doThrow(new RuntimeException("Firestore unavailable"))
-                .when(sessions).invalidateAllForUid("user-1");
+                .when(withdrawals).submit(org.mockito.ArgumentMatchers.eq("user-1"), any());
 
-        ResponseEntity<?> response = controller.deleteUser(request);
+        ResponseEntity<?> response = controller.deleteUser(request, "00000000-0000-4000-8000-000000000001");
 
         assertEquals(500, response.getStatusCode().value());
-        verify(sessions).invalidateAllForUid("user-1");
         verifyNoInteractions(service);
+    }
+
+    @Test
+    void missingStatusReceiptIsNotWithdrawalAcceptance() throws Exception {
+        AccountWithdrawalService withdrawals = mock(AccountWithdrawalService.class);
+        UserController controller = new UserController(mock(FirebaseService.class), withdrawals);
+        assertEquals(404, controller.withdrawalStatus("00000000-0000-4000-8000-000000000001").getStatusCode().value());
     }
 }

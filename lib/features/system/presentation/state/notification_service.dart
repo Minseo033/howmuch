@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/store/store_model.dart';
 import 'package:http/http.dart' as http;
 
 String? notificationRouteForType(String type) {
@@ -47,6 +49,49 @@ String? notificationRouteForType(String type) {
   }
 }
 
+String _normalizedNotificationType(String type) =>
+    type.trim().toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
+
+/// Where a tapped notification leads: a route, or a store whose details must
+/// be fetched first.
+@immutable
+class NotificationDestination {
+  const NotificationDestination.route(String this.route) : storeId = null;
+  const NotificationDestination.store(String this.storeId) : route = null;
+
+  final String? route;
+  final String? storeId;
+}
+
+/// Uses the target IDs the server attaches (contract C3) so a notification
+/// opens its post, report or store. Older notifications without IDs keep the
+/// list screen for their type.
+NotificationDestination? notificationDestinationFor(
+  NotificationModel notification,
+) {
+  final type = _normalizedNotificationType(notification.serverType);
+  final postId = notification.relatedPostId;
+  final reportId = notification.relatedReportId;
+  final storeId = notification.storeId;
+  if (type.startsWith('price') && storeId != null) {
+    return NotificationDestination.store(storeId);
+  }
+  if (type.startsWith('report') && reportId != null) {
+    return NotificationDestination.route(
+      '${AppRoutes.reportDetailV2}?id=${Uri.encodeQueryComponent(reportId)}',
+    );
+  }
+  if (type == 'feed_comment' && postId != null) {
+    return NotificationDestination.route(
+      '${AppRoutes.communityPostDetail}?id=${Uri.encodeQueryComponent(postId)}',
+    );
+  }
+  final fallback =
+      notificationRouteForType(notification.serverType) ??
+      notificationRouteForType(notification.type);
+  return fallback == null ? null : NotificationDestination.route(fallback);
+}
+
 const Duration notificationRefreshInterval = Duration(minutes: 1);
 
 Duration notificationPollingInterval({required bool isWeb}) {
@@ -70,6 +115,10 @@ class NotificationModel {
     required this.title,
     required this.messageText,
     required this.isUnread,
+    this.serverType = '',
+    this.relatedPostId,
+    this.relatedReportId,
+    this.storeId,
   });
 
   final String id;
@@ -87,6 +136,12 @@ class NotificationModel {
   final String messageText;
   final bool isUnread;
 
+  /// Raw server type such as FEED_COMMENT or PRICE_ALERT.
+  final String serverType;
+  final String? relatedPostId;
+  final String? relatedReportId;
+  final String? storeId;
+
   NotificationModel copyWith({bool? isUnread}) {
     return NotificationModel(
       id: id,
@@ -103,6 +158,10 @@ class NotificationModel {
       title: title,
       messageText: messageText,
       isUnread: isUnread ?? this.isUnread,
+      serverType: serverType,
+      relatedPostId: relatedPostId,
+      relatedReportId: relatedReportId,
+      storeId: storeId,
     );
   }
 }
@@ -202,7 +261,16 @@ class NotificationApiService {
       title: title,
       messageText: body.isNotEmpty ? body : title,
       isUnread: !isRead,
+      serverType: rawType,
+      relatedPostId: _optionalId(json['relatedPostId']),
+      relatedReportId: _optionalId(json['relatedReportId']),
+      storeId: _optionalId(json['storeId']),
     );
+  }
+
+  static String? _optionalId(Object? value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty || text == 'null' ? null : text;
   }
 
   _NotificationTime _formatCreatedAt(String createdAt) {
@@ -240,11 +308,11 @@ class NotificationApiService {
         label: '문의 답변',
         tabCategory: '전체',
         iconData: Icons.support_agent_outlined,
-        iconColor: Color(0xFF10B981),
+        iconColor: AppColors.success,
         iconBgColor: Color.fromRGBO(124, 58, 237, 0.09),
         borderColor: Color.fromRGBO(124, 58, 237, 0.2),
         bgColor: Colors.white,
-        categoryColor: Color(0xFF10B981),
+        categoryColor: AppColors.success,
       );
     }
 
@@ -256,11 +324,11 @@ class NotificationApiService {
         label: '가격 변동',
         tabCategory: '가격 변동',
         iconData: Icons.trending_up_rounded,
-        iconColor: Color(0xFFF97316),
+        iconColor: AppColors.warning,
         iconBgColor: Color.fromRGBO(249, 115, 22, 0.09),
         borderColor: Color.fromRGBO(249, 115, 22, 0.2),
         bgColor: Colors.white,
-        categoryColor: Color(0xFFF97316),
+        categoryColor: AppColors.warning,
       );
     }
     if (type == 'feed_comment') {
@@ -353,6 +421,45 @@ class NotificationApiService {
         '알림 읽음 처리에 실패했습니다.',
         statusCode: response.statusCode,
       );
+    }
+  }
+
+  /// One request for every unread notification (contract C3). Returns false
+  /// when the server predates the endpoint so the caller can fall back.
+  Future<bool> markAllAsRead() async {
+    final response = await _client
+        .post(
+          ApiClient.uri('/api/notifications/read-all'),
+          headers: ApiClient.jsonHeaders(auth: true),
+        )
+        .timeout(ApiClient.defaultTimeout);
+    if (response.statusCode == 404 || response.statusCode == 405) return false;
+    if (response.statusCode != 200) {
+      throw NotificationApiException(
+        '알림 읽음 처리에 실패했습니다.',
+        statusCode: response.statusCode,
+      );
+    }
+    return true;
+  }
+
+  /// Loads the store a price notification points to. Returns null when it is
+  /// gone or the lookup fails, so the caller can explain instead of guessing.
+  Future<Store?> fetchStore(String storeId) async {
+    try {
+      final response = await _client
+          .get(
+            ApiClient.uri('/api/stores/${Uri.encodeComponent(storeId)}'),
+            headers: ApiClient.authHeaders(),
+          )
+          .timeout(ApiClient.defaultTimeout);
+      if (response.statusCode != 200) return null;
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is! Map) return null;
+      final store = Store.fromJson(Map<String, dynamic>.from(decoded));
+      return store.id == storeId ? store : null;
+    } catch (_) {
+      return null;
     }
   }
 }
@@ -511,6 +618,18 @@ class NotificationsNotifier
     _isMarkingAllRead = true;
     var failedCount = 0;
     try {
+      if (await _api.markAllAsRead()) {
+        if (_disposed) return;
+        _locallyReadIds.addAll(unreadIds);
+        state = AsyncValue.data([
+          for (final notification in state.valueOrNull ?? currentList)
+            notification.isUnread
+                ? notification.copyWith(isUnread: false)
+                : notification,
+        ]);
+        return;
+      }
+      // An older server without the batch endpoint: read one by one.
       for (final id in unreadIds) {
         if (_disposed) return;
         try {

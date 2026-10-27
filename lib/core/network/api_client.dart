@@ -24,6 +24,44 @@ class ApiClient {
   static Future<void> Function()? _sessionExpiredHandler;
   static bool _sessionExpirationHandled = false;
   static Future<void>? _sessionExpirationInFlight;
+  static final Map<String, _CachedRead> _readCache = {};
+  static int _readCacheRevision = 0;
+
+  /// Screens use this to refresh retained data after a successful mutation.
+  static int get readCacheRevision => _readCacheRevision;
+
+  static void invalidateReadCache({Set<String>? paths}) {
+    _readCacheRevision++;
+    if (paths == null) {
+      _readCache.clear();
+    } else {
+      _readCache.removeWhere((_, entry) => paths.contains(entry.path));
+    }
+  }
+
+  static void _invalidateAfterWrite(String method, Uri uri, int status) {
+    if (method == 'GET' ||
+        status < 200 ||
+        status >= 300 ||
+        uri.origin != Uri.parse(baseUrl).origin) {
+      return;
+    }
+    final path = uri.path;
+    if (path == '/api/savings/goal') {
+      invalidateReadCache(paths: {'/api/savings/goal'});
+    } else if (path.startsWith('/api/favorites')) {
+      invalidateReadCache(paths: {'/api/favorites'});
+    } else if (path.startsWith('/api/visits')) {
+      invalidateReadCache(
+        paths: {'/api/savings/stats', '/api/savings/history'},
+      );
+    } else if (path.startsWith('/api/report/') &&
+        !path.startsWith('/api/report/images')) {
+      invalidateReadCache(paths: {'/api/report/my'});
+    } else if (path == '/api/user/profile') {
+      invalidateReadCache(paths: {'/api/user/profile'});
+    }
+  }
 
   static String? get sessionToken => _sessionToken;
   static bool get isAuthenticated =>
@@ -32,12 +70,14 @@ class ApiClient {
   /// 앱 시작 시 기기에 저장된 세션 토큰을 복원합니다.
   static Future<void> restoreSession({SharedPreferences? preferences}) async {
     final prefs = preferences ?? await SharedPreferences.getInstance();
+    invalidateReadCache();
     _sessionToken = prefs.getString(_sessionTokenKey);
     _sessionExpirationHandled = false;
   }
 
   /// 세션 토큰을 저장/삭제합니다 (로그인 성공 시 저장, 로그아웃 시 null).
   static Future<void> setSessionToken(String? token) async {
+    invalidateReadCache();
     _sessionToken = token;
     if (token != null && token.isNotEmpty) {
       _sessionExpirationHandled = false;
@@ -95,6 +135,7 @@ class ApiClient {
     Uri url, {
     Map<String, String>? headers,
     Duration timeout = defaultTimeout,
+    Duration? cacheMaxAge,
   }) async {
     // A GET has no request body. Sending Content-Type is unnecessary and
     // forces cross-origin browsers to make a CORS preflight before every GET.
@@ -105,6 +146,55 @@ class ApiClient {
               (entry) => entry.key.toLowerCase() != 'content-type',
             ),
           );
+    final authorization = requestHeaders?['Authorization'];
+    if (cacheMaxAge == Duration.zero) {
+      // An explicit refresh must not leave an older cached version available
+      // for the next normal visit. Its caller already owns the UI refresh.
+      _readCache.removeWhere((_, entry) => entry.path == url.path);
+    }
+    final cacheable =
+        cacheMaxAge != null &&
+        cacheMaxAge > Duration.zero &&
+        isAuthenticated &&
+        authorization == 'Bearer $_sessionToken' &&
+        url.origin == Uri.parse(baseUrl).origin;
+    if (!cacheable) return _get(url, requestHeaders, timeout);
+    final headerKeys = requestHeaders!.keys.toList()..sort();
+    final key =
+        '$url\n${timeout.inMilliseconds}\n${headerKeys.map((name) => '$name:${requestHeaders[name]}').join('\n')}';
+    final cached = _readCache[key];
+    if (cached != null &&
+        (cached.completedAt == null ||
+            DateTime.now().difference(cached.completedAt!) < cacheMaxAge)) {
+      return cached.response;
+    }
+    // The cache is account scoped, small and memory only. Removing an entry
+    // on a write also detaches any old in-flight read from the new generation.
+    if (_readCache.length >= 64) _readCache.remove(_readCache.keys.first);
+    final entry = _CachedRead(url.path);
+    _readCache[key] = entry;
+    entry.response = _get(url, requestHeaders, timeout).then(
+      (response) {
+        if (response.statusCode == 200) {
+          entry.completedAt = DateTime.now();
+        } else if (identical(_readCache[key], entry)) {
+          _readCache.remove(key);
+        }
+        return response;
+      },
+      onError: (Object error, StackTrace stack) {
+        if (identical(_readCache[key], entry)) _readCache.remove(key);
+        Error.throwWithStackTrace(error, stack);
+      },
+    );
+    return entry.response;
+  }
+
+  static Future<http.Response> _get(
+    Uri url,
+    Map<String, String>? requestHeaders,
+    Duration timeout,
+  ) async {
     final response = await http
         .get(url, headers: requestHeaders)
         .timeout(timeout);
@@ -125,6 +215,7 @@ class ApiClient {
     final response = await http
         .post(url, headers: headers, body: body, encoding: encoding)
         .timeout(timeout);
+    _invalidateAfterWrite('POST', url, response.statusCode);
     await handleResponseStatus(response.statusCode, requestHeaders: headers);
     return response;
   }
@@ -139,6 +230,7 @@ class ApiClient {
     final response = await http
         .put(url, headers: headers, body: body, encoding: encoding)
         .timeout(timeout);
+    _invalidateAfterWrite('PUT', url, response.statusCode);
     await handleResponseStatus(response.statusCode, requestHeaders: headers);
     return response;
   }
@@ -153,6 +245,7 @@ class ApiClient {
     final response = await http
         .patch(url, headers: headers, body: body, encoding: encoding)
         .timeout(timeout);
+    _invalidateAfterWrite('PATCH', url, response.statusCode);
     await handleResponseStatus(response.statusCode, requestHeaders: headers);
     return response;
   }
@@ -167,6 +260,7 @@ class ApiClient {
     final response = await http
         .delete(url, headers: headers, body: body, encoding: encoding)
         .timeout(timeout);
+    _invalidateAfterWrite('DELETE', url, response.statusCode);
     await handleResponseStatus(response.statusCode, requestHeaders: headers);
     return response;
   }
@@ -206,6 +300,13 @@ class ApiClient {
   }
 }
 
+class _CachedRead {
+  _CachedRead(this.path);
+  final String path;
+  late final Future<http.Response> response;
+  DateTime? completedAt;
+}
+
 class _SessionAwareHttpClient extends http.BaseClient {
   _SessionAwareHttpClient() : _inner = http.Client();
 
@@ -214,6 +315,11 @@ class _SessionAwareHttpClient extends http.BaseClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     final response = await _inner.send(request);
+    ApiClient._invalidateAfterWrite(
+      request.method,
+      request.url,
+      response.statusCode,
+    );
     await ApiClient.handleResponseStatus(
       response.statusCode,
       requestHeaders: request.headers,

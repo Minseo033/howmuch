@@ -11,6 +11,7 @@ import 'package:http/testing.dart';
 void main() {
   const preview = bool.fromEnvironment('HOWMUCH_UI_PREVIEW');
   const stage = String.fromEnvironment('UI_STAGE', defaultValue: 'after');
+  final saveButton = find.widgetWithText(FilledButton, '목표 저장하기');
   setUpAll(() async {
     if (!preview) return;
     final bytes = await File(
@@ -34,21 +35,15 @@ void main() {
         await tester.pumpWidget(
           const MaterialApp(home: SavingsGoalSettingScreen()),
         );
-        expect(
-          tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-          isNull,
-        );
+        expect(tester.widget<FilledButton>(saveButton).onPressed, isNull);
         expect(
           tester.widget<TextField>(find.byType(TextField)).enabled,
           isFalse,
         );
         pending.complete(http.Response('{}', 500));
         await tester.pumpAndSettle();
-        expect(find.text('절약 정보를 불러오지 못했어요.'), findsOneWidget);
-        expect(
-          tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-          isNull,
-        );
+        expect(find.text('절약 정보를 불러오지 못했어요'), findsOneWidget);
+        expect(tester.widget<FilledButton>(saveButton).onPressed, isNull);
         expect(
           tester.widget<TextField>(find.byType(TextField)).enabled,
           isFalse,
@@ -58,6 +53,46 @@ void main() {
       }, () => MockClient((_) => pending.future));
     },
   );
+
+  testWidgets('a failed load can be retried and shows progress meanwhile', (
+    tester,
+  ) async {
+    var fail = true;
+    final retry = Completer<void>();
+    await http.runWithClient(
+      () async {
+        await tester.pumpWidget(
+          const MaterialApp(home: SavingsGoalSettingScreen()),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('절약 정보를 불러오지 못했어요'), findsOneWidget);
+
+        fail = false;
+        await tester.tap(find.widgetWithText(FilledButton, '다시 시도'));
+        await tester.pump();
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        expect(find.text('다시 시도'), findsNothing);
+
+        retry.complete();
+        await tester.pumpAndSettle();
+        expect(find.text('이번 달 실제 기록'), findsOneWidget);
+        expect(find.text('50000'), findsOneWidget);
+        expect(tester.widget<FilledButton>(saveButton).onPressed, isNotNull);
+      },
+      () => MockClient((request) async {
+        if (fail) return http.Response('{}', 500);
+        await retry.future;
+        return http.Response(
+          jsonEncode(
+            request.url.path.endsWith('/goal')
+                ? {'goalAmount': 50000}
+                : {'totalSavedAmount': 1000, 'totalVisits': 1},
+          ),
+          200,
+        );
+      }),
+    );
+  });
 
   testWidgets('goal screen remains usable with keyboard and large amounts', (
     tester,
@@ -100,6 +135,39 @@ void main() {
           200,
         ),
       ),
+    );
+  });
+
+  testWidgets('a goal above the server limit is rejected before saving', (
+    tester,
+  ) async {
+    var posts = 0;
+    await http.runWithClient(
+      () async {
+        await tester.pumpWidget(
+          const MaterialApp(home: SavingsGoalSettingScreen()),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), '99999999999');
+        await tester.pump();
+        expect(find.text('9999999999'), findsOneWidget);
+
+        await tester.tap(find.text('목표 저장하기'));
+        await tester.pump();
+        expect(find.text('절약 목표는 10억원 이하로 입력해주세요.'), findsOneWidget);
+        expect(posts, 0);
+      },
+      () => MockClient((request) async {
+        if (request.method == 'POST') posts++;
+        return http.Response(
+          jsonEncode(
+            request.url.path.endsWith('/goal')
+                ? {'goalAmount': 50000}
+                : {'totalSavedAmount': 0, 'totalVisits': 0},
+          ),
+          200,
+        );
+      }),
     );
   });
 }

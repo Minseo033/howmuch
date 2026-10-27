@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
@@ -34,20 +35,37 @@ class _ConnectedSocialAccountsScreenState
   Future<void> _requestAccountInfo() async {
     if (_isRefreshing) return;
     setState(() => _isRefreshing = true);
-    final identity = await ref
+    // Called straight from the tap: on web the consent window must open before
+    // the first await to count as a user-initiated popup.
+    final result = await ref
         .read(kakaoLoginServiceProvider)
-        .refreshKakaoIdentity(requestConsent: true);
+        .requestKakaoIdentityConsent();
     if (!mounted) return;
     setState(() => _isRefreshing = false);
 
-    final missingEmail = usableAccountEmail(identity.email) == null;
-    final missingImage = identity.profileImageUrl.isEmpty;
-    final message = missingEmail || missingImage
-        ? '카카오에서 제공하지 않은 정보는 표시할 수 없어요. 카카오 앱의 동의 항목 설정을 확인해주세요.'
-        : '카카오 계정 정보를 불러왔어요.';
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(HowmuchSnackBar(content: Text(message)));
+    ).showSnackBar(HowmuchSnackBar(content: Text(_consentMessage(result))));
+  }
+
+  static String _consentMessage(KakaoIdentityConsentResult result) {
+    switch (result.outcome) {
+      case KakaoConsentOutcome.timedOut:
+        return '카카오 동의 창에서 응답이 없어 요청을 마쳤어요. 다시 시도해주세요.';
+      case KakaoConsentOutcome.blocked:
+        return '브라우저가 카카오 동의 창을 막았어요. 팝업을 허용한 뒤 다시 시도해주세요.';
+      case KakaoConsentOutcome.cancelled:
+        return '카카오 동의를 취소했어요. 필요할 때 다시 불러올 수 있어요.';
+      case KakaoConsentOutcome.failed:
+        return '카카오 계정 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
+      case KakaoConsentOutcome.notNeeded:
+      case KakaoConsentOutcome.granted:
+        final missingEmail = usableAccountEmail(result.email) == null;
+        final missingImage = result.profileImageUrl.isEmpty;
+        return missingEmail || missingImage
+            ? '카카오에서 제공하지 않은 정보는 표시할 수 없어요. 카카오 앱의 동의 항목 설정을 확인해주세요.'
+            : '카카오 계정 정보를 불러왔어요.';
+    }
   }
 
   @override
@@ -74,7 +92,8 @@ class _ConnectedSocialAccountsScreenState
                 context.go(AppRoutes.accountManagement);
               }
             },
-            icon: const Icon(Icons.arrow_back_rounded),
+            // The bare arrow had no name (QA 10/7 #50).
+            icon: const Icon(Icons.arrow_back_rounded, semanticLabel: '뒤로가기'),
           ),
         ),
         body: SafeArea(
@@ -85,8 +104,8 @@ class _ConnectedSocialAccountsScreenState
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: AppColors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(AppRadii.card),
+                  border: Border.all(color: AppColors.border, width: .909),
                 ),
                 child: Row(
                   children: [
@@ -97,7 +116,7 @@ class _ConnectedSocialAccountsScreenState
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: AppColors.kakaoYellow,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: profile.profileImageUrl.isEmpty
                           ? const Text(
@@ -161,14 +180,35 @@ class _ConnectedSocialAccountsScreenState
               if (isLoggedIn && accountInfoMissing) ...[
                 const SizedBox(height: 12),
                 SizedBox(
-                  height: 46,
+                  height: 48,
                   child: OutlinedButton.icon(
                     onPressed: _isRefreshing ? null : _requestAccountInfo,
+                    // A white secondary button on the cream page. It keeps
+                    // its colors while loading, next to its own spinner.
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      backgroundColor: AppColors.white,
+                      disabledForegroundColor: AppColors.primary,
+                      disabledBackgroundColor: AppColors.white,
+                      side: const BorderSide(color: AppColors.border),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadii.button),
+                      ),
+                      textStyle: const TextStyle(
+                        fontFamily: 'Noto Sans KR',
+                        fontFamilyFallback: ['Noto Sans KR'],
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     icon: _isRefreshing
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primary,
+                            ),
                           )
                         : const Icon(Icons.sync_rounded, size: 18),
                     label: Text(_isRefreshing ? '불러오는 중...' : '카카오 계정 정보 불러오기'),
@@ -179,8 +219,8 @@ class _ConnectedSocialAccountsScreenState
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.primarySubtle,
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(AppRadii.input),
                 ),
                 child: const Row(
                   crossAxisAlignment: CrossAxisAlignment.center,

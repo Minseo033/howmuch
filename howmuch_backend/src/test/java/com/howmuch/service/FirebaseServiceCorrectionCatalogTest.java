@@ -22,10 +22,12 @@ class FirebaseServiceCorrectionCatalogTest {
         setup(Map.of("price1", "6500", "latitude", 37.51));
         assertThat(service.getAllStores().getFirst()).containsEntry("price1", "6500").containsEntry("source", "GOV")
                 .doesNotContainKeys("reviewReason", "approvedBy");
-        assertThat(service.getStoresInBounds(37.509, 37.511, 126.99, 127.01)).hasSize(1);
-        assertThat(service.getStoresInBounds(37.499, 37.501, 126.99, 127.01)).isEmpty();
-        assertThat(service.getAiStoreContext(List.of("store_a"), 37.51, 127.0).getFirst()).containsEntry("price1", "6500");
-        assertThat(service.getTodaysPicks("비", 18, 37.51, 127.0).getFirst()).containsEntry("price1", "6500");
+        assertThat(service.getStoresInBoundsPage(37.509, 37.511, 126.99, 127.01).stores()).hasSize(1);
+        assertThat(service.getStoresInBoundsPage(37.499, 37.501, 126.99, 127.01).stores()).isEmpty();
+        assertThat(service.getAiStoreContext(List.of("store_a"), 37.51, 127.0, RecommendationRadius.DEFAULT_METERS).getFirst())
+                .containsEntry("price1", "6500");
+        assertThat(service.getTodaysPicks("비", 18, 37.51, 127.0, RecommendationRadius.DEFAULT_METERS).getFirst())
+                .containsEntry("price1", "6500");
         assertThat(service.getPriceHistory("store_a", "국밥")).containsEntry("currentPrice", "6500");
         assertThat(original).containsEntry("price1", "6000").containsEntry("latitude", 37.5);
     }
@@ -33,8 +35,8 @@ class FirebaseServiceCorrectionCatalogTest {
         setup(Map.of("isClosed", true));
         assertThat(service.getAllStores()).isEmpty();
         assertThat(service.getStoreById("store_a")).containsEntry("isClosed", true);
-        assertThat(service.getAiStoreContext(List.of("store_a"), 37.5, 127.0)).isEmpty();
-        assertThat(service.getTodaysPicks("비", 18, 37.5, 127.0)).isEmpty();
+        assertThat(service.getAiStoreContext(List.of("store_a"), 37.5, 127.0, RecommendationRadius.DEFAULT_METERS)).isEmpty();
+        assertThat(service.getTodaysPicks("비", 18, 37.5, 127.0, RecommendationRadius.DEFAULT_METERS)).isEmpty();
         assertThat(service.findStoreCoordinates("store_a", "국밥집")).isEmpty();
         assertThat(service.favoriteResponse("favorite", Map.of("storeId", "store_a", "storeName", "국밥집")).getPrice1()).isEqualTo("6000");
     }
@@ -70,17 +72,18 @@ class FirebaseServiceCorrectionCatalogTest {
     @Test void todaySkipsUnmarkedZeroAndUnknownPricesButAllowsExplicitFree() {
         var zero = new HashMap<>(original); zero.put("price1", "0");
         ReflectionTestUtils.setField(service, "cachedStores", List.of(zero));
-        assertThat(service.getTodaysPicks("비", 18, 37.5, 127.0)).isEmpty();
+        assertThat(service.getTodaysPicks("비", 18, 37.5, 127.0, RecommendationRadius.DEFAULT_METERS)).isEmpty();
         zero.put("free1", true);
         ReflectionTestUtils.setField(service, "cachedStores", List.of(new HashMap<>(zero)));
-        assertThat(service.getTodaysPicks("비", 18, 37.5, 127.0).getFirst()).containsEntry("matchedFree", true);
+        assertThat(service.getTodaysPicks("비", 18, 37.5, 127.0, RecommendationRadius.DEFAULT_METERS).getFirst())
+                .containsEntry("matchedFree", true);
     }
 
     @Test void rainyWarmThemeDoesNotClaimBibimNoodlesAreSoupAndUsesKnownSecondaryPrice() {
         var noodle = new HashMap<>(original); noodle.put("menu1", "비빔국수"); noodle.put("price1", "가격 미정");
         noodle.put("menu2", "칼국수"); noodle.put("price2", "6000");
         ReflectionTestUtils.setField(service, "cachedStores", List.of(noodle));
-        assertThat(service.getTodaysPicks("비", 18, 37.5, 127.0).getFirst())
+        assertThat(service.getTodaysPicks("비", 18, 37.5, 127.0, RecommendationRadius.DEFAULT_METERS).getFirst())
                 .containsEntry("matchedMenu", "칼국수").containsEntry("theme", "따뜻한 국물");
     }
 

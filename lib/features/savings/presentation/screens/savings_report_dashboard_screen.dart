@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/app/app_route_observer.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/shared/widgets/login_required_state.dart';
@@ -51,95 +53,289 @@ class SavingsReportDashboardScreen extends StatefulWidget {
 class _SavingsReportDashboardScreenState
     extends State<SavingsReportDashboardScreen> {
   String _selectedTab = '이번 달';
-  bool _isLoading = false;
-  bool _loadFailed = false;
-  bool _requiresLogin = false;
+  bool get _requiresLogin => !ApiClient.isAuthenticated;
   Map<String, dynamic>? _statsData;
+  final _periodLoads = <String, Future<void>>{};
+  final _periodLoadedAt = <String, DateTime>{};
+  final _failedPeriods = <String>{};
+  Future<void>? _metadataLoad;
+  DateTime? _metadataLoadedAt;
+  String? _dataSession;
+  int _dataRevision = -1;
+  int _generation = 0;
+  int _goalGeneration = 0;
+  int? _goal, _favorites, _reports;
+  GoRouter? _router;
+  String? _lastRoutePath;
+  bool _revisionRefreshScheduled = false;
 
-  /// 탭 라벨 → 백엔드 period 파라미터 매핑
+  static const _freshness = Duration(seconds: 30);
   static const Map<String, String> _tabToPeriod = {
     '이번 달': 'this_month',
     '지난 달': 'last_month',
     '올해': 'this_year',
   };
 
+  bool get _hasSelectedData =>
+      _dataSession == ApiClient.sessionToken &&
+      _statsData?[_selectedTab] != null;
+  bool get _isLoading =>
+      !_requiresLogin &&
+      !_hasSelectedData &&
+      !_failedPeriods.contains(_selectedTab);
+  bool get _loadFailed =>
+      !_hasSelectedData && _failedPeriods.contains(_selectedTab);
+
   @override
   void initState() {
     super.initState();
-    _fetchAll();
+    unawaited(_fetchAll());
   }
 
-  /// 모든 탭 + 목표 + 찜/제보 개수를 병렬로 조회해 캐시에 담습니다.
-  Future<void> _fetchAll() async {
-    if (_isLoading) return;
-    if (!ApiClient.isAuthenticated) {
-      setState(() {
-        _requiresLogin = true;
-        _loadFailed = false;
-        _statsData = null;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final router = GoRouter.maybeOf(context);
+    if (router == _router) return;
+    _router?.routerDelegate.removeListener(_handleRouterChange);
+    _router = router;
+    _lastRoutePath = router == null ? null : visibleAppPath(router);
+    router?.routerDelegate.addListener(_handleRouterChange);
+  }
+
+  void _handleRouterChange() {
+    final path = _router == null ? null : visibleAppPath(_router!);
+    final entered =
+        path == AppRoutes.savingsReportDashboard && _lastRoutePath != path;
+    _lastRoutePath = path;
+    if (entered) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_fetchAll(keepContent: true));
       });
+    }
+  }
+
+  @override
+  void dispose() {
+    _router?.routerDelegate.removeListener(_handleRouterChange);
+    super.dispose();
+  }
+
+  bool _isFresh(DateTime? loadedAt) =>
+      loadedAt != null && DateTime.now().difference(loadedAt) < _freshness;
+
+  bool _accepts(String? session, int generation) {
+    if (!mounted ||
+        generation != _generation ||
+        session != ApiClient.sessionToken) {
+      return false;
+    }
+    if (_dataRevision == ApiClient.readCacheRevision) return true;
+    // A write can finish while this screen is already visible (for example
+    // startup profile sync). Do not leave its invalidated load spinning.
+    if (!_revisionRefreshScheduled) {
+      _revisionRefreshScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _revisionRefreshScheduled = false;
+        if (mounted &&
+            (_router == null ||
+                visibleAppPath(_router!) == AppRoutes.savingsReportDashboard)) {
+          unawaited(_fetchAll(keepContent: true));
+        }
+      });
+    }
+    return false;
+  }
+
+  bool _syncSession() {
+    final session = ApiClient.sessionToken;
+    final changedAccount = _dataSession != session;
+    if (changedAccount || _dataRevision != ApiClient.readCacheRevision) {
+      _generation++;
+      _goalGeneration++;
+      _periodLoads.clear();
+      _periodLoadedAt.clear();
+      _failedPeriods.clear();
+      _metadataLoad = null;
+      _metadataLoadedAt = null;
+      if (changedAccount) {
+        _statsData = null;
+        _goal = _favorites = _reports = null;
+      }
+      _dataSession = session;
+      _dataRevision = ApiClient.readCacheRevision;
+    }
+    if (_requiresLogin) _statsData = null;
+    return !_requiresLogin;
+  }
+
+  /// Only the selected period blocks its body. Each independent count can
+  /// update later, while other periods are requested on their first selection.
+  Future<void> _fetchAll({bool keepContent = false, bool force = false}) {
+    final authenticated = _syncSession();
+    setState(() {});
+    if (!authenticated) return Future.value();
+    return Future.wait([
+      _loadPeriod(_selectedTab, force: force),
+      _loadMetadata(force: force),
+    ]);
+  }
+
+  Future<void> _loadPeriod(String tab, {bool force = false}) {
+    if (!_tabToPeriod.containsKey(tab)) return Future.value();
+    final pending = _periodLoads[tab];
+    if (pending != null) return pending;
+    if (!force && _isFresh(_periodLoadedAt[tab])) return Future.value();
+    final session = _dataSession;
+    final generation = _generation;
+    _failedPeriods.remove(tab);
+    late final Future<void> load;
+    load = _fetchStats(_tabToPeriod[tab]!, force: force)
+        .then((stats) {
+          if (!_accepts(session, generation)) return;
+          setState(() {
+            if (stats != null) {
+              (_statsData ??= {})[tab] = _buildTabData(
+                tab,
+                stats,
+                _goal,
+                _favorites,
+                _reports,
+                DateTime.now(),
+              );
+              _periodLoadedAt[tab] = DateTime.now();
+              _failedPeriods.remove(tab);
+            } else {
+              _failedPeriods.add(tab);
+            }
+          });
+        })
+        .whenComplete(() {
+          if (identical(_periodLoads[tab], load)) _periodLoads.remove(tab);
+        });
+    _periodLoads[tab] = load;
+    return load;
+  }
+
+  void _updateMetadata() {
+    final current = _statsData;
+    if (current == null) return;
+    _statsData = {
+      for (final entry in current.entries)
+        entry.key: {
+          ...Map<String, dynamic>.from(entry.value as Map),
+          'goalAmount': _goal,
+          'favorites': _favorites,
+          'reports': _reports,
+        },
+    };
+  }
+
+  Future<void> _loadMetadata({bool force = false}) {
+    if (_metadataLoad != null) return _metadataLoad!;
+    if (!force && _isFresh(_metadataLoadedAt)) return Future.value();
+    final session = _dataSession;
+    final generation = _generation;
+    final goalGeneration = _goalGeneration;
+    late final Future<void> load;
+    load =
+        Future.wait([
+              _fetchGoal(force: force).then((value) {
+                if (!_accepts(session, generation) ||
+                    goalGeneration != _goalGeneration) {
+                  return;
+                }
+                setState(() {
+                  _goal = value;
+                  _updateMetadata();
+                });
+              }),
+              _fetchFavoritesCount(force: force).then((value) {
+                if (!_accepts(session, generation)) return;
+                setState(() {
+                  _favorites = value;
+                  _updateMetadata();
+                });
+              }),
+              _fetchReportsCount(force: force).then((value) {
+                if (!_accepts(session, generation)) return;
+                setState(() {
+                  _reports = value;
+                  _updateMetadata();
+                });
+              }),
+            ])
+            .then((_) {
+              if (_accepts(session, generation) &&
+                  _goal != null &&
+                  _favorites != null &&
+                  _reports != null) {
+                _metadataLoadedAt = DateTime.now();
+              }
+            })
+            .whenComplete(() {
+              if (identical(_metadataLoad, load)) _metadataLoad = null;
+            });
+    _metadataLoad = load;
+    return load;
+  }
+
+  Future<void> _openGoalSetting() async {
+    if (_requiresLogin) {
+      final loggedIn = await requireLogin(
+        context,
+        message: '절약 목표는 로그인하면 설정할 수 있어요.',
+      );
+      if (!loggedIn || !mounted) return;
+      unawaited(_fetchAll());
+    }
+    final session = ApiClient.sessionToken;
+    final savedGoal = await context.push<int>(AppRoutes.savingsGoalSetting);
+    if (!mounted || savedGoal == null || session != ApiClient.sessionToken) {
+      return;
+    }
+    // Goal writes do not change the displayed savings. Ignore an older goal
+    // read, show the confirmed save immediately, then verify that goal alone.
+    final goalGeneration = ++_goalGeneration;
+    _dataRevision = ApiClient.readCacheRevision;
+    setState(() {
+      _goal = savedGoal;
+      _updateMetadata();
+    });
+    final refreshed = await _fetchGoal(force: true);
+    if (!mounted ||
+        session != ApiClient.sessionToken ||
+        goalGeneration != _goalGeneration ||
+        refreshed == null) {
       return;
     }
     setState(() {
-      _isLoading = true;
-      _loadFailed = false;
-      _requiresLogin = false;
+      _goal = refreshed;
+      _updateMetadata();
     });
+  }
 
-    try {
-      final now = DateTime.now();
-      final goalFuture = _fetchGoal();
-      final favoritesFuture = _fetchFavoritesCount();
-      final reportsFuture = _fetchReportsCount();
-      final statsFutures = _tabToPeriod.values.map(_fetchStats).toList();
+  /// Login opens on top of the report and comes back here. Load for whoever
+  /// came back: the account's report, or the login prompt again for a
+  /// visitor who is still a guest.
+  Future<void> _logIn() async {
+    await openLoginFlow(context);
+    if (mounted) await _fetchAll();
+  }
 
-      final goal = await goalFuture;
-      final favoritesCount = await favoritesFuture;
-      final reportsCount = await reportsFuture;
-      final statsList = await Future.wait(statsFutures);
-
-      final results = <String, dynamic>{};
-      bool anyStatsLoaded = false;
-      int idx = 0;
-      for (final entry in _tabToPeriod.entries) {
-        final stats = statsList[idx++];
-        if (stats != null) anyStatsLoaded = true;
-        results[entry.key] = _buildTabData(
-          entry.key,
-          stats,
-          goal,
-          favoritesCount,
-          reportsCount,
-          now,
-        );
-      }
-
-      if (!mounted) return;
-      setState(() {
-        // 💡 감사 이슈: 통계 API가 전부 실패했는데 가짜 숫자를 실데이터처럼
-        //    보여주던 폼백 제거 — 실패 시 에러 안내 UI로 전환합니다.
-        if (anyStatsLoaded) {
-          _statsData = results;
-          _loadFailed = false;
-        } else {
-          _statsData = null;
-          _loadFailed = true;
-        }
-        _isLoading = false;
-      });
-    } catch (e) {
-      debugPrint('절약 대시보드 통계 조회 오류: $e');
-      if (!mounted) return;
-      setState(() {
-        _statsData = null;
-        _loadFailed = true;
-        _isLoading = false;
-      });
+  /// A guest can log in from the inbox, so the report reloads on return.
+  Future<void> _openNotifications() async {
+    await context.push<void>(AppRoutes.notifications);
+    if (mounted && _dataSession != ApiClient.sessionToken) {
+      await _fetchAll();
     }
   }
 
   /// GET /api/savings/stats?period=... → SavingsStatsResponse
-  Future<Map<String, dynamic>?> _fetchStats(String period) async {
+  Future<Map<String, dynamic>?> _fetchStats(
+    String period, {
+    bool force = false,
+  }) async {
     try {
       final bounds = _periodBounds(period, DateTime.now());
       final response = await ApiClient.get(
@@ -149,6 +345,7 @@ class _SavingsReportDashboardScreenState
           'endDateExclusive': bounds.$2,
         }),
         headers: ApiClient.jsonHeaders(auth: true),
+        cacheMaxAge: force ? Duration.zero : _freshness,
       ).timeout(ApiClient.defaultTimeout);
       if (response.statusCode == 200) {
         final data =
@@ -203,11 +400,12 @@ class _SavingsReportDashboardScreenState
   }
 
   /// GET /api/savings/goal → goalAmount (미설정 시 0)
-  Future<int?> _fetchGoal() async {
+  Future<int?> _fetchGoal({bool force = false}) async {
     try {
       final response = await ApiClient.get(
         ApiClient.uri('/api/savings/goal'),
         headers: ApiClient.jsonHeaders(auth: true),
+        cacheMaxAge: force ? Duration.zero : _freshness,
       ).timeout(ApiClient.defaultTimeout);
       if (response.statusCode == 200) {
         final data =
@@ -221,11 +419,12 @@ class _SavingsReportDashboardScreenState
   }
 
   /// GET /api/favorites → 찜한 매장 개수
-  Future<int?> _fetchFavoritesCount() async {
+  Future<int?> _fetchFavoritesCount({bool force = false}) async {
     try {
       final response = await ApiClient.get(
         ApiClient.uri('/api/favorites'),
         headers: ApiClient.jsonHeaders(auth: true),
+        cacheMaxAge: force ? Duration.zero : _freshness,
       ).timeout(ApiClient.defaultTimeout);
       if (response.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
@@ -238,11 +437,12 @@ class _SavingsReportDashboardScreenState
   }
 
   /// GET /api/report/my → 내 제보 개수
-  Future<int?> _fetchReportsCount() async {
+  Future<int?> _fetchReportsCount({bool force = false}) async {
     try {
       final response = await ApiClient.get(
         ApiClient.uri('/api/report/my'),
         headers: ApiClient.jsonHeaders(auth: true),
+        cacheMaxAge: force ? Duration.zero : _freshness,
       ).timeout(ApiClient.defaultTimeout);
       if (response.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
@@ -372,7 +572,7 @@ class _SavingsReportDashboardScreenState
     return LoginRequiredState(
       description: '절약 리포트를 보려면 로그인해주세요',
       actionLabel: '로그인하기',
-      onAction: () => context.go(AppRoutes.login),
+      onAction: _logIn,
     );
   }
 
@@ -418,8 +618,7 @@ class _SavingsReportDashboardScreenState
                       Row(
                         children: [
                           GestureDetector(
-                            onTap: () =>
-                                context.push(AppRoutes.savingsGoalSetting),
+                            onTap: _openGoalSetting,
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
@@ -453,7 +652,7 @@ class _SavingsReportDashboardScreenState
                           ),
                           const SizedBox(width: AppSizes.itemSpacing),
                           GestureDetector(
-                            onTap: () => context.push(AppRoutes.notifications),
+                            onTap: _openNotifications,
                             child: const Icon(
                               Icons.notifications_none_rounded,
                               color: Color(0xFF0F172A),
@@ -496,6 +695,11 @@ class _SavingsReportDashboardScreenState
                   ),
                 ),
 
+                if (_failedPeriods.contains(_selectedTab) && _hasSelectedData)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Text('최신 기록을 불러오지 못해 이전 기록을 표시하고 있어요.'),
+                  ),
                 // Scrollable Content
                 Expanded(
                   child: _isLoading
@@ -670,7 +874,7 @@ class _SavingsReportDashboardScreenState
               // Stats Row
               Row(
                 children: [
-                  _buildStatCard('$visits', '방문 매장', const Color(0xFF2563EB)),
+                  _buildStatCard('$visits', '방문 횟수', const Color(0xFF2563EB)),
                   _buildStatCard(
                     favorites?.toString() ?? '—',
                     '찜한 매장',
@@ -985,6 +1189,9 @@ class _SavingsReportDashboardScreenState
         setState(() {
           _selectedTab = text;
         });
+        // Keep period requests lazy: only the newly selected period is
+        // fetched. Metadata refresh is shared and never blocks the chart.
+        unawaited(_fetchAll(keepContent: true));
       },
       child: Container(
         padding: const EdgeInsets.symmetric(

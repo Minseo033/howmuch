@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
+import 'package:howmuch/shared/widgets/choice_semantics.dart';
 
 // ──────────────────────────────────────────────────────────────
 // 2-3  필터 화면 (바텀 시트)
@@ -126,18 +127,24 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                   ),
                 ),
                 const Spacer(),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: const BoxDecoration(
-                      color: surface,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.close_rounded,
-                      size: 18,
-                      color: ink,
+                // The X had a tap action but no name or role (QA 10/7 #50).
+                Semantics(
+                  container: true,
+                  button: true,
+                  label: '검색 필터 닫기',
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        color: surface,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: ink,
+                      ),
                     ),
                   ),
                 ),
@@ -146,124 +153,128 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
           ),
 
           // ─── 스크롤 영역
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.6,
-            ),
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── 업종 섹션
-                    const _SectionTitle(title: '업종'),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 12,
-                      children: _industryOptions.map((ind) {
-                        final selected = _industries.contains(ind);
-                        return _ChipWidget(
-                          label: ind,
-                          selected: selected,
-                          onTap: () {
-                            setState(() {
-                              if (ind == '전체') {
-                                _industries = {'전체'};
-                              } else {
-                                _industries.remove('전체');
-                                if (_industries.contains(ind)) {
-                                  _industries.remove(ind);
-                                  if (_industries.isEmpty) {
-                                    _industries.add('전체');
-                                  }
+          Flexible(
+            fit: FlexFit.loose,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.6,
+              ),
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── 업종 섹션
+                      const _SectionTitle(title: '업종'),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 12,
+                        children: _industryOptions.map((ind) {
+                          final selected = _industries.contains(ind);
+                          return _ChipWidget(
+                            label: ind,
+                            selected: selected,
+                            onTap: () {
+                              setState(() {
+                                if (ind == '전체') {
+                                  _industries = {'전체'};
                                 } else {
-                                  _industries.add(ind);
+                                  _industries.remove('전체');
+                                  if (_industries.contains(ind)) {
+                                    _industries.remove(ind);
+                                    if (_industries.isEmpty) {
+                                      _industries.add('전체');
+                                    }
+                                  } else {
+                                    _industries.add(ind);
+                                  }
                                 }
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
 
-                    const SizedBox(height: 28),
+                      const SizedBox(height: 28),
 
-                    // ── 가격대 섹션
-                    const _SectionTitle(title: '가격대'),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 12,
-                      children: _prices.map((p) {
-                        final selected = _maxPrice == p.value;
-                        return _ChipWidget(
-                          label: p.label,
-                          selected: selected,
-                          onTap: () => setState(
-                            () => _maxPrice = selected ? null : p.value,
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                      // ── 가격대 섹션
+                      const _SectionTitle(title: '가격대'),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 12,
+                        children: _prices.map((p) {
+                          final selected = _maxPrice == p.value;
+                          return _ChipWidget(
+                            label: p.label,
+                            selected: selected,
+                            onTap: () => setState(
+                              () => _maxPrice = selected ? null : p.value,
+                            ),
+                          );
+                        }).toList(),
+                      ),
 
-                    const SizedBox(height: 28),
+                      const SizedBox(height: 28),
 
-                    // ── 거리 섹션
-                    const _SectionTitle(title: '거리'),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 12,
-                      children: _distances.map((d) {
-                        final selected = _distance == d;
-                        return _ChipWidget(
-                          label: d,
-                          selected: selected,
-                          onTap: () =>
-                              setState(() => _distance = selected ? null : d),
-                        );
-                      }).toList(),
-                    ),
+                      // ── 거리 섹션
+                      const _SectionTitle(title: '거리'),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 12,
+                        children: _distances.map((d) {
+                          final selected = _distance == d;
+                          return _ChipWidget(
+                            label: d,
+                            selected: selected,
+                            onTap: () =>
+                                setState(() => _distance = selected ? null : d),
+                          );
+                        }).toList(),
+                      ),
 
-                    const SizedBox(height: 28),
+                      const SizedBox(height: 28),
 
-                    // ── 정렬 방식 섹션
-                    const _SectionTitle(title: '정렬 방식'),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 12,
-                      children: _sortOrders.map((s) {
-                        final selected = _sortOrder == s;
-                        return _ChipWidget(
-                          label: s,
-                          selected: selected,
-                          onTap: () =>
-                              setState(() => _sortOrder = selected ? null : s),
-                        );
-                      }).toList(),
-                    ),
+                      // ── 정렬 방식 섹션
+                      const _SectionTitle(title: '정렬 방식'),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 12,
+                        children: _sortOrders.map((s) {
+                          final selected = _sortOrder == s;
+                          return _ChipWidget(
+                            label: s,
+                            selected: selected,
+                            onTap: () => setState(
+                              () => _sortOrder = selected ? null : s,
+                            ),
+                          );
+                        }).toList(),
+                      ),
 
-                    const SizedBox(height: 28),
+                      const SizedBox(height: 28),
 
-                    // ── 스위치 영역
-                    _SwitchRow(
-                      label: '정부 인증 업소만 보기',
-                      value: _govCertified,
-                      onChanged: (val) => setState(() => _govCertified = val),
-                    ),
-                    const SizedBox(height: 16),
-                    _SwitchRow(
-                      label: '사용자 제보 매장 포함',
-                      value: _userReported,
-                      onChanged: (val) => setState(() => _userReported = val),
-                    ),
+                      // ── 스위치 영역
+                      _SwitchRow(
+                        label: '정부 인증 업소만 보기',
+                        value: _govCertified,
+                        onChanged: (val) => setState(() => _govCertified = val),
+                      ),
+                      const SizedBox(height: 16),
+                      _SwitchRow(
+                        label: '사용자 제보 매장 포함',
+                        value: _userReported,
+                        onChanged: (val) => setState(() => _userReported = val),
+                      ),
 
-                    const SizedBox(height: 28),
-                  ],
+                      const SizedBox(height: 28),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -357,29 +368,34 @@ class _ChipWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? _SearchFilterSheetState.blue : Colors.white,
-          border: Border.all(
-            color: selected
-                ? _SearchFilterSheetState.blue
-                : _SearchFilterSheetState.border,
-            width: 1.2,
+    // Read as a button that says whether the chip is on, not as plain text
+    // whose state only shows in its color (QA 10/7 #52).
+    return ChoiceSemantics(
+      selected: selected,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? _SearchFilterSheetState.blue : Colors.white,
+            border: Border.all(
+              color: selected
+                  ? _SearchFilterSheetState.blue
+                  : _SearchFilterSheetState.border,
+              width: 1.2,
+            ),
+            borderRadius: BorderRadius.circular(999),
           ),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontFamily: _SearchFilterSheetState.fontFamily,
-            fontFamilyFallback: _SearchFilterSheetState.fontFallback,
-            fontSize: 14,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            color: selected ? Colors.white : _SearchFilterSheetState.ink,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: _SearchFilterSheetState.fontFamily,
+              fontFamilyFallback: _SearchFilterSheetState.fontFallback,
+              fontSize: 14,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? Colors.white : _SearchFilterSheetState.ink,
+            ),
           ),
         ),
       ),
@@ -400,25 +416,29 @@ class _SwitchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: _SearchFilterSheetState.fontFamily,
-            fontFamilyFallback: _SearchFilterSheetState.fontFallback,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: _SearchFilterSheetState.ink,
+    // One element: the switch is read with its on/off state under the row's
+    // text instead of as a nameless switch next to a separate label (#52).
+    return MergeSemantics(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: _SearchFilterSheetState.fontFamily,
+              fontFamilyFallback: _SearchFilterSheetState.fontFallback,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: _SearchFilterSheetState.ink,
+            ),
           ),
-        ),
-        CupertinoSwitch(
-          value: value,
-          onChanged: onChanged,
-          activeTrackColor: _SearchFilterSheetState.blue,
-        ),
-      ],
+          CupertinoSwitch(
+            value: value,
+            onChanged: onChanged,
+            activeTrackColor: _SearchFilterSheetState.blue,
+          ),
+        ],
+      ),
     );
   }
 }

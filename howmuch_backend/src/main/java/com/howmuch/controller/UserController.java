@@ -4,7 +4,7 @@ import com.howmuch.config.SessionAuthFilter;
 import com.howmuch.dto.UserProfileRequest;
 import com.howmuch.dto.UserProfileResponse;
 import com.howmuch.service.FirebaseService;
-import com.howmuch.service.SessionTokenService;
+import com.howmuch.service.AccountWithdrawalService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,12 +24,12 @@ public class UserController {
             "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
     private final FirebaseService firebaseService;
-    private final SessionTokenService sessionTokenService;
+    private final AccountWithdrawalService withdrawals;
 
     @Autowired
-    public UserController(FirebaseService firebaseService, SessionTokenService sessionTokenService) {
+    public UserController(FirebaseService firebaseService, AccountWithdrawalService withdrawals) {
         this.firebaseService = firebaseService;
-        this.sessionTokenService = sessionTokenService;
+        this.withdrawals = withdrawals;
     }
 
     UserController(FirebaseService firebaseService) {
@@ -133,22 +133,32 @@ public class UserController {
      * 세션 인증된 본인 계정만 탈퇴 가능. users 문서 + 제보/리뷰/방문/찜 전부 삭제.
      */
     @DeleteMapping
-    public ResponseEntity<?> deleteUser(HttpServletRequest httpRequest) {
+    public ResponseEntity<?> deleteUser(HttpServletRequest httpRequest,
+            @RequestHeader(value = "X-Withdrawal-Request-Id", required = false) String requestId) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
         try {
-            // Persist the cutoff before deleting Firestore user data. If the common store is
-            // unavailable, deletion is not acknowledged; otherwise an old token could survive
-            // on a different instance. A later login receives a token issued after this cutoff.
-            if (sessionTokenService != null) {
-                sessionTokenService.invalidateAllForUid(firebaseUid);
-            }
-            java.util.Map<String, Object> result = firebaseService.deleteUser(firebaseUid);
-            return ResponseEntity.ok(result);
+            // Older app builds can still submit, but only new builds retain the status receipt.
+            var job = withdrawals.submit(firebaseUid, requestId == null ? java.util.UUID.randomUUID().toString() : requestId);
+            return ResponseEntity.status(job.completed() ? 200 : 202).body(job.response());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         } catch (Exception e) {
             log.error("[UserController] 회원 탈퇴 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
                     "message", "회원 탈퇴 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."));
+        }
+    }
+
+    @GetMapping("/withdrawal-status")
+    public ResponseEntity<?> withdrawalStatus(@RequestHeader("X-Withdrawal-Request-Id") String requestId) {
+        try {
+            var job = withdrawals.status(requestId);
+            return job == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(job.response());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(503).body(Map.of("success", false, "message", "탈퇴 상태를 잠시 확인할 수 없습니다."));
         }
     }
 }

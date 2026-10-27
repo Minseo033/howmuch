@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/inquiry_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/login_required_state.dart';
 
 class MyInquiriesScreen extends ConsumerWidget {
   const MyInquiriesScreen({super.key});
@@ -36,9 +40,23 @@ class MyInquiriesScreen extends ConsumerWidget {
                 child: CircularProgressIndicator(color: AppColors.primary),
               ),
               error: (error, _) => _LoadError(
-                requiresLogin:
-                    error is InquiryApiException && error.isUnauthorized,
+                // Only a guest can fix an error by logging in. A member
+                // turned down (403) would come straight back from login, so
+                // they get a retry.
+                requiresLogin: !ApiClient.isAuthenticated,
                 onRetry: () => ref.invalidate(myInquiriesProvider),
+                onLogin: () async {
+                  // Login opens on top of this screen and comes back here.
+                  // The list follows the login state; a load that failed
+                  // while login was still finishing is asked for again.
+                  await openLoginFlow(context);
+                  if (!context.mounted || !ApiClient.isAuthenticated) return;
+                  // A reload keeps the guest's error until it answers.
+                  final inquiries = ref.read(myInquiriesProvider);
+                  if (inquiries.hasError && !inquiries.isLoading) {
+                    ref.invalidate(myInquiriesProvider);
+                  }
+                },
               ),
               data: (inquiries) => _InquiryList(
                 inquiries: inquiries,
@@ -96,20 +114,25 @@ class _InquiriesHeader extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: MyInquiriesScreen._headerHeight,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  hoverColor: AppColors.primaryLight,
-                  onTap: onBack,
-                  child: const Padding(
-                    padding: EdgeInsets.zero,
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.arrow_back_rounded,
-                        size: 24,
-                        color: AppColors.ink,
+              // The bare arrow had no name (QA 10/7 #50).
+              child: Semantics(
+                button: true,
+                label: '뒤로가기',
+                child: Material(
+                  color: AppColors.transparent,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    hoverColor: AppColors.primaryLight,
+                    onTap: onBack,
+                    child: const Padding(
+                      padding: EdgeInsets.zero,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          size: 24,
+                          color: AppColors.ink,
+                        ),
                       ),
                     ),
                   ),
@@ -140,15 +163,15 @@ class _InquiriesHeader extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: MyInquiriesScreen._headerHeight,
-              child: Tooltip(
-                message: '문의 작성',
-                child: IconButton(
-                  onPressed: onCreate,
-                  icon: const Icon(
-                    Icons.edit_outlined,
-                    color: AppColors.ink,
-                    size: 22,
-                  ),
+              // A Tooltip around the button named a separate node and left
+              // the button itself unnamed (QA 10/7 #50).
+              child: IconButton(
+                tooltip: '문의 작성',
+                onPressed: onCreate,
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  color: AppColors.ink,
+                  size: 22,
                 ),
               ),
             ),
@@ -173,8 +196,7 @@ class _InquiryList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (inquiries.isEmpty) {
-      return RefreshIndicator(
-        color: AppColors.primary,
+      return _FlatRefresh(
         onRefresh: onRefresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(
@@ -212,8 +234,7 @@ class _InquiryList extends StatelessWidget {
       );
     }
 
-    return RefreshIndicator(
-      color: AppColors.primary,
+    return _FlatRefresh(
       onRefresh: onRefresh,
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(
@@ -229,6 +250,26 @@ class _InquiryList extends StatelessWidget {
           return _InquiryCard(inquiry: inquiries[index - 1]);
         },
       ),
+    );
+  }
+}
+
+/// Pull to refresh as a flat pale-blue disc: no Material shadow, and it stays
+/// visible over the white cards it slides across.
+class _FlatRefresh extends StatelessWidget {
+  const _FlatRefresh({required this.onRefresh, required this.child});
+
+  final RefreshCallback onRefresh;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: AppColors.primary,
+      backgroundColor: AppColors.primaryLight,
+      elevation: 0,
+      child: child,
     );
   }
 }
@@ -269,51 +310,92 @@ class _InquirySummary extends StatelessWidget {
 }
 
 class _LoadError extends StatelessWidget {
-  const _LoadError({required this.requiresLogin, required this.onRetry});
+  const _LoadError({
+    required this.requiresLogin,
+    required this.onRetry,
+    required this.onLogin,
+  });
 
   final bool requiresLogin;
   final VoidCallback onRetry;
+  final VoidCallback onLogin;
 
   @override
   Widget build(BuildContext context) {
+    if (requiresLogin) {
+      // A login-required state needs a way to log in.
+      return LoginRequiredState(
+        description: '내가 남긴 문의와 답변은 로그인 후 확인할 수 있어요.',
+        actionLabel: '로그인하기',
+        onAction: onLogin,
+      );
+    }
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.error_outline_rounded,
-              size: 44,
-              color: AppColors.muted,
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.border, width: .909),
+              ),
+              child: const Icon(
+                Icons.error_outline_rounded,
+                color: AppColors.warning,
+                size: 30,
+              ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              requiresLogin ? '로그인이 필요해요' : '문의 내역을 불러오지 못했어요',
+            const SizedBox(height: 16),
+            const Text(
+              '문의 내역을 불러오지 못했어요',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.ink,
                 fontFamily: MyInquiriesScreen._fontFamily,
                 fontFamilyFallback: MyInquiriesScreen._fontFallback,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
+                height: 1.5,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              requiresLogin ? '로그인한 뒤 다시 확인해주세요.' : '잠시 후 다시 시도해주세요.',
+            const SizedBox(height: 6),
+            const Text(
+              '잠시 후 다시 시도해주세요.',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.muted,
                 fontFamily: MyInquiriesScreen._fontFamily,
                 fontFamilyFallback: MyInquiriesScreen._fontFallback,
                 fontSize: 13,
+                height: 1.5,
               ),
             ),
-            if (!requiresLogin) ...[
-              const SizedBox(height: 18),
-              TextButton(onPressed: onRetry, child: const Text('다시 시도')),
-            ],
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: onRetry,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.white,
+                // 40 tall like the other error blocks, with a 48px tap area.
+                minimumSize: const Size(140, 40),
+                tapTargetSize: MaterialTapTargetSize.padded,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.button),
+                ),
+                textStyle: const TextStyle(
+                  fontFamily: MyInquiriesScreen._fontFamily,
+                  fontFamilyFallback: MyInquiriesScreen._fontFallback,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              child: const Text('다시 시도'),
+            ),
           ],
         ),
       ),
@@ -333,11 +415,11 @@ class _InquiryCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        border: Border.all(color: AppColors.border, width: .909),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,7 +495,7 @@ class _InquiryCard extends StatelessWidget {
                 itemCount: inquiry.imageUrls.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 8),
                 itemBuilder: (context, index) => ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                   child: Image.network(
                     inquiry.imageUrls[index],
                     width: 76,
@@ -467,7 +549,7 @@ class _AnswerPanel extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.primaryLight,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -529,7 +611,7 @@ class _WaitingPanel extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.warningLight,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: const Row(
         children: [
@@ -564,10 +646,10 @@ class _StatusBadge extends StatelessWidget {
         : AppColors.warningLight;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadii.pill),
       ),
       child: Text(
         answered ? '답변 완료' : '답변 대기',

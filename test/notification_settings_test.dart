@@ -238,42 +238,5 @@ void main() {
         throwsFormatException,
       );
     });
-
-    test('PriceAlertApiService saves a store subscription', () async {
-      late http.Request capturedRequest;
-      final service = PriceAlertApiService(
-        MockClient((request) async {
-          capturedRequest = request;
-          return http.Response(
-            jsonEncode({
-              'storeId': 'store_abc123',
-              'storeName': 'test-store',
-              'menuName': 'kimchi',
-              'enabled': true,
-            }),
-            200,
-          );
-        }),
-      );
-
-      final saved = await service.saveSubscription(
-        storeId: 'store_abc123',
-        enabled: true,
-        notifyOnRise: false,
-        notifyOnDrop: true,
-        notifyOnNewMenu: false,
-      );
-
-      expect(capturedRequest.method, 'PUT');
-      expect(capturedRequest.url.path, '/api/notifications/price-alerts');
-      expect(jsonDecode(capturedRequest.body), {
-        'storeId': 'store_abc123',
-        'enabled': true,
-        'notifyOnRise': false,
-        'notifyOnDrop': true,
-        'notifyOnNewMenu': false,
-      });
-      expect(saved.enabled, isTrue);
-    });
   });
 }

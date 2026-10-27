@@ -165,7 +165,7 @@ class FirebaseServiceNotificationTest {
         FirebaseService service = new FirebaseService(db, mock(ReportImageStorage.class));
 
         assertThatThrownBy(() -> service.sendAdminNotification(
-                " missing-user ", "알림", "내용", "admin"))
+                " missing-user ", "알림", "내용", "admin", null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("대상 회원을 찾을 수 없습니다.");
     }

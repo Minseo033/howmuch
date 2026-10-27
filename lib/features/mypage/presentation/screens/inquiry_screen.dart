@@ -1,15 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/inquiry_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart';
+import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 
 class InquiryScreen extends ConsumerStatefulWidget {
   const InquiryScreen({super.key});
@@ -41,22 +47,56 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
   late final TextEditingController _bodyController;
   final _imagePicker = ImagePicker();
   final List<XFile> _attachments = [];
+  // Read each picked photo once; rebuilding on every keystroke used to read
+  // and decode the originals again.
+  final Map<XFile, Future<Uint8List>> _thumbnailBytes = {};
+  late final ReportService _reportService;
+
+  /// Photos already uploaded for the current selection. A retry reuses them
+  /// instead of uploading the same files again.
+  List<String> _uploadedUrls = const [];
+
+  /// Set after a timeout or network failure: the server may have stored the
+  /// inquiry, so its photos must not be deleted and a retry checks first.
+  ({String title, String content})? _unconfirmedAttempt;
   int _selectedType = 0;
   bool _isSubmitting = false;
+  bool _submitted = false;
+  bool _isLeaving = false;
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController();
+    _reportService = ref.read(reportServiceProvider);
+    _titleController = TextEditingController()
+      ..addListener(() => setState(() {}));
     _bodyController = TextEditingController()
       ..addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
+    // Leaving without sending: remove photos that no inquiry refers to.
+    if (!_submitted && _unconfirmedAttempt == null) {
+      _discardUploads();
+    }
     _titleController.dispose();
     _bodyController.dispose();
     super.dispose();
+  }
+
+  bool get _hasDraft =>
+      _titleController.text.trim().isNotEmpty ||
+      _bodyController.text.trim().isNotEmpty ||
+      _attachments.isNotEmpty;
+
+  /// The selection changed or the screen is closing, so uploaded copies are
+  /// stale. Photos that a possibly stored inquiry uses are only forgotten.
+  void _discardUploads() {
+    final urls = _uploadedUrls;
+    _uploadedUrls = const [];
+    if (urls.isEmpty || _unconfirmedAttempt != null) return;
+    unawaited(_reportService.cleanupReportImages(urls));
   }
 
   Future<void> _pickPhotos() async {
@@ -65,11 +105,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final remainingCount = 3 - _attachments.length;
     if (remainingCount <= 0) {
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          HowmuchSnackBar(content: Text('사진은 최대 3장까지 첨부할 수 있어요.')),
-        );
+      _showFormNotice(messenger, '사진은 최대 3장까지 첨부할 수 있어요.');
       return;
     }
 
@@ -81,51 +117,73 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
       }
 
       final imagesToAdd = pickedImages.take(remainingCount).toList();
-      setState(() => _attachments.addAll(imagesToAdd));
+      _discardUploads();
+      setState(() {
+        _attachments.addAll(imagesToAdd);
+        for (final image in imagesToAdd) {
+          _thumbnailBytes[image] = image.readAsBytes();
+        }
+      });
 
       if (pickedImages.length > remainingCount) {
-        messenger
-          ..clearSnackBars()
-          ..showSnackBar(
-            HowmuchSnackBar(content: Text('사진은 최대 3장까지 첨부할 수 있어요.')),
-          );
+        _showFormNotice(messenger, '사진은 최대 3장까지 첨부할 수 있어요.');
       }
     } on PlatformException {
       if (!mounted) {
         return;
       }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(HowmuchSnackBar(content: Text('사진 접근 권한을 확인해주세요.')));
+      _showFormNotice(messenger, '사진 접근 권한을 확인해주세요.');
     }
   }
 
   void _removePhoto(int index) {
-    setState(() => _attachments.removeAt(index));
+    _discardUploads();
+    setState(() => _thumbnailBytes.remove(_attachments.removeAt(index)));
+  }
+
+  Future<void> _leave() async {
+    if (_isSubmitting || _isLeaving) return;
+    if (_hasDraft && !_submitted) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => HowmuchDialog(
+          title: '작성 중인 문의를 나갈까요?',
+          description: '입력한 내용과 첨부한 사진은 저장되지 않아요.',
+          cancelLabel: '계속 작성',
+          confirmLabel: '나가기',
+          cancelFlex: 1,
+          confirmFlex: 1,
+          onConfirm: () => Navigator.pop(dialogContext, true),
+        ),
+      );
+      if (!mounted || discard != true) return;
+    }
+    if (!context.canPop()) {
+      context.go(AppRoutes.mypage);
+      return;
+    }
+    setState(() => _isLeaving = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) context.pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final email = ref.watch(userProfileProvider).email;
+    final isGuest = !ref.watch(
+      authStateProvider.select((auth) => auth.isLoggedIn),
+    );
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
     final footerHeight = _StickyButton.heightFor(bottomOffset);
-    final scrollContentHeight = 592.8974609375 + topOffset + footerHeight + 24;
     final canPop = Navigator.of(context).canPop();
 
-    void goBack() {
-      if (canPop) {
-        context.pop();
-      } else {
-        context.go(AppRoutes.mypage);
-      }
-    }
-
     return PopScope(
-      canPop: canPop,
+      canPop:
+          canPop && !_isSubmitting && (_isLeaving || _submitted || !_hasDraft),
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) context.go(AppRoutes.mypage);
+        if (!didPop) _leave();
       },
       child: FigmaMobileCanvas(
         backgroundColor: InquiryScreen.surface,
@@ -145,111 +203,89 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                     physics: const AlwaysScrollableScrollPhysics(
                       parent: BouncingScrollPhysics(),
                     ),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: scrollContentHeight,
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            left: 20,
-                            top: 64.8720703125 + topOffset,
-                            child: const Text('문의 유형', style: _labelText),
-                          ),
-                          Positioned(
-                            left: 20,
-                            right: 20,
-                            top: 90.8662109375 + topOffset,
-                            height: 91.60794830322266,
-                            child: Column(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      64.8720703125 + topOffset,
+                      20,
+                      footerHeight + 24,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('문의 유형', style: _labelText),
+                        ),
+                        const SizedBox(height: 7.994140625),
+                        Column(
+                          children: [
+                            Row(
                               children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _InquiryChip(
-                                        text: _types[0],
-                                        selected: _selectedType == 0,
-                                        onTap: () =>
-                                            setState(() => _selectedType = 0),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: _InquiryChip(
-                                        text: _types[1],
-                                        selected: _selectedType == 1,
-                                        onTap: () =>
-                                            setState(() => _selectedType = 1),
-                                      ),
-                                    ),
-                                  ],
+                                Expanded(
+                                  child: _InquiryChip(
+                                    text: _types[0],
+                                    selected: _selectedType == 0,
+                                    onTap: () =>
+                                        setState(() => _selectedType = 0),
+                                  ),
                                 ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _InquiryChip(
-                                        text: _types[2],
-                                        selected: _selectedType == 2,
-                                        onTap: () =>
-                                            setState(() => _selectedType = 2),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: _InquiryChip(
-                                        text: _types[3],
-                                        selected: _selectedType == 3,
-                                        onTap: () =>
-                                            setState(() => _selectedType = 3),
-                                      ),
-                                    ),
-                                  ],
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _InquiryChip(
+                                    text: _types[1],
+                                    selected: _selectedType == 1,
+                                    onTap: () =>
+                                        setState(() => _selectedType = 1),
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
-                          Positioned(
-                            left: 20,
-                            top: 202.4716796875 + topOffset,
-                            right: 20,
-                            height: 72.4,
-                            child: _TitleField(controller: _titleController),
-                          ),
-                          Positioned(
-                            left: 20,
-                            top: 290.45458984375 + topOffset,
-                            right: 20,
-                            height: 136.4,
-                            child: _BodyField(controller: _bodyController),
-                          ),
-                          Positioned(
-                            left: 20,
-                            top: 442.44287109375 + topOffset,
-                            right: 20,
-                            height: 90.4,
-                            child: _PhotoAttachBox(
-                              attachments: _attachments,
-                              onAdd: _pickPhotos,
-                              onRemove: _removePhoto,
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _InquiryChip(
+                                    text: _types[2],
+                                    selected: _selectedType == 2,
+                                    onTap: () =>
+                                        setState(() => _selectedType = 2),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _InquiryChip(
+                                    text: _types[3],
+                                    selected: _selectedType == 3,
+                                    onTap: () =>
+                                        setState(() => _selectedType = 3),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          Positioned(
-                            left: 20,
-                            top: 552.4287109375 + topOffset,
-                            right: 20,
-                            height: 40.46875,
-                            child: _EmailBox(email: email),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        _TitleField(controller: _titleController),
+                        const SizedBox(height: 15.58291015625),
+                        _BodyField(controller: _bodyController),
+                        const SizedBox(height: 15.5882890625),
+                        _PhotoAttachBox(
+                          attachments: _attachments,
+                          thumbnailBytes: _thumbnailBytes,
+                          onAdd: _pickPhotos,
+                          onRemove: _removePhoto,
+                        ),
+                        const SizedBox(height: 19.58583984375),
+                        _EmailBox(email: email, isGuest: isGuest),
+                      ],
                     ),
                   ),
                 ),
                 _Header(
                   topOffset: topOffset,
                   title: '문의하기',
-                  onBack: goBack,
-                  onHistory: () => context.push(AppRoutes.inquiryHistory),
+                  onBack: _leave,
+                  onHistory: _openHistory,
                 ),
                 Positioned(
                   left: 0,
@@ -271,6 +307,15 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
     );
   }
 
+  /// Past inquiries belong to an account, so a guest logs in before the list
+  /// opens. The draft on this screen stays as it is.
+  Future<void> _openHistory() async {
+    if (!await requireLogin(context, message: '로그인하면 보낸 문의와 답변을 볼 수 있어요.')) {
+      return;
+    }
+    if (mounted) context.push(AppRoutes.inquiryHistory);
+  }
+
   Future<void> _submitInquiry() async {
     final messenger = ScaffoldMessenger.of(context);
     final title = _titleController.text.trim();
@@ -278,20 +323,36 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
     final category = _types[_selectedType];
 
     if (title.isEmpty) {
-      messenger.showSnackBar(HowmuchSnackBar(content: Text('제목을 입력해주세요.')));
+      _showFormNotice(messenger, '제목을 입력해주세요.');
       return;
     }
     if (content.isEmpty) {
-      messenger.showSnackBar(HowmuchSnackBar(content: Text('내용을 입력해주세요.')));
+      _showFormNotice(messenger, '내용을 입력해주세요.');
       return;
     }
+    // Answers go to an account, so a guest logs in here. Login opens on top
+    // of this form, which is then sent as written, photos included.
+    if (!await requireLogin(context, message: '로그인하면 작성한 문의가 바로 접수돼요.')) {
+      return;
+    }
+    if (!mounted) return;
 
     setState(() => _isSubmitting = true);
-    final reportService = ref.read(reportServiceProvider);
-    var uploadedUrls = const <String>[];
+    final reportService = _reportService;
     try {
-      if (_attachments.isNotEmpty) {
-        uploadedUrls = await reportService.uploadReportImages(_attachments);
+      // After a timeout the first attempt may already be stored. Check before
+      // sending the same inquiry again so a retry cannot duplicate it.
+      final unconfirmed = _unconfirmedAttempt;
+      if (unconfirmed != null &&
+          unconfirmed.title == title &&
+          unconfirmed.content == content &&
+          await _wasStored(title, content)) {
+        if (!mounted) return;
+        _finishSubmitted(messenger);
+        return;
+      }
+      if (_attachments.isNotEmpty && _uploadedUrls.isEmpty) {
+        _uploadedUrls = await reportService.uploadReportImages(_attachments);
       }
       final result = await ref
           .read(inquiryServiceProvider)
@@ -299,44 +360,73 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
             title: title,
             content: content,
             category: category,
-            imageUrls: uploadedUrls,
+            imageUrls: _uploadedUrls,
           );
 
       if (result['error'] == true) {
+        // Only an HTTP answer proves nothing was stored; a timeout or network
+        // failure leaves that open.
+        final answeredByServer = result['statusCode'] is int;
+        _unconfirmedAttempt = answeredByServer
+            ? null
+            : (title: title, content: content);
         if (result['cleanupUploadedImages'] == true) {
-          await reportService.cleanupReportImages(uploadedUrls);
+          final urls = _uploadedUrls;
+          _uploadedUrls = const [];
+          await reportService.cleanupReportImages(urls);
         }
         if (!mounted) return;
-        messenger
-          ..clearSnackBars()
-          ..showSnackBar(
-            HowmuchSnackBar(
-              content: Text(result['message']?.toString() ?? '문의 등록에 실패했습니다.'),
-            ),
-          );
+        _showFormNotice(
+          messenger,
+          result['message']?.toString() ?? '문의 등록에 실패했습니다.',
+        );
         return;
       }
 
       if (!mounted) return;
-      messenger.clearSnackBars();
-      ref.invalidate(myInquiriesProvider);
-      context.go(AppRoutes.mypage);
-      messenger.showSnackBar(HowmuchSnackBar(content: Text('문의가 접수되었어요.')));
+      _finishSubmitted(messenger);
     } on ReportServiceException catch (error) {
       if (!mounted) return;
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(HowmuchSnackBar(content: Text(error.message)));
+      _showFormNotice(messenger, error.message);
     } catch (_) {
       if (!mounted) return;
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          HowmuchSnackBar(content: Text('문의 등록에 실패했습니다. 다시 시도해주세요.')),
-        );
+      _showFormNotice(messenger, '문의 등록에 실패했습니다. 다시 시도해주세요.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  /// A notice for the form that stays open. It replaces the one on screen at
+  /// once and floats above the send button, so the button can be tapped again
+  /// while it shows (QA #37).
+  void _showFormNotice(ScaffoldMessengerState messenger, String message) {
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(
+        HowmuchSnackBar(content: Text(message), aboveNavigation: true),
+      );
+  }
+
+  Future<bool> _wasStored(String title, String content) async {
+    try {
+      final mine = await ref.read(inquiryServiceProvider).getMyInquiries();
+      return mine.any(
+        (inquiry) =>
+            inquiry.title.trim() == title && inquiry.content.trim() == content,
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _finishSubmitted(ScaffoldMessengerState messenger) {
+    _submitted = true;
+    _uploadedUrls = const [];
+    _unconfirmedAttempt = null;
+    messenger.clearSnackBars();
+    ref.invalidate(myInquiriesProvider);
+    context.go(AppRoutes.mypage);
+    messenger.showSnackBar(HowmuchSnackBar(content: Text('문의가 접수되었어요.')));
   }
 }
 
@@ -374,20 +464,25 @@ class _Header extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: 48.877838134765625,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  hoverColor: AppColors.primaryLight,
-                  onTap: onBack,
-                  child: const Padding(
-                    padding: EdgeInsets.zero,
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.arrow_back_rounded,
-                        size: 24,
-                        color: InquiryScreen.ink,
+              // The bare arrow had no name (QA 10/7 #50).
+              child: Semantics(
+                button: true,
+                label: '뒤로가기',
+                child: Material(
+                  color: AppColors.transparent,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    hoverColor: AppColors.primaryLight,
+                    onTap: onBack,
+                    child: const Padding(
+                      padding: EdgeInsets.zero,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          size: 24,
+                          color: InquiryScreen.ink,
+                        ),
                       ),
                     ),
                   ),
@@ -411,15 +506,15 @@ class _Header extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: 48.877838134765625,
-              child: Tooltip(
-                message: '내 문의 내역',
-                child: IconButton(
-                  onPressed: onHistory,
-                  icon: const Icon(
-                    Icons.receipt_long_outlined,
-                    color: InquiryScreen.ink,
-                    size: 22,
-                  ),
+              // A Tooltip around the button named a separate node and left
+              // the button itself unnamed (QA 10/7 #50).
+              child: IconButton(
+                tooltip: '내 문의 내역',
+                onPressed: onHistory,
+                icon: const Icon(
+                  Icons.receipt_long_outlined,
+                  color: InquiryScreen.ink,
+                  size: 22,
                 ),
               ),
             ),
@@ -443,31 +538,37 @@ class _InquiryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        key: ValueKey('inquiry-type-$text'),
-        width: double.infinity,
-        height: 41.80397415161133,
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primaryLight : AppColors.white,
-          border: Border.all(
-            color: selected ? InquiryScreen.blue : InquiryScreen.border,
-            width: .909,
+    // Hand-drawn chips: announce which type is selected like radio buttons.
+    return Semantics(
+      button: true,
+      inMutuallyExclusiveGroup: true,
+      selected: selected,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          key: ValueKey('inquiry-type-$text'),
+          width: double.infinity,
+          height: 41.80397415161133,
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primaryLight : AppColors.white,
+            border: Border.all(
+              color: selected ? InquiryScreen.blue : InquiryScreen.border,
+              width: .909,
+            ),
+            borderRadius: BorderRadius.circular(14),
           ),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          text,
-          style: TextStyle(
-            color: selected ? InquiryScreen.blue : InquiryScreen.ink,
-            fontFamily: InquiryScreen.fontFamily,
-            fontFamilyFallback: InquiryScreen.fontFallback,
-            fontSize: 12,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            height: 1.5,
+          alignment: Alignment.center,
+          child: Text(
+            text,
+            style: TextStyle(
+              color: selected ? InquiryScreen.blue : InquiryScreen.ink,
+              fontFamily: InquiryScreen.fontFamily,
+              fontFamilyFallback: InquiryScreen.fontFallback,
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              height: 1.5,
+            ),
           ),
         ),
       ),
@@ -489,31 +590,36 @@ class _TitleField extends StatelessWidget {
         const SizedBox(height: 7.997),
         _InputShell(
           height: 45.99431610107422,
-          child: TextField(
-            controller: controller,
-            cursorColor: InquiryScreen.blue,
-            enableSuggestions: false,
-            autocorrect: false,
-            maxLines: 1,
-            maxLength: 100,
-            maxLengthEnforcement: MaxLengthEnforcement.enforced,
-            onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-            style: _inputText,
-            decoration: const InputDecoration(
-              isCollapsed: true,
-              filled: false,
-              fillColor: AppColors.transparent,
-              counterText: '',
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              disabledBorder: InputBorder.none,
-              errorBorder: InputBorder.none,
-              focusedErrorBorder: InputBorder.none,
-              contentPadding: EdgeInsets.only(
-                left: 12.9091796875,
-                right: 12.9091796875,
-                top: 13.2,
+          // iOS read the field without a name (QA 10/7 #50).
+          child: Semantics(
+            label: '제목',
+            child: TextField(
+              controller: controller,
+              cursorColor: InquiryScreen.blue,
+              enableSuggestions: false,
+              autocorrect: false,
+              maxLines: 1,
+              maxLength: 100,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              onTapOutside: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
+              style: _inputText,
+              decoration: const InputDecoration(
+                isCollapsed: true,
+                filled: false,
+                fillColor: AppColors.transparent,
+                counterText: '',
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+                contentPadding: EdgeInsets.only(
+                  left: 12.9091796875,
+                  right: 12.9091796875,
+                  top: 13.2,
+                ),
               ),
             ),
           ),
@@ -545,32 +651,36 @@ class _BodyField extends StatelessWidget {
         const SizedBox(height: 7.997),
         _InputShell(
           height: 109.99999237060547,
-          child: TextField(
-            controller: controller,
-            cursorColor: InquiryScreen.blue,
-            enableSuggestions: false,
-            autocorrect: false,
-            maxLines: 4,
-            maxLength: 500,
-            maxLengthEnforcement: MaxLengthEnforcement.enforced,
-            onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-            style: _bodyText,
-            decoration: const InputDecoration(
-              isCollapsed: true,
-              filled: false,
-              fillColor: AppColors.transparent,
-              counterText: '',
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              disabledBorder: InputBorder.none,
-              errorBorder: InputBorder.none,
-              focusedErrorBorder: InputBorder.none,
-              contentPadding: EdgeInsets.fromLTRB(
-                12.897705078125,
-                11.806640625,
-                12.897705078125,
-                0,
+          child: Semantics(
+            label: '문의 내용',
+            child: TextField(
+              controller: controller,
+              cursorColor: InquiryScreen.blue,
+              enableSuggestions: false,
+              autocorrect: false,
+              maxLines: 4,
+              maxLength: 500,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              onTapOutside: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
+              style: _bodyText,
+              decoration: const InputDecoration(
+                isCollapsed: true,
+                filled: false,
+                fillColor: AppColors.transparent,
+                counterText: '',
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+                contentPadding: EdgeInsets.fromLTRB(
+                  12.897705078125,
+                  11.806640625,
+                  12.897705078125,
+                  0,
+                ),
               ),
             ),
           ),
@@ -580,23 +690,48 @@ class _BodyField extends StatelessWidget {
   }
 }
 
-class _InputShell extends StatelessWidget {
+class _InputShell extends StatefulWidget {
   const _InputShell({required this.height, required this.child});
 
   final double height;
   final Widget child;
 
   @override
+  State<_InputShell> createState() => _InputShellState();
+}
+
+class _InputShellState extends State<_InputShell> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: height,
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border.all(color: InquiryScreen.border, width: .909),
-        borderRadius: BorderRadius.circular(14),
+    // The field inside draws no border of its own, so the shell shows which
+    // field is being typed in, like the app's themed inputs. The ring is a
+    // foreground border so the text does not move.
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      includeSemantics: false,
+      onFocusChange: (focused) => setState(() => _focused = focused),
+      child: AnimatedContainer(
+        duration: AppMotion.fast,
+        curve: AppMotion.standard,
+        width: double.infinity,
+        height: widget.height,
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          border: Border.all(color: InquiryScreen.border, width: .909),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        foregroundDecoration: BoxDecoration(
+          border: Border.all(
+            color: _focused ? InquiryScreen.blue : AppColors.transparent,
+            width: 1.5,
+          ),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: widget.child,
       ),
-      child: child,
     );
   }
 }
@@ -604,11 +739,13 @@ class _InputShell extends StatelessWidget {
 class _PhotoAttachBox extends StatelessWidget {
   const _PhotoAttachBox({
     required this.attachments,
+    required this.thumbnailBytes,
     required this.onAdd,
     required this.onRemove,
   });
 
   final List<XFile> attachments;
+  final Map<XFile, Future<Uint8List>> thumbnailBytes;
   final VoidCallback onAdd;
   final ValueChanged<int> onRemove;
 
@@ -644,6 +781,8 @@ class _PhotoAttachBox extends StatelessWidget {
                 if (canAddMore || index > 0) const SizedBox(width: 7.997),
                 _PhotoThumbnail(
                   image: attachments[index],
+                  bytes: thumbnailBytes[attachments[index]],
+                  label: '첨부 사진 ${index + 1}',
                   onRemove: () => onRemove(index),
                 ),
               ],
@@ -704,13 +843,21 @@ class _AddPhotoButton extends StatelessWidget {
 }
 
 class _PhotoThumbnail extends StatelessWidget {
-  const _PhotoThumbnail({required this.image, required this.onRemove});
+  const _PhotoThumbnail({
+    required this.image,
+    required this.bytes,
+    required this.label,
+    required this.onRemove,
+  });
 
   final XFile image;
+  final Future<Uint8List>? bytes;
+  final String label;
   final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
+    final cacheWidth = (64 * MediaQuery.devicePixelRatioOf(context)).round();
     return SizedBox(
       width: 63.99147415161133,
       height: 63.99147415161133,
@@ -727,7 +874,7 @@ class _PhotoThumbnail extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: FutureBuilder<Uint8List>(
-                  future: image.readAsBytes(),
+                  future: bytes ?? image.readAsBytes(),
                   builder: (context, snapshot) {
                     final bytes = snapshot.data;
                     if (bytes == null) {
@@ -740,30 +887,58 @@ class _PhotoThumbnail extends StatelessWidget {
                       );
                     }
 
-                    return Image.memory(bytes, fit: BoxFit.cover);
+                    // Decode at thumbnail size, not the camera resolution.
+                    return Image.memory(
+                      bytes,
+                      fit: BoxFit.cover,
+                      cacheWidth: cacheWidth,
+                      gaplessPlayback: true,
+                    );
                   },
                 ),
               ),
             ),
           ),
+          // A hit area inside the thumbnail: taps outside the 64px box never
+          // reached the old corner button, which left about 15px to press.
           Positioned(
-            right: -5,
-            top: -5,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onRemove,
-              child: Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: InquiryScreen.ink,
-                  border: Border.all(color: AppColors.white, width: 1.5),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.close_rounded,
-                  size: 13,
-                  color: AppColors.white,
+            right: 0,
+            top: 0,
+            width: 40,
+            height: 40,
+            child: Semantics(
+              button: true,
+              label: '$label 삭제',
+              excludeSemantics: true,
+              child: GestureDetector(
+                key: ValueKey('inquiry-photo-remove-$label'),
+                behavior: HitTestBehavior.opaque,
+                onTap: onRemove,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      right: -5,
+                      top: -5,
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: InquiryScreen.ink,
+                          border: Border.all(
+                            color: AppColors.white,
+                            width: 1.5,
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size: 13,
+                          color: AppColors.white,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -775,9 +950,13 @@ class _PhotoThumbnail extends StatelessWidget {
 }
 
 class _EmailBox extends StatelessWidget {
-  const _EmailBox({required this.email});
+  const _EmailBox({required this.email, required this.isGuest});
 
   final String email;
+
+  /// A guest has no account email yet, so the box says where answers go
+  /// once they log in.
+  final bool isGuest;
 
   @override
   Widget build(BuildContext context) {
@@ -804,19 +983,24 @@ class _EmailBox extends StatelessWidget {
               child: RichText(
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
-                text: TextSpan(
-                  style: _emailText,
-                  children: [
-                    const TextSpan(text: '답변 받을 이메일 · '),
-                    TextSpan(
-                      text: displayEmail,
-                      style: const TextStyle(
-                        color: InquiryScreen.blue,
-                        fontWeight: FontWeight.w700,
+                text: isGuest
+                    ? const TextSpan(
+                        text: '로그인하면 계정 이메일로 답변을 받아요',
+                        style: _emailText,
+                      )
+                    : TextSpan(
+                        style: _emailText,
+                        children: [
+                          const TextSpan(text: '답변 받을 이메일 · '),
+                          TextSpan(
+                            text: displayEmail,
+                            style: const TextStyle(
+                              color: InquiryScreen.blue,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
             ),
           ],
@@ -875,6 +1059,10 @@ class _StickyButton extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: InquiryScreen.blue,
                 foregroundColor: AppColors.white,
+                // The button turns off while sending; it keeps its color so
+                // the white spinner stays visible.
+                disabledBackgroundColor: InquiryScreen.blue,
+                disabledForegroundColor: AppColors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(22),

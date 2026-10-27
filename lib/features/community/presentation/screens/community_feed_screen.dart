@@ -4,21 +4,98 @@ import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/app/app_route_observer.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'dart:convert';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/community/presentation/state/community_service.dart';
 import 'package:geolocator/geolocator.dart';
+
+/// 시·도 표기를 짧은 이름으로 맞춥니다(예: 서울특별시 → 서울, 전북특별자치도 → 전북).
+String normalizeCityProvince(String value) {
+  final compact = value.replaceAll(RegExp(r'\s+'), '');
+  const aliases = {
+    '서울특별시': '서울',
+    '부산광역시': '부산',
+    '대구광역시': '대구',
+    '인천광역시': '인천',
+    '광주광역시': '광주',
+    '대전광역시': '대전',
+    '울산광역시': '울산',
+    '세종특별자치시': '세종',
+    '경기도': '경기',
+    '강원도': '강원',
+    '강원특별자치도': '강원',
+    '충청북도': '충북',
+    '충청남도': '충남',
+    '전라북도': '전북',
+    '전북특별자치도': '전북',
+    '전라남도': '전남',
+    '경상북도': '경북',
+    '경상남도': '경남',
+    '제주특별자치도': '제주',
+    '제주도': '제주',
+  };
+  return aliases[compact] ?? compact;
+}
+
+/// 역지오코딩 주소를 시·도와 시·군·구로 나눕니다.
+/// 예: '경기도 성남시 분당구 삼평동' → (경기, 성남시 분당구)
+({String province, String district}) communityRegionFromAddress(
+  String address,
+) {
+  final parts = address
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .toList(growable: false);
+  if (parts.isEmpty) return (province: '', district: '');
+  final district = parts
+      .skip(1)
+      .where(
+        (part) =>
+            part.endsWith('시') || part.endsWith('군') || part.endsWith('구'),
+      )
+      .join(' ');
+  return (province: normalizeCityProvince(parts.first), district: district);
+}
 
 bool communityLocationMatches(
   String itemLocation,
-  Iterable<String> selectedLocations,
-) {
+  Iterable<String> selectedLocations, {
+  String? itemProvince,
+  String? selectedProvince,
+  String? selectedDistrict,
+}) {
   String normalize(String value) => value.replaceAll(RegExp(r'\s+'), '').trim();
+  List<String> words(String value) => value
+      .split(RegExp(r'\s+'))
+      .where((word) => word.isNotEmpty)
+      .toList(growable: false);
 
   final item = normalize(itemLocation);
   if (item.isEmpty || item == '알수없음') return false;
+
+  final province = itemProvince?.trim() ?? '';
+  final userProvince = selectedProvince?.trim() ?? '';
+  final userDistrict = selectedDistrict?.trim() ?? '';
+  if (province.isNotEmpty &&
+      userProvince.isNotEmpty &&
+      userDistrict.isNotEmpty) {
+    // 시·도가 같고 시·군·구 이름이 낱말 단위로 같을 때만 같은 동네로 봅니다.
+    // ('강서구'는 '서구'가 아니고, 서울 중구와 부산 중구는 다릅니다.)
+    if (normalizeCityProvince(province) !=
+        normalizeCityProvince(userProvince)) {
+      return false;
+    }
+    final itemWords = words(itemLocation);
+    final userWords = words(userDistrict);
+    return itemWords.every(userWords.contains) ||
+        userWords.every(itemWords.contains);
+  }
+
+  // 시·도 정보가 없는 예전 응답은 기존 부분 일치 규칙을 유지합니다.
   return selectedLocations.any((location) {
     final selected = normalize(location);
     return selected.isNotEmpty &&
@@ -63,10 +140,20 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
   bool _isLoading = false;
   bool _hasError = false;
   List<dynamic> _rawFeeds = [];
+  List<_FeedItem> _parsedFeeds = const [];
+  GoRouter? _router;
+  String? _lastRoutePath;
+  DateTime? _feedsLoadedAt;
+  String? _feedsSession;
+  int _feedsRevision = -1;
+  Future<void>? _feedLoad;
+  String? _loadingSession;
 
   // 위치는 사용자가 직접 요청할 때만 조회한다. 피드 진입만으로 권한을 묻지 않는다.
   String _locationLabel = '전체';
   List<String> _locationFilterKeys = const [];
+  String _locationProvince = '';
+  String _locationDistrict = '';
   bool _isLoadingLocation = false;
   bool _showLocationPicker = false;
 
@@ -78,14 +165,44 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final router = GoRouter.maybeOf(context);
+    if (_router == router) return;
+    _router?.routerDelegate.removeListener(_handleRouteChange);
+    _router = router;
+    _lastRoutePath = router == null ? null : visibleAppPath(router);
+    router?.routerDelegate.addListener(_handleRouteChange);
+  }
+
+  void _handleRouteChange() {
+    final path = _router == null ? null : visibleAppPath(_router!);
+    final previous = _lastRoutePath;
+    _lastRoutePath = path;
+    if (path == AppRoutes.communityFeed && previous != path) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _fetchFeeds(
+            silent: true,
+            force: previous == AppRoutes.communityPostDetail,
+          );
+        }
+      });
+    }
+  }
+
+  @override
   void dispose() {
+    _router?.routerDelegate.removeListener(_handleRouteChange);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed &&
+        (_router == null ||
+            visibleAppPath(_router!) == AppRoutes.communityFeed)) {
       _fetchFeeds(silent: true);
     }
   }
@@ -100,6 +217,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       setState(() {
         _locationLabel = '전체';
         _locationFilterKeys = const [];
+        _locationProvince = '';
+        _locationDistrict = '';
       });
       return;
     }
@@ -148,13 +267,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
           .split(RegExp(r'\s+'))
           .where((part) => part.isNotEmpty)
           .toList(growable: false);
-      String? district;
-      for (final part in addressParts) {
-        if (part.endsWith('구') || part.endsWith('군')) {
-          district = part;
-          break;
-        }
-      }
+      final region = communityRegionFromAddress(address);
       final keys = <String>{
         if (address.isNotEmpty) address,
         if (dong.isNotEmpty) dong,
@@ -169,8 +282,12 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       }.toList(growable: false);
       if (!mounted) return;
       setState(() {
-        _locationLabel = district ?? (dong.isNotEmpty ? dong : '전체');
+        _locationLabel = region.district.isNotEmpty
+            ? region.district.split(' ').last
+            : (dong.isNotEmpty ? dong : '전체');
         _locationFilterKeys = keys;
+        _locationProvince = region.province;
+        _locationDistrict = region.district;
         _isLoadingLocation = false;
       });
     } catch (e) {
@@ -189,8 +306,42 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       );
   }
 
-  Future<void> _fetchFeeds({bool silent = false}) async {
-    if (!silent) {
+  /// [silent]는 화면 복귀 때의 조용한 갱신, [refreshing]은 당겨서 새로고침입니다.
+  /// 두 경우 모두 보이던 목록을 유지하고, 새로고침 실패만 알려줍니다.
+  Future<void> _fetchFeeds({
+    bool silent = false,
+    bool refreshing = false,
+    bool force = false,
+  }) {
+    final session = ApiClient.sessionToken;
+    if (_feedLoad != null && _loadingSession == session) return _feedLoad!;
+    if (silent &&
+        !force &&
+        _feedsSession == session &&
+        _feedsRevision == ApiClient.readCacheRevision &&
+        _feedsLoadedAt != null &&
+        DateTime.now().difference(_feedsLoadedAt!) <
+            const Duration(seconds: 30)) {
+      return Future.value();
+    }
+    _loadingSession = session;
+    late final Future<void> load;
+    load = _loadFeeds(silent: silent, refreshing: refreshing, session: session)
+        .whenComplete(() {
+          if (identical(_feedLoad, load)) _feedLoad = null;
+        });
+    _feedLoad = load;
+    return load;
+  }
+
+  Future<void> _loadFeeds({
+    required bool silent,
+    required bool refreshing,
+    required String? session,
+  }) async {
+    final revision = ApiClient.readCacheRevision;
+    final keepVisibleList = (silent || refreshing) && _feedsSession == session;
+    if (!keepVisibleList) {
       setState(() {
         _isLoading = true;
         _hasError = false;
@@ -203,39 +354,50 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
         headers: ApiClient.jsonHeaders(auth: true),
       ).timeout(ApiClient.defaultTimeout);
 
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-        if (!mounted) return;
-        setState(() {
-          _rawFeeds = decoded is List ? decoded : [];
-          _isLoading = false;
-          _hasError = false;
-        });
-      } else {
-        if (!mounted) return;
-        setState(() {
-          if (!silent) {
-            _isLoading = false;
-            _hasError = true;
-          }
-        });
+      if (response.statusCode != 200) {
+        throw StateError('커뮤니티 피드 응답 ${response.statusCode}');
       }
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (!mounted || session != ApiClient.sessionToken) return;
+      final nextRaw = decoded is List ? decoded : <dynamic>[];
+      final nextParsed = _parseFeedItems(nextRaw);
+      setState(() {
+        _rawFeeds = nextRaw;
+        _parsedFeeds = nextParsed;
+        _isLoading = false;
+        _hasError = false;
+        _feedsSession = session;
+        _feedsRevision = revision;
+        _feedsLoadedAt = DateTime.now();
+      });
     } catch (e) {
       debugPrint('커뮤니티 피드 조회 오류: $e');
-      if (!mounted) return;
-      setState(() {
-        if (!silent) {
+      if (!mounted || session != ApiClient.sessionToken) return;
+      if (!keepVisibleList) {
+        setState(() {
           _isLoading = false;
           _hasError = true;
-        }
-      });
+        });
+      } else if (refreshing) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            HowmuchSnackBar(
+              content: const Text('피드를 새로 불러오지 못했어요. 잠시 후 다시 시도해주세요.'),
+              aboveNavigation: true,
+            ),
+          );
+      }
     }
   }
 
-  List<_FeedItem> get _visibleFeedItems {
-    final List<_FeedItem> items = _rawFeeds.map((data) {
+  Future<void> _refreshFeeds() => _fetchFeeds(refreshing: true);
+
+  List<_FeedItem> _parseFeedItems(List<dynamic> rawList) {
+    return rawList.map((data) {
       final String id = data['id']?.toString() ?? '';
       final String loc = data['location']?.toString() ?? '알 수 없음';
+      final String cityProvince = data['cityProvince']?.toString().trim() ?? '';
       final String title = data['title']?.toString() ?? '';
       final String author = data['author']?.toString() ?? '알 수 없음';
       final int likes = (data['likes'] as num?)?.toInt() ?? 0;
@@ -272,7 +434,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       final String status = switch (rawStatus.toUpperCase()) {
         'APPROVED' => '승인 완료',
         'PENDING' => '검토 중',
-        _ => '가격 변동',
+        _ => '',
       };
 
       final Color statusColor = switch (rawStatus.toUpperCase()) {
@@ -296,6 +458,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       return _FeedItem(
         id: id,
         location: loc,
+        cityProvince: cityProvince,
+        isPriceChange: isCommunityPriceChange(data['changeType']),
         title: title,
         storeName: parsed.storeName,
         menu: parsed.menu,
@@ -313,8 +477,13 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
         dotColor: dotColor,
         compactStatus: compactStatus,
       );
-    }).toList();
+    }).toList(growable: false);
+  }
 
+  List<_FeedItem> get _visibleFeedItems {
+    final List<_FeedItem> items = _parsedFeeds.isNotEmpty || _rawFeeds.isEmpty
+        ? _parsedFeeds
+        : (_parsedFeeds = _parseFeedItems(_rawFeeds));
     final List<_FeedItem> scoped = _locationLabel == '전체'
         ? items
         : items
@@ -322,13 +491,16 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
                 (item) => communityLocationMatches(
                   item.location,
                   _locationFilterKeys,
+                  itemProvince: item.cityProvince,
+                  selectedProvince: _locationProvince,
+                  selectedDistrict: _locationDistrict,
                 ),
               )
               .toList();
 
     return switch (_selectedFilterIndex) {
-      1 => scoped.where((item) => item.status == '가격 변동').toList(),
-      2 => (scoped..sort((a, b) => b.likes.compareTo(a.likes))),
+      1 => scoped.where((item) => item.isPriceChange).toList(),
+      2 => ([...scoped]..sort((a, b) => b.likes.compareTo(a.likes))),
       _ => scoped,
     };
   }
@@ -393,25 +565,50 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
     }
     final items = _visibleFeedItems;
     if (items.isEmpty) {
-      return Center(
-        child: Text(
-          _selectedFilterIndex == 1
-              ? '아직 가격 변동 제보가 없어요.'
-              : _locationLabel == '전체'
-              ? '아직 제보가 없어요. 첫 제보를 남겨보세요!'
-              : '$_locationLabel에 등록된 제보가 아직 없어요.',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: CommunityFeedScreen.muted,
-            fontFamily: CommunityFeedScreen.fontFamily,
-            fontFamilyFallback: CommunityFeedScreen.fontFallback,
-            fontSize: 12,
+      // 빈 목록에서도 당겨서 새로고침하거나 버튼으로 다시 불러올 수 있습니다.
+      return RefreshIndicator(
+        onRefresh: _refreshFeeds,
+        color: CommunityFeedScreen.blue,
+        child: LayoutBuilder(
+          builder: (context, constraints) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            children: [
+              SizedBox(
+                height: constraints.maxHeight,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _selectedFilterIndex == 1
+                            ? '아직 가격 변동 제보가 없어요.'
+                            : _locationLabel == '전체'
+                            ? '아직 제보가 없어요. 첫 제보를 남겨보세요!'
+                            : '$_locationLabel에 등록된 제보가 아직 없어요.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: CommunityFeedScreen.muted,
+                          fontFamily: CommunityFeedScreen.fontFamily,
+                          fontFamilyFallback: CommunityFeedScreen.fontFallback,
+                          fontSize: 12,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _refreshFeeds,
+                        child: const Text('새로고침'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       );
     }
     return RefreshIndicator(
-      onRefresh: _fetchFeeds,
+      onRefresh: _refreshFeeds,
       color: CommunityFeedScreen.blue,
       child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -851,46 +1048,53 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      key: ValueKey('community-filter-chip-$label'),
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        height: 44,
-        child: Center(
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            height: 34,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-              color: selected ? CommunityFeedScreen.blue : Colors.white,
-              border: Border.all(
-                color: selected
-                    ? CommunityFeedScreen.blue
-                    : const Color(0xFFE5E7EB),
-                width: 1.0,
+    // Read as a button that says whether it is the current filter, not as
+    // plain text (QA 10/7 #54).
+    return Semantics(
+      button: true,
+      inMutuallyExclusiveGroup: true,
+      selected: selected,
+      child: GestureDetector(
+        key: ValueKey('community-filter-chip-$label'),
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          height: 44,
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              height: 34,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: selected ? CommunityFeedScreen.blue : Colors.white,
+                border: Border.all(
+                  color: selected
+                      ? CommunityFeedScreen.blue
+                      : const Color(0xFFE5E7EB),
+                  width: 1.0,
+                ),
+                borderRadius: BorderRadius.circular(999),
+                boxShadow: selected
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF2563EB).withValues(alpha: 0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
               ),
-              borderRadius: BorderRadius.circular(999),
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: const Color(0xFF2563EB).withValues(alpha: 0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : null,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: selected ? Colors.white : const Color(0xFF374151),
-                fontFamily: CommunityFeedScreen.fontFamily,
-                fontFamilyFallback: CommunityFeedScreen.fontFallback,
-                fontSize: 12.5,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                height: 1.5,
+              alignment: Alignment.center,
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: selected ? Colors.white : const Color(0xFF374151),
+                  fontFamily: CommunityFeedScreen.fontFamily,
+                  fontFamilyFallback: CommunityFeedScreen.fontFallback,
+                  fontSize: 12.5,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  height: 1.5,
+                ),
               ),
             ),
           ),
@@ -925,353 +1129,384 @@ class _FeedCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
+      // The card opens the post: read it as a button (QA 10/7 #54).
+      child: Semantics(
+        button: true,
+        child: Material(
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Stack(
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 좌측: 본문 정보
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // 1. 태그 행 (위치 칩 + 상태 뱃지)
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3.5,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Stack(
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 좌측: 본문 정보
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // 1. 태그 행 (위치 칩 + 상태 뱃지)
+                            // 좁은 화면에서는 배지가 다음 줄로 내려가 넘치지 않습니다.
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3.5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEEF2FF),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.place_rounded,
+                                        size: 11,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Flexible(
+                                        child: Text(
+                                          item.location,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontFamily:
+                                                CommunityFeedScreen.fontFamily,
+                                            fontFamilyFallback:
+                                                CommunityFeedScreen
+                                                    .fontFallback,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEEF2FF),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.place_rounded,
-                                      size: 11,
-                                      color: Color(0xFF64748B),
+                                if (item.isPriceChange)
+                                  Container(
+                                    key: ValueKey(
+                                      'feed-price-change-${item.id}',
                                     ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      item.location,
-                                      style: const TextStyle(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3.5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFF3EA),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: const Color(0xFFFFF3EA),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      '가격 변동',
+                                      style: TextStyle(
                                         fontFamily:
                                             CommunityFeedScreen.fontFamily,
                                         fontFamilyFallback:
                                             CommunityFeedScreen.fontFallback,
                                         fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF64748B),
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFFF97316),
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                              if (item.status == '가격 변동') ...[
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3.5,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFF3EA),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
+                                if (item.status == '검토 중')
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3.5,
+                                    ),
+                                    decoration: BoxDecoration(
                                       color: const Color(0xFFFFF3EA),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: const Color(0xFFFDE68A),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      '검토 중',
+                                      style: TextStyle(
+                                        fontFamily:
+                                            CommunityFeedScreen.fontFamily,
+                                        fontFamilyFallback:
+                                            CommunityFeedScreen.fontFallback,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFFC2410C),
+                                      ),
                                     ),
                                   ),
-                                  child: const Text(
-                                    '가격 변동',
-                                    style: TextStyle(
-                                      fontFamily:
-                                          CommunityFeedScreen.fontFamily,
-                                      fontFamilyFallback:
-                                          CommunityFeedScreen.fontFallback,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFFF97316),
-                                    ),
-                                  ),
-                                ),
-                              ] else if (item.status == '검토 중') ...[
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3.5,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFF3EA),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                      color: const Color(0xFFFDE68A),
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    '검토 중',
-                                    style: TextStyle(
-                                      fontFamily:
-                                          CommunityFeedScreen.fontFamily,
-                                      fontFamilyFallback:
-                                          CommunityFeedScreen.fontFallback,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFFC2410C),
-                                    ),
-                                  ),
-                                ),
                               ],
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-
-                          // 2. 상호명 (볼드 타이틀)
-                          Text(
-                            item.storeName.isNotEmpty
-                                ? item.storeName
-                                : item.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontFamily: CommunityFeedScreen.fontFamily,
-                              fontFamilyFallback:
-                                  CommunityFeedScreen.fontFallback,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF0F172A),
-                              letterSpacing: -0.3,
-                              height: 1.3,
                             ),
-                          ),
-                          const SizedBox(height: 4),
+                            const SizedBox(height: 8),
 
-                          // 3. 대표 메뉴 및 가격 (블루 볼드 강조)
-                          if (item.menu.isNotEmpty || item.price.isNotEmpty)
-                            Row(
-                              children: [
-                                if (item.menu.isNotEmpty)
-                                  Flexible(
-                                    child: Text(
-                                      item.menu,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                            // 2. 상호명 (볼드 타이틀)
+                            Text(
+                              item.storeName.isNotEmpty
+                                  ? item.storeName
+                                  : item.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: CommunityFeedScreen.fontFamily,
+                                fontFamilyFallback:
+                                    CommunityFeedScreen.fontFallback,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF0F172A),
+                                letterSpacing: -0.3,
+                                height: 1.3,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+
+                            // 3. 대표 메뉴 및 가격 (블루 볼드 강조)
+                            if (item.menu.isNotEmpty || item.price.isNotEmpty)
+                              Row(
+                                children: [
+                                  if (item.menu.isNotEmpty)
+                                    Flexible(
+                                      child: Text(
+                                        item.menu,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontFamily:
+                                              CommunityFeedScreen.fontFamily,
+                                          fontFamilyFallback:
+                                              CommunityFeedScreen.fontFallback,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                          color: Color(0xFF374151),
+                                        ),
+                                      ),
+                                    ),
+                                  if (item.menu.isNotEmpty &&
+                                      item.price.isNotEmpty)
+                                    const ExcludeSemantics(
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                        ),
+                                        child: Text(
+                                          '·',
+                                          style: TextStyle(
+                                            color: Color(0xFFD1D5DB),
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  if (item.price.isNotEmpty)
+                                    Text(
+                                      item.price,
                                       style: const TextStyle(
                                         fontFamily:
                                             CommunityFeedScreen.fontFamily,
                                         fontFamilyFallback:
                                             CommunityFeedScreen.fontFallback,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: Color(0xFF374151),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF2563EB),
+                                        letterSpacing: -0.2,
                                       ),
                                     ),
-                                  ),
-                                if (item.menu.isNotEmpty &&
-                                    item.price.isNotEmpty)
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                    ),
-                                    child: Text(
-                                      '·',
-                                      style: TextStyle(
-                                        color: Color(0xFFD1D5DB),
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                if (item.price.isNotEmpty)
-                                  Text(
-                                    item.price,
-                                    style: const TextStyle(
-                                      fontFamily:
-                                          CommunityFeedScreen.fontFamily,
-                                      fontFamilyFallback:
-                                          CommunityFeedScreen.fontFallback,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w800,
-                                      color: Color(0xFF2563EB),
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          const SizedBox(height: 12),
-
-                          // 4. 메타 정보 (작성자, 시간, 반응 카운트)
-                          Row(
-                            children: [
-                              Text(
-                                item.author,
-                                style: const TextStyle(
-                                  fontFamily: CommunityFeedScreen.fontFamily,
-                                  fontFamilyFallback:
-                                      CommunityFeedScreen.fontFallback,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF64748B),
-                                ),
+                                ],
                               ),
-                              if (item.relativeTime.isNotEmpty) ...[
-                                const SizedBox(width: 5),
-                                const Text(
-                                  '·',
-                                  style: TextStyle(
-                                    color: Color(0xFFD1D5DB),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                const SizedBox(width: 5),
+                            const SizedBox(height: 12),
+
+                            // 4. 메타 정보 (작성자, 시간, 반응 카운트)
+                            Row(
+                              children: [
                                 Text(
-                                  item.relativeTime,
+                                  item.author,
                                   style: const TextStyle(
                                     fontFamily: CommunityFeedScreen.fontFamily,
                                     fontFamilyFallback:
                                         CommunityFeedScreen.fontFallback,
                                     fontSize: 12,
-                                    color: Color(0xFFCBD5E1),
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF64748B),
                                   ),
                                 ),
+                                if (item.relativeTime.isNotEmpty) ...[
+                                  const SizedBox(width: 5),
+                                  const ExcludeSemantics(
+                                    child: Text(
+                                      '·',
+                                      style: TextStyle(
+                                        color: Color(0xFFD1D5DB),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    item.relativeTime,
+                                    style: const TextStyle(
+                                      fontFamily:
+                                          CommunityFeedScreen.fontFamily,
+                                      fontFamilyFallback:
+                                          CommunityFeedScreen.fontFallback,
+                                      fontSize: 12,
+                                      color: Color(0xFFCBD5E1),
+                                    ),
+                                  ),
+                                ],
+                                const Spacer(),
+                                // 우측 하단 반응 카운트가 들어갈 공간을 항상 확보한다.
+                                const SizedBox(width: 76),
                               ],
-                              const Spacer(),
-                              // 우측 하단 반응 카운트가 들어갈 공간을 항상 확보한다.
-                              const SizedBox(width: 76),
-                            ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // 우측: 사진이 있을 때만 썸네일 노출
+                      if (hasImage) ...[
+                        const SizedBox(width: 14),
+                        Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: Image.network(
+                                item.imageUrl!,
+                                width: 84,
+                                height: 84,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => Container(
+                                  width: 84,
+                                  height: 84,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEEF2FF),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: const Icon(
+                                    Icons.storefront_rounded,
+                                    color: Color(0xFFCBD5E1),
+                                    size: 28,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (item.imageCount > 1)
+                              Positioned(
+                                right: 6,
+                                bottom: 6,
+                                child: Semantics(
+                                  label: '사진 ${item.imageCount}장',
+                                  excludeSemantics: true,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.65,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.image_rounded,
+                                          size: 10,
+                                          color: Colors.white,
+                                        ),
+                                        const SizedBox(width: 2.5),
+                                        Text(
+                                          '${item.imageCount}',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                  Positioned(
+                    key: ValueKey('feed-reactions-${item.id}'),
+                    right: 0,
+                    bottom: 0,
+                    // The bare counts read as '1 / 1'; name what they count
+                    // (QA 10/7 #54).
+                    child: Semantics(
+                      label: '도움이 돼요 ${item.likes}개, 댓글 ${item.comments}개',
+                      excludeSemantics: true,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            item.likedByMe
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            size: 13,
+                            color: item.likedByMe
+                                ? const Color(0xFFEF4444)
+                                : const Color(0xFFCBD5E1),
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            '${item.likes}',
+                            style: TextStyle(
+                              fontFamily: CommunityFeedScreen.fontFamily,
+                              fontFamilyFallback:
+                                  CommunityFeedScreen.fontFallback,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: item.likedByMe
+                                  ? const Color(0xFFEF4444)
+                                  : const Color(0xFF64748B),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            size: 13,
+                            color: Color(0xFFCBD5E1),
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            '${item.comments}',
+                            style: const TextStyle(
+                              fontFamily: CommunityFeedScreen.fontFamily,
+                              fontFamilyFallback:
+                                  CommunityFeedScreen.fontFallback,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF64748B),
+                            ),
                           ),
                         ],
                       ),
                     ),
-
-                    // 우측: 사진이 있을 때만 썸네일 노출
-                    if (hasImage) ...[
-                      const SizedBox(width: 14),
-                      Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: Image.network(
-                              item.imageUrl!,
-                              width: 84,
-                              height: 84,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => Container(
-                                width: 84,
-                                height: 84,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEEF2FF),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: const Icon(
-                                  Icons.storefront_rounded,
-                                  color: Color(0xFFCBD5E1),
-                                  size: 28,
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (item.imageCount > 1)
-                            Positioned(
-                              right: 6,
-                              bottom: 6,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.65),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.image_rounded,
-                                      size: 10,
-                                      color: Colors.white,
-                                    ),
-                                    const SizedBox(width: 2.5),
-                                    Text(
-                                      '${item.imageCount}',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-                Positioned(
-                  key: ValueKey('feed-reactions-${item.id}'),
-                  right: 0,
-                  bottom: 0,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        item.likedByMe
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        size: 13,
-                        color: item.likedByMe
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFFCBD5E1),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        '${item.likes}',
-                        style: TextStyle(
-                          fontFamily: CommunityFeedScreen.fontFamily,
-                          fontFamilyFallback: CommunityFeedScreen.fontFallback,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: item.likedByMe
-                              ? const Color(0xFFEF4444)
-                              : const Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Icon(
-                        Icons.chat_bubble_outline_rounded,
-                        size: 13,
-                        color: Color(0xFFCBD5E1),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        '${item.comments}',
-                        style: const TextStyle(
-                          fontFamily: CommunityFeedScreen.fontFamily,
-                          fontFamilyFallback: CommunityFeedScreen.fontFallback,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -1287,45 +1522,48 @@ class _NewReportButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFF97316), Color(0xFFF97316)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(999),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFF97316).withValues(alpha: 0.35),
-                blurRadius: 14,
-                offset: const Offset(0, 4),
+    return Semantics(
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFF97316), Color(0xFFF97316)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-            ],
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.edit_note_rounded, color: Colors.white, size: 19),
-              SizedBox(width: 5),
-              Text(
-                '제보하기',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: CommunityFeedScreen.fontFamily,
-                  fontFamilyFallback: CommunityFeedScreen.fontFallback,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.2,
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFF97316).withValues(alpha: 0.35),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
                 ),
-              ),
-            ],
+              ],
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.edit_note_rounded, color: Colors.white, size: 19),
+                SizedBox(width: 5),
+                Text(
+                  '제보하기',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: CommunityFeedScreen.fontFamily,
+                    fontFamilyFallback: CommunityFeedScreen.fontFallback,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1337,6 +1575,8 @@ class _FeedItem {
   const _FeedItem({
     required this.id,
     required this.location,
+    required this.cityProvince,
+    required this.isPriceChange,
     required this.title,
     required this.storeName,
     required this.menu,
@@ -1357,6 +1597,8 @@ class _FeedItem {
 
   final String id;
   final String location;
+  final String cityProvince;
+  final bool isPriceChange;
   final String title;
   final String storeName;
   final String menu;

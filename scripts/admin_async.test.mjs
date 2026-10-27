@@ -11,6 +11,8 @@ const deferred = () => {
   const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
   return { promise, resolve, reject };
 };
+// Let every pending microtask and promise continuation in the admin script run.
+const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 test('report deletion warning distinguishes public new stores from information reports', () => {
   const modal = html.match(/<dialog[^>]+id="deleteReportModal"[\s\S]*?<\/dialog>/)?.[0];
@@ -21,7 +23,7 @@ test('report deletion warning distinguishes public new stores from information r
   assert.doesNotMatch(modal, /승인된 제보는 지도에서도 즉시 제거/);
 });
 
-function harness(fetchImpl) {
+function harness(fetchImpl, { crypto } = {}) {
   const elements = new Map();
   const timers = new Map();
   const storage = new Map([['hm_admin_key', JSON.stringify({ key: 'test-key', savedAt: Date.now() })]]);
@@ -34,12 +36,13 @@ function harness(fetchImpl) {
       setSelectionRange() {}, setAttribute() {}, removeAttribute() {},
       showModal() { this.open = true; }, close() { this.open = false; },
       querySelector: () => null,
-      animate: () => ({}),
+      animate: () => ({ cancel() {} }),
     });
     return elements.get(id);
   };
   const context = vm.createContext({
     fetch: fetchImpl, AbortController, console,
+    ...(crypto ? { crypto } : {}),
     setTimeout: (callback, ms) => { timers.set(++timerId, { callback, ms }); return timerId; },
     clearTimeout: (id) => timers.delete(id),
     sessionStorage: {
@@ -53,26 +56,39 @@ function harness(fetchImpl) {
   });
   // Keep production request/state logic intact while observing which view it renders.
   const exports = `
+    const original = { renderReportsView, renderReviewsView, renderNoticesView };
     const rendered = [];
     renderReportsView = () => rendered.push('reports');
     renderReviewsView = () => rendered.push('reviews');
     renderNoticesView = () => rendered.push('notices');
-    globalThis.admin = { api, switchView, loadReports, handleError, rendered,
-      reportCounts,
+    globalThis.admin = { api, switchView, loadReports, handleError, rendered, original,
+      reportCounts, receiptCounts, loadReceipts, renderReceiptsView,
       fmtPrice, reportCard, receiptCard, inquiryOriginal, resolutionSummary,
       openUserActivity, openDeleteReportModal, doDeleteReport,
+      doSendNotification, doPublishNotice, doApprove,
+      openReportResolution, approveReportResolution,
+      renderResolutionFields, renderDashboard, renderCommentsView, doDeleteComment,
+      openRejectModal, doReject, openAnswerInquiryModal, doAnswerInquiry,
+      selectNotificationTarget, updateNotificationPreview, loadSentHistory, recallSentMessage,
       setReports: (reports) => { allReports = reports; },
+      setReviews: (reviews) => { allReviews = reviews; },
+      setComments: (comments) => { allComments = comments; },
+      setDeleteComment: (id) => { deleteCommentId = id; },
+      setInquiries: (inquiries) => { allInquiries = inquiries; },
+      setUsers: (members) => { users = members; },
+      setOverview: (value) => { overview = value; },
+      setView: (view) => { currentView = view; },
       invalidateAdminSession,
       newSession() {
         adminSessionGeneration += 1;
         sessionStorage.setItem(KEY_STORAGE, JSON.stringify({ key: 'new-key', savedAt: Date.now() }));
       },
-      state: () => ({ allReports, reportsLoaded, currentView, adminSessionGeneration }),
+      state: () => ({ allReports, reportsLoaded, allReceipts, receiptsLoaded, currentView, adminSessionGeneration, allComments }),
     };
   `;
   vm.runInContext(source.replace(/\n  boot\(\);\n\}\)\(\);\s*$/, `\n${exports}\n})();`), context);
   assert.ok(context.admin, 'test harness must export the actual admin script');
-  return { admin: context.admin, timers, storage, elements };
+  return { admin: context.admin, timers, storage, elements, el: getElement };
 }
 
 test('slow report response cannot replace a newly selected view or populate its cache', async () => {
@@ -99,7 +115,8 @@ test('actual report card includes type, original description, and explicit free 
   const { admin } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
   const card = admin.reportCard({id:'info',status:'PENDING',reportType:'STORE_INFO',changeType:'other',description:'<img> 검토해주세요',menu1:'무료 서비스',price1:'0',free1:true});
   assert.match(card, /매장 정보 신고/);
-  assert.match(card, /other/);
+  assert.match(card, /유형: 기타/);
+  assert.doesNotMatch(card, /other/);
   assert.match(card, /&lt;img&gt; 검토해주세요/);
   assert.match(card, /무료/);
 });
@@ -235,4 +252,568 @@ test('pending delete updates its original row if another report modal is opened'
   await pending;
   assert.deepEqual(admin.state().allReports.map((item) => item.id), ['second']);
   assert.equal(elements.get('deleteReportModal').open, true);
+});
+
+test('logout and session expiry clear the administrator key typed into the login field', () => {
+  const { el, timers, storage } = harness(() => new Promise(() => {}));
+  el('keyInput').value = '  typed-secret  ';
+  el('loginBtn').onclick();
+  assert.equal(el('keyInput').value, '', 'a submitted key must not stay in the hidden login field');
+  assert.equal(JSON.parse(storage.get('hm_admin_key')).key, 'typed-secret');
+
+  el('keyInput').value = 'autofilled-secret';
+  el('logoutBtn').onclick();
+  assert.equal(el('keyInput').value, '', 'logout must not leave a one-click re-login');
+  assert.equal(storage.has('hm_admin_key'), false);
+
+  el('keyInput').value = 'second-secret';
+  el('loginBtn').onclick();
+  el('keyInput').value = 'left-behind';
+  const expiry = [...timers.values()].find((timer) => timer.ms > 29 * 60 * 1000);
+  assert.ok(expiry, 'the 30-minute session expiry must be scheduled');
+  expiry.callback();
+  assert.equal(el('keyInput').value, '', 'expiry must clear the login field too');
+  assert.match(el('loginError').textContent, /만료/);
+});
+
+test('location correction blocks coordinates outside Korea and warns before a distant move', async () => {
+  let calls = 0;
+  const { admin, el } = harness(async () => { calls += 1; return { ok: true, status: 200, json: async () => ({}) }; });
+  const cityHall = { storeId: 's1', address: '서울 중구 세종대로 110', latitude: 37.5663, longitude: 126.9779, correctionRevision: 0 };
+  const report = { id: 'loc', status: 'PENDING', reportType: 'STORE_INFO', changeType: 'location_wrong',
+    storeName: '테스트 식당', storeId: 's1', currentStore: cityHall };
+  admin.setReports([report]);
+  admin.openReportResolution(report);
+  assert.equal(el('reportResolutionKind').value, 'LOCATION');
+  el('reportResolutionReason').value = '현장 확인';
+  el('resolutionAddress').value = '서울 중구 세종대로 110';
+  el('resolutionLatitude').value = '126.9779';
+  el('resolutionLongitude').value = '37.5663';
+  await admin.approveReportResolution();
+  assert.match(el('reportResolutionError').textContent, /국내 범위\(위도 33~39, 경도 124~132\)/);
+  assert.equal(el('confirmActionModal').open, false, 'swapped coordinates must be fixed before confirmation');
+
+  el('resolutionLatitude').value = '35.1796';
+  el('resolutionLongitude').value = '129.0756';
+  const pending = admin.approveReportResolution();
+  assert.equal(el('confirmActionModal').open, true);
+  assert.match(el('confirmActionHeading').textContent, /먼 위치/);
+  assert.match(el('confirmActionMessage').textContent, /주의: 현재 좌표에서 약 3\d\d\.\dkm 떨어진 곳입니다/);
+  el('confirmActionCancel').onclick();
+  await pending;
+  assert.equal(calls, 0, 'neither the invalid nor the cancelled correction may reach the server');
+
+  const nearby = admin.resolutionSummary('테스트 식당', 'LOCATION', cityHall,
+    { address: '서울 중구 세종대로 110-1', latitude: 37.5670, longitude: 126.9785 }, '입구 위치 보정');
+  assert.doesNotMatch(nearby, /주의/);
+});
+
+function notificationHarness(responder) {
+  const bodies = [];
+  let uuid = 0;
+  const setup = harness((url, options) => {
+    if (url.endsWith('/api/admin/notifications') || url.endsWith('/api/admin/notices')) {
+      bodies.push({ url, body: JSON.parse(options.body) });
+      return responder(options);
+    }
+    return Promise.resolve({ ok: true, status: 200, json: async () => ({ notifications: 9 }) });
+  }, { crypto: { randomUUID: () => `00000000-0000-4000-8000-${String(++uuid).padStart(12, '0')}` } });
+  setup.el('notifTargetPicker').hidden = true;
+  const confirmAndWait = async (action) => {
+    const pending = action();
+    setup.el('confirmActionAccept').onclick();
+    await flush();
+    return pending;
+  };
+  const sendNotification = (title, body) => {
+    setup.el('notifTitle').value = title;
+    setup.el('notifBody').value = body;
+    return confirmAndWait(() => setup.admin.doSendNotification());
+  };
+  const publishNotice = (title, body) => {
+    setup.el('noticeTitle').value = title;
+    setup.el('noticeBody').value = body;
+    return confirmAndWait(() => setup.admin.doPublishNotice());
+  };
+  return { ...setup, bodies, sendNotification, publishNotice };
+}
+
+const timeoutUntilAbort = (options) => new Promise((_resolve, reject) => options.signal.addEventListener(
+  'abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true }));
+
+test('timed-out broadcast keeps one request ID for the same draft and never asks for a blind retry', async () => {
+  let mode = 'timeout';
+  const { bodies, timers, el, storage, sendNotification } = notificationHarness((options) => (mode === 'timeout'
+    ? timeoutUntilAbort(options)
+    : Promise.resolve({ ok: true, status: 200, json: async () => (mode === 'skipped'
+      ? { sent: 0, skipped: 3, broadcast: true }
+      : { sent: 2, skipped: 1, broadcast: true }) })));
+
+  const first = sendNotification('점검 안내', '오늘 밤 점검합니다');
+  await flush();
+  const deadline = [...timers.values()].find((timer) => timer.ms === 45000);
+  assert.ok(deadline, 'the send must be covered by the 45-second deadline');
+  deadline.callback();
+  await first;
+  const firstId = bodies[0].body.requestId;
+  assert.match(firstId, /^[A-Za-z0-9_-]{8,64}$/);
+  assert.equal(bodies[0].body.audience, 'ALL');
+  assert.match(el('toast').textContent, /중복 발송되지 않아요/);
+  assert.doesNotMatch(el('toast').textContent, /잠시 후 다시 시도/);
+  assert.match(storage.get('hm_admin_send_drafts'), new RegExp(firstId), 'the draft ID must survive a page reload');
+
+  mode = 'skipped';
+  await sendNotification('점검 안내', '오늘 밤 점검합니다');
+  assert.equal(bodies[1].body.requestId, firstId, 'resending the same draft must reuse its request ID');
+  assert.equal(el('toast').textContent, '이미 모두 발송된 요청이라 다시 보내지 않았어요');
+
+  mode = 'partial';
+  await sendNotification('점검 안내', '오늘 밤 점검합니다');
+  assert.notEqual(bodies[2].body.requestId, firstId, 'a confirmed send closes the draft');
+  assert.equal(el('toast').textContent, '이미 받은 1명은 건너뛰고 새로 2명에게 보냈어요');
+
+  mode = 'timeout';
+  const edited = sendNotification('점검 안내', '내일 밤 점검합니다');
+  await flush();
+  [...timers.values()].find((timer) => timer.ms === 45000).callback();
+  await edited;
+  assert.notEqual(bodies[3].body.requestId, bodies[2].body.requestId, 'changed content needs a new request ID');
+  el('logoutBtn').onclick();
+  assert.equal(storage.has('hm_admin_send_drafts'), false, 'logout must drop unsent drafts');
+});
+
+test('session expiry preserves the broadcast draft ID so re-login retry does not duplicate', async () => {
+  let mode = 'timeout';
+  const { admin, bodies, timers, storage, sendNotification } = notificationHarness((options) => (mode === 'timeout'
+    ? timeoutUntilAbort(options)
+    : Promise.resolve({ ok: true, status: 200, json: async () => ({ sent: 0, skipped: 3, broadcast: true }) })));
+  const first = sendNotification('점검 안내', '오늘 밤 점검합니다');
+  await flush();
+  [...timers.values()].find((timer) => timer.ms === 45000).callback();
+  await first;
+  const firstId = bodies[0].body.requestId;
+  admin.invalidateAdminSession('관리자 세션이 만료되었습니다. 다시 로그인해주세요.');
+  assert.ok(storage.has('hm_admin_send_drafts'), 'session expiry must preserve unsent draft IDs');
+  admin.newSession();
+  mode = 'done';
+  await sendNotification('점검 안내', '오늘 밤 점검합니다');
+  assert.equal(bodies[1].body.requestId, firstId, 'retrying after session expiry must reuse the same request ID');
+});
+
+test('pending receipts older than the latest 500 processed receipts stay reviewable with a cap note', async () => {
+  const latest = Array.from({ length: 500 }, (_, i) => ({ id: `r-${i}`, status: 'APPROVED', storeName: `매장 ${i}`, price: '7000' }));
+  latest[0] = { id: 'r-0', status: 'PENDING', storeName: '최근 대기 영수증', price: '7000' };
+  const waiting = [{ ...latest[0] }, { id: 'old-pending-receipt', status: 'PENDING', storeName: '오래된 대기 영수증', price: '8000' }];
+  const requested = [];
+  const { admin, el } = harness(async (url) => {
+    requested.push(url);
+    return { ok: true, status: 200, json: async () => (url.includes('status=PENDING') ? waiting : latest) };
+  });
+  await admin.switchView('receipts');
+  assert.ok(requested.some((url) => url.endsWith('/api/admin/receipts?status=PENDING')));
+  assert.deepEqual([...admin.state().allReceipts.filter((r) => r.status === 'PENDING').map((r) => r.id)], ['r-0', 'old-pending-receipt']);
+  assert.equal(admin.state().allReceipts.length, 501);
+  assert.equal(el('pendingReceiptPill').textContent, '2');
+  assert.match(el('content').innerHTML, /오래된 대기 영수증/);
+  assert.match(el('content').innerHTML, /최신 500건과 그보다 오래된 대기 영수증만 불러왔습니다/);
+});
+
+test('timed-out notice reuses its request ID and explains that resending is safe', async () => {
+  let mode = 'timeout';
+  const { bodies, timers, el, publishNotice } = notificationHarness((options) => (mode === 'timeout'
+    ? timeoutUntilAbort(options)
+    : Promise.resolve({ ok: true, status: 200, json: async () => ({ sent: 0, skipped: 4, broadcast: true }) })));
+  const first = publishNotice('서비스 안내', '새 기능이 추가됐어요');
+  await flush();
+  [...timers.values()].find((timer) => timer.ms === 45000).callback();
+  await first;
+  assert.match(el('toast').textContent, /공지 등록 결과를 확인하지 못했어요/);
+  mode = 'done';
+  await publishNotice('서비스 안내', '새 기능이 추가됐어요');
+  assert.equal(bodies[1].url.endsWith('/api/admin/notices'), true);
+  assert.equal(bodies[1].body.requestId, bodies[0].body.requestId);
+  assert.equal(el('toast').textContent, '이미 모두 등록된 공지라 다시 등록하지 않았어요');
+});
+
+test('statistics refresh failure after a sent notification keeps the success visible', async () => {
+  const { admin, el } = harness(async (url) => (url.endsWith('/community/stats')
+    ? { ok: false, status: 500, json: async () => ({ message: '통계 조회 실패' }) }
+    : { ok: true, status: 200, json: async () => ({ sent: 3, skipped: 0, broadcast: true }) }));
+  el('notifTargetPicker').hidden = true;
+  el('notifTitle').value = '안내';
+  el('notifBody').value = '내용';
+  const pending = admin.doSendNotification();
+  el('confirmActionAccept').onclick();
+  await pending;
+  assert.match(el('toast').textContent, /일반 알림 발송 완료 — 3명에게 전송됨/);
+  assert.match(el('toast').textContent, /새로고침/);
+  assert.doesNotMatch(el('toast').textContent, /통계 조회 실패/);
+});
+
+test('pending reports older than the latest list window stay reviewable with a cap note', async () => {
+  const latest = Array.from({ length: 500 }, (_, i) => ({ id: `new-${i}`, status: 'APPROVED', storeName: `매장 ${i}` }));
+  latest[0] = { id: 'new-0', status: 'PENDING', storeName: '최근 대기' };
+  const waiting = [{ ...latest[0] }, { id: 'old-pending', status: 'PENDING', storeName: '오래된 대기' }];
+  const requested = [];
+  const { admin, el } = harness(async (url) => {
+    requested.push(url);
+    return { ok: true, status: 200, json: async () => (url.includes('status=PENDING') ? waiting : latest) };
+  });
+  await admin.switchView('reports');
+  assert.ok(requested.some((url) => url.endsWith('/api/admin/reports?status=PENDING')));
+  assert.deepEqual([...admin.state().allReports.filter((r) => r.status === 'PENDING').map((r) => r.id)], ['new-0', 'old-pending']);
+  assert.equal(admin.state().allReports.length, 501);
+  admin.original.renderReportsView();
+  assert.equal(el('pendingPill').textContent, '2');
+  assert.match(el('content').innerHTML, /오래된 대기/);
+  assert.match(el('content').innerHTML, /최신 500건과 그보다 오래된 대기 제보만 불러왔습니다/);
+
+  const crowded = Array.from({ length: 500 }, (_, i) => ({ id: `p-${i}`, status: 'PENDING' }));
+  const full = harness(async () => ({ ok: true, status: 200, json: async () => crowded }));
+  await full.admin.switchView('reports');
+  full.admin.original.renderReportsView();
+  assert.equal(full.el('pendingPill').textContent, '500+');
+  assert.match(full.el('content').innerHTML, /대기 제보도 최신 500건까지만 불러왔습니다/);
+});
+
+test('stale price change report explains the real conflict instead of asking to review again', async () => {
+  const { admin, el } = harness(async () => ({ ok: false, status: 409,
+    json: async () => ({ message: '제보 후 매장 정보가 변경되었습니다. 새 정보를 확인한 뒤 다시 검토해주세요.' }) }));
+  const report = { id: 'price', status: 'PENDING', changeType: 'rise', storeId: 's1', storeName: '김밥집',
+    menu1: '김치찌개', price1: '9000', baseRevision: 1,
+    currentStore: { storeId: 's1', menu2: '김치찌개', price2: '8000', free2: false, correctionRevision: 2 } };
+  const card = admin.reportCard(report);
+  assert.match(card, /현재 등록 가격: 김치찌개 8,000원/);
+  assert.match(card, /다른 수정이 먼저 승인되어 그대로 승인할 수 없습니다/);
+  assert.doesNotMatch(admin.reportCard({ ...report, baseRevision: 2 }), /그대로 승인할 수 없습니다/);
+
+  admin.setReports([report]);
+  const button = { disabled: false };
+  const pending = admin.doApprove('price', button);
+  el('confirmActionAccept').onclick();
+  await pending;
+  assert.match(el('toast').textContent, /다른 수정이 먼저 승인/);
+  assert.match(el('toast').textContent, /정보 신고로 검토/);
+  assert.doesNotMatch(el('toast').textContent, /다시 검토해주세요/);
+  assert.equal(button.disabled, false);
+});
+
+test('receipt OCR failures are labelled separately from real amount mismatches', () => {
+  const { admin } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
+  const base = { id: 'receipt', status: 'PENDING', storeName: '식당', price: '8000', imageUrls: [] };
+  const providerError = admin.receiptCard({ ...base, ocrStatus: 'OCR_PROVIDER_ERROR', ocrProviderAvailable: false, ocrScore: 0, ocrPriceMatch: false });
+  assert.match(providerError, /OCR 실패\(인식 서비스 오류\)/);
+  assert.doesNotMatch(providerError, /금액 불일치/);
+  const notRun = admin.receiptCard(base);
+  assert.match(notRun, /OCR 미실행/);
+  assert.doesNotMatch(notRun, /금액 불일치/);
+  const noText = admin.receiptCard({ ...base, ocrStatus: 'MANUAL_REVIEW_DATE_MISSING', ocrProviderAvailable: true,
+    ocrDetectedTextLength: 0, ocrScore: 0, ocrPriceMatch: false });
+  assert.match(noText, /글자를 읽지 못함/);
+  assert.doesNotMatch(noText, /금액 불일치/);
+  const noAmount = admin.receiptCard({ ...base, ocrStatus: 'MANUAL_REVIEW', ocrProviderAvailable: true,
+    ocrDetectedTextLength: 120, ocrDetectedPrice: 0, ocrScore: 50, ocrPriceMatch: false, ocrStoreMatch: true });
+  assert.match(noAmount, /금액 인식 실패/);
+  const mismatch = admin.receiptCard({ ...base, ocrStatus: 'MANUAL_REVIEW', ocrProviderAvailable: true,
+    ocrDetectedTextLength: 120, ocrDetectedPrice: 9500, ocrScore: 50, ocrPriceMatch: false });
+  assert.match(mismatch, /금액 불일치\(인식 9,500원\)/);
+  assert.match(admin.receiptCard({ ...base, ocrStatus: 'OCR_NOT_CONFIGURED', ocrProviderAvailable: false }), /OCR 키 미설정/);
+});
+
+test('review moderation rows show the author UID next to the client supplied name', () => {
+  const { admin, el } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
+  admin.setReviews([{ id: 'review', storeName: '식당', authorName: '운영자', authorUid: 'kakao_1234567890', stars: 5, content: '좋아요' }]);
+  admin.setView('reviews');
+  admin.original.renderReviewsView();
+  const html = el('content').innerHTML;
+  assert.match(html, /운영자/);
+  assert.match(html, /kakao_12…/);
+  assert.match(html, /title="kakao_1234567890"/);
+});
+
+test('price correction defaults to the current menu slot named in the report and shows the server same-value refusal', async () => {
+  const sameValue = "현재 메뉴·가격과 같습니다. 바뀐 내용이 없으면 '변경 없음'으로 처리해주세요.";
+  const { admin, el } = harness(async () => ({ ok: false, status: 400, json: async () => ({ message: sameValue }) }));
+  const report = { id: 'info-price', status: 'PENDING', reportType: 'STORE_INFO', changeType: 'price_mismatch',
+    storeName: '국수집', storeId: 's1', menu1: '칼국수', price1: '7000',
+    currentStore: { storeId: 's1', menu1: '김밥', price1: '4000', menu2: '칼국수', price2: '6500', correctionRevision: 0 } };
+  admin.setReports([report]);
+  admin.openReportResolution(report);
+  assert.equal(el('reportResolutionKind').value, 'PRICE');
+  assert.equal(el('resolutionMenuSlot').value, '2');
+  assert.match(el('reportResolutionFields').innerHTML, /<option value="2" selected>/);
+  assert.match(el('reportResolutionFields').innerHTML, /변경 전: 칼국수 6,500원/);
+
+  const unmatched = { ...report, id: 'info-new', menu1: '수제비' };
+  admin.setReports([unmatched]);
+  admin.openReportResolution(unmatched);
+  assert.equal(el('resolutionMenuSlot').value, '1', 'an unknown menu keeps the previous first-slot default');
+
+  admin.setReports([report]);
+  admin.openReportResolution(report);
+  el('resolutionMenu').value = '칼국수';
+  el('resolutionPrice').value = '6500';
+  el('resolutionFree').checked = false;
+  el('reportResolutionReason').value = '현장 가격 확인';
+  const pending = admin.approveReportResolution();
+  el('confirmActionAccept').onclick();
+  await pending;
+  assert.equal(el('reportResolutionError').textContent, sameValue);
+  assert.equal(el('toast').textContent, sameValue);
+});
+
+test('QA 2026-10-07 #13 #14: NO_CHANGE is counted apart from approvals and codes read as Korean labels', () => {
+  const { admin, el } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
+  const noChange = { id: 'nc', status: 'APPROVED', reportType: 'STORE_INFO', changeType: 'other',
+    resolution: 'NO_CHANGE', reviewReason: '현재 정보가 맞음', storeName: '학식당' };
+  const price = { id: 'p', status: 'APPROVED', changeType: 'rise', resolution: 'PRICE', storeName: '국밥집' };
+  const pendingInfo = { id: 'i', status: 'PENDING', reportType: 'STORE_INFO', changeType: 'location_wrong', storeName: '분식집' };
+  const unknown = { id: 'u', status: 'REJECTED', changeType: 'mystery_code', storeName: '카페' };
+  admin.setReports([noChange, price, pendingInfo, unknown]);
+  const counts = admin.reportCounts();
+  assert.equal(counts.APPROVED, 1);
+  assert.equal(counts.NO_CHANGE, 1);
+
+  const card = admin.reportCard(noChange);
+  assert.match(card, /<span class="badge NO_CHANGE">수정 없음<\/span>/);
+  assert.match(card, /유형: 기타/);
+  assert.match(card, /확정 처리: 수정 없음 · 검토 사유: 현재 정보가 맞음/);
+  assert.doesNotMatch(card, /NO_CHANGE<|other|>승인</);
+  assert.match(admin.reportCard(price), /유형: 가격 인상/);
+  assert.match(admin.reportCard(price), /확정 처리: 메뉴·가격 수정/);
+  assert.match(admin.reportCard(pendingInfo), />검토하기</);
+  assert.match(admin.reportCard(pendingInfo), /유형: 위치 정보가 틀려요/);
+  assert.doesNotMatch(admin.reportCard(pendingInfo), />승인</);
+  assert.match(admin.reportCard(unknown), /유형: mystery_code/, 'unknown codes stay visible');
+
+  admin.setView('reports');
+  admin.original.renderReportsView();
+  assert.match(el('content').innerHTML, /data-status="APPROVED">승인<span class="count">1<\/span>/);
+  assert.match(el('content').innerHTML, /data-status="NO_CHANGE">수정 없음<span class="count">1<\/span>/);
+
+  admin.setOverview({ users: 7, userStores: { total: 15, pending: 1, approved: 5, noChange: 1, rejected: 2, legacy: 7 } });
+  admin.setView('dashboard');
+  admin.renderDashboard();
+  assert.match(el('content').innerHTML, /승인 4 · 수정 없음 1 · 반려 2/);
+});
+
+test('QA 2026-10-07 #13: the information report dialog does not call a NO_CHANGE decision an approval', async () => {
+  const { admin, el } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
+  const report = { id: 'info', status: 'PENDING', reportType: 'STORE_INFO', changeType: 'other', storeName: '학식당',
+    storeId: 's1', currentStore: { storeId: 's1', menu1: '한식', price1: '6500', correctionRevision: 0 } };
+  admin.setReports([report]);
+  admin.openReportResolution(report);
+  assert.equal(el('reportResolutionKind').value, 'NO_CHANGE');
+  assert.equal(el('reportResolutionConfirm').textContent, '수정 없음으로 처리');
+  assert.match(el('reportResolutionOriginal').textContent, /유형: 기타/);
+  el('reportResolutionKind').value = 'PRICE';
+  admin.renderResolutionFields();
+  assert.equal(el('reportResolutionConfirm').textContent, '변경 확인 후 승인');
+
+  el('reportResolutionKind').value = 'NO_CHANGE';
+  admin.renderResolutionFields();
+  el('reportResolutionReason').value = '현재 정보가 맞음';
+  const pending = admin.approveReportResolution();
+  assert.equal(el('confirmActionHeading').textContent, '수정 없음 처리 확인');
+  assert.match(el('confirmActionMessage').textContent, /매장 정보 수정 없음/);
+  assert.match(el('confirmActionMessage').textContent, /수정 없음으로 처리할까요\?$/);
+  el('confirmActionAccept').onclick();
+  await pending;
+  assert.equal(el('toast').textContent, '수정 없음으로 처리 완료');
+});
+
+test('QA 2026-10-07 #47: saving an empty reject reason or answer explains what is missing', async () => {
+  let calls = 0;
+  const { admin, el } = harness(async () => { calls += 1; return { ok: true, status: 200, json: async () => ({}) }; });
+  admin.openRejectModal('r1', '학식당');
+  assert.equal(el('rejectReasonError').hidden, true);
+  el('rejectReason').value = '   ';
+  await admin.doReject();
+  assert.equal(el('rejectReasonError').hidden, false);
+  assert.match(el('rejectReasonError').textContent, /반려 사유를 입력해주세요/);
+  el('rejectReason').oninput();
+  assert.equal(el('rejectReasonError').hidden, true, 'typing clears the message');
+
+  admin.setInquiries([{ id: 'q1', title: '문의', content: '내용' }]);
+  admin.openAnswerInquiryModal('q1');
+  el('answerInquiryText').value = '';
+  await admin.doAnswerInquiry();
+  assert.equal(el('answerInquiryError').hidden, false);
+  assert.match(el('answerInquiryError').textContent, /답변 내용을 입력해주세요/);
+  admin.openAnswerInquiryModal('q1');
+  assert.equal(el('answerInquiryError').hidden, true, 'reopening starts without the old message');
+  assert.equal(calls, 0);
+});
+
+test('QA 2026-10-07 #48 #57: comment rows show post and author and replies leave with their parent', async () => {
+  let deletedIds = ['c1', 'r1'];
+  const { admin, el } = harness(async () => ({ ok: true, status: 200,
+    json: async () => ({ success: true, id: 'c1', ...(deletedIds ? { deletedIds } : {}) }) }));
+  const comments = () => [
+    { id: 'r1', parentId: 'c1', isReply: true, content: '답글', userId: 'kakao:4912345678', authorName: '기미서',
+      postId: 'post-1', postStoreName: '노랑통닭', postMenu: '알싸한 마늘 치킨', postPrice: '24000' },
+    { id: 'c1', parentId: null, isReply: false, content: '댓글', userId: 'kakao:5012345678', authorName: '태관이',
+      postId: 'post-1', postStoreName: '노랑통닭', postMenu: '알싸한 마늘 치킨', postPrice: '24000' },
+    { id: 'c2', parentId: null, isReply: false, content: '지워진 글의 댓글', userId: 'kakao:5099999999', postId: 'OQvxe3Rl0000' },
+  ];
+  admin.setComments(comments());
+  admin.setView('comments');
+  admin.renderCommentsView();
+  const html = el('content').innerHTML;
+  assert.match(html, /기미서<div class="uid-cell" title="kakao:4912345678">kakao:49…<\/div>/);
+  assert.match(html, /<b title="post-1">노랑통닭<\/b>/);
+  assert.match(html, /알싸한 마늘 치킨 24,000원/);
+  assert.match(html, /OQvxe3Rl…<\/span><div[^>]*>게시글 정보 없음/);
+  assert.match(html, /data-summary="댓글 · 노랑통닭 게시글 · 댓글 \(답글 1개 포함\)"/);
+
+  admin.setDeleteComment('c1');
+  await admin.doDeleteComment();
+  assert.deepEqual(admin.state().allComments.map((c) => c.id), ['c2']);
+  assert.equal(el('toast').textContent, '댓글 삭제 완료 · 답글 1개도 함께 삭제됨');
+
+  deletedIds = null; // 이전 서버 응답에도 답글 줄이 남지 않습니다.
+  admin.setComments(comments());
+  admin.setDeleteComment('c1');
+  await admin.doDeleteComment();
+  assert.deepEqual(admin.state().allComments.map((c) => c.id), ['c2']);
+});
+
+test('QA 2026-10-07 #3: sent notices are listed per send and a recall removes that send', async () => {
+  const calls = [];
+  const items = [
+    { id: '2026-09-10T06:00:00.123Z~0123456789abcdef', type: 'notice', title: '점검 안내', body: '내일 점검합니다',
+      createdAt: '2026-09-10T06:00:00.123Z', recipients: 7, readCount: 3 },
+    { id: '2026-08-20T01:00:00.5Z~fedcba9876543210', type: 'admin', title: 'dd', body: '테스트',
+      createdAt: '2026-08-20T01:00:00.5Z', recipients: 1, readCount: 0, targetUid: 'kakao:4912345678', targetName: '기미서' },
+  ];
+  const { admin, el } = harness(async (url, options = {}) => {
+    calls.push({ url, method: options.method || 'GET' });
+    return { ok: true, status: 200, json: async () => (options.method === 'DELETE'
+      ? { success: true, deleted: 7 } : { items, truncated: false }) };
+  });
+  await admin.loadSentHistory('notice');
+  const html = el('noticeHistory').innerHTML;
+  assert.match(html, /점검 안내/);
+  assert.match(html, /받은 회원 7명 · 읽음 3명/);
+  assert.match(html, /받은 회원: 기미서 \(kakao:49…\) · 안 읽음/);
+  assert.match(html, /이전 방식 발송/);
+  assert.equal(el('noticeHistoryCount').textContent, '2건');
+
+  const pending = admin.recallSentMessage('notice', items[0].id, { disabled: false });
+  assert.match(el('confirmActionMessage').textContent, /^「점검 안내」\n받은 회원 7명 · 읽음 3명\n/);
+  assert.match(el('confirmActionMessage').textContent, /알림함과 웹 접속 팝업에서 지워지며 되돌릴 수 없습니다\.$/);
+  assert.equal(el('confirmActionAccept').textContent, '회수');
+  el('confirmActionAccept').onclick();
+  await pending;
+  const recall = calls.find((call) => call.method === 'DELETE');
+  assert.ok(recall.url.endsWith('/api/admin/notices/' + encodeURIComponent(items[0].id)));
+  assert.doesNotMatch(el('noticeHistory').innerHTML, /점검 안내/);
+  assert.match(el('noticeHistory').innerHTML, /dd/);
+  assert.equal(el('toast').textContent, '공지 회수 완료 — 회원 7명의 알림함에서 삭제됨');
+
+  const pendingDecline = admin.recallSentMessage('notice', items[1].id, { disabled: false });
+  el('confirmActionCancel').onclick();
+  await pendingDecline;
+  assert.equal(calls.filter((call) => call.method === 'DELETE').length, 1, 'a cancelled recall must not reach the server');
+});
+
+test('QA 2026-10-07 #3: sent-list failures stay in the list and older responses are ignored', async () => {
+  const old = harness(async () => ({ ok: false, status: 405, json: async () => ({}) }));
+  old.el('toast').textContent = '이전 안내';
+  await old.admin.loadSentHistory('general');
+  assert.match(old.el('notificationHistory').innerHTML, /서버를 새 버전으로 배포한 뒤 사용할 수 있습니다/);
+  assert.equal(old.el('toast').textContent, '이전 안내', 'a list failure must not replace another notice');
+
+  const first = deferred(), second = deferred();
+  let calls = 0;
+  const { admin, el } = harness(async () => ({ ok: true, status: 200,
+    json: () => (++calls === 1 ? first.promise : second.promise) }));
+  const a = admin.loadSentHistory('notice');
+  const b = admin.loadSentHistory('notice');
+  await Promise.resolve();
+  second.resolve({ items: [{ id: 'x', title: '새 목록', recipients: 2, readCount: 0 }] });
+  await b;
+  first.resolve({ items: [{ id: 'y', title: '옛 목록', recipients: 2, readCount: 0 }] });
+  await a;
+  assert.match(el('noticeHistory').innerHTML, /새 목록/);
+  assert.doesNotMatch(el('noticeHistory').innerHTML, /옛 목록/);
+});
+
+test('QA 2026-10-07 #4: a targeted notification confirmation names the recipient first', async () => {
+  const posted = [];
+  const { admin, el } = harness(async (_url, options = {}) => {
+    if (options.method === 'POST') posted.push(options.body);
+    return { ok: true, status: 200, json: async () => ({}) };
+  });
+  admin.setUsers([
+    { id: 'kakao:4912345678', nickname: '기미서', email: 'kim@example.com' },
+    { id: 'kakao:5012345678', nickname: '태관이', email: 'tae@example.com' },
+  ]);
+  el('notifTargetPicker').hidden = false;
+  el('notifTargetResults').hidden = false;
+  admin.selectNotificationTarget('kakao:4912345678');
+  assert.equal(el('notifTargetResults').hidden, true, 'choosing a member closes the list');
+  el('notifTitle').value = '점검 안내';
+  el('notifBody').value = '오늘 밤 점검합니다';
+  const pending = admin.doSendNotification();
+  assert.equal(el('confirmActionMessage').textContent,
+    '받는 회원: 기미서\nkim@example.com · kakao:49…\n제목: 점검 안내\n이 회원에게만 알림을 보낼까요?');
+  assert.equal(el('confirmActionHeading').textContent, '특정 회원 알림 발송 확인');
+  assert.equal(el('confirmActionAccept').textContent, '발송하기');
+  el('confirmActionCancel').onclick();
+  await pending;
+  assert.equal(posted.length, 0);
+
+  admin.setReports([{ id: 'p', status: 'PENDING', storeName: '국밥집' }]);
+  const approval = admin.doApprove('p', { disabled: false });
+  assert.equal(el('confirmActionAccept').textContent, '확인', 'other confirmations keep the default button');
+  el('confirmActionCancel').onclick();
+  await approval;
+});
+
+test('QA 2026-10-07 #49: the notification composer shows character counts and an inbox preview', () => {
+  const { admin, el } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
+  el('notifTitle').value = '점검 안내';
+  el('notifBody').value = '  오늘 밤 10시부터 점검합니다  ';
+  admin.updateNotificationPreview();
+  assert.equal(el('notifTitleCount').textContent, '5 / 100');
+  assert.equal(el('notifBodyCount').textContent, '20 / 500');
+  assert.equal(el('notifPreviewTitle').textContent, '점검 안내');
+  assert.equal(el('notifPreviewBody').textContent, '오늘 밤 10시부터 점검합니다');
+  el('notifTitle').value = '';
+  el('notifBody').value = '';
+  admin.updateNotificationPreview();
+  assert.equal(el('notifPreviewTitle').textContent, '알림 제목이 여기에 표시됩니다');
+  assert.equal(el('notifBodyCount').textContent, '0 / 500');
+});
+
+
+test('report LEGACY filter cannot hide pending receipts and each view retains its own tab', async () => {
+  const { admin, el } = harness(async (url) => ({ ok: true, status: 200, json: async () =>
+    url.includes('/receipts') ? [{ id: 'receipt-pending', status: 'PENDING', storeName: '검토 대기 매장' },
+      { id: 'receipt-rejected', status: 'REJECTED', storeName: '반려 매장' }]
+      : [{ id: 'legacy', status: 'LEGACY', storeName: '미분류 매장' }] }));
+  let tabs = [];
+  el('content').querySelectorAll = (selector) => {
+    if (selector === '.tab' || selector === '[data-receipt-status]') {
+      const attribute = selector === '.tab' ? 'data-status' : selector.slice(1, -1);
+      tabs = [...el('content').innerHTML.matchAll(new RegExp(attribute + '=\"([^\"]+)\"', 'g'))]
+        .map((m) => ({ dataset: { status: m[1], receiptStatus: m[1] } }));
+      return tabs;
+    }
+    return [];
+  };
+  await admin.switchView('reports');
+  admin.original.renderReportsView();
+  tabs.find((tab) => tab.dataset.status === 'LEGACY').onclick();
+  await admin.switchView('receipts');
+  assert.match(el('content').innerHTML, /검토 대기 매장/);
+  assert.doesNotMatch(el('content').innerHTML, /반려 매장/);
+  tabs.find((tab) => tab.dataset.receiptStatus === 'REJECTED').onclick();
+  assert.match(el('content').innerHTML, /반려 매장/);
+  await admin.switchView('reports');
+  admin.original.renderReportsView();
+  assert.match(el('content').innerHTML, /class="tab active" data-status="LEGACY"/);
+  await admin.switchView('receipts');
+  assert.match(el('content').innerHTML, /class="tab active" data-receipt-status="REJECTED"/);
 });

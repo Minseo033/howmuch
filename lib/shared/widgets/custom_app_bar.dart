@@ -30,19 +30,17 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       shape: const Border(bottom: BorderSide(color: AppColors.border)),
       leading:
           leading ??
+          // Named by the tooltip alone: a Semantics label around it made a
+          // second node that screen readers read too (QA 10/7 #51).
           (canPop
-              ? Semantics(
-                  button: true,
-                  label: '뒤로가기',
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    alignment: Alignment.center,
-                    tooltip: '뒤로가기',
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(
-                      Icons.arrow_back_rounded,
-                      size: HowmuchTopBar.iconSize,
-                    ),
+              ? IconButton(
+                  padding: EdgeInsets.zero,
+                  alignment: Alignment.center,
+                  tooltip: '뒤로가기',
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    size: HowmuchTopBar.iconSize,
                   ),
                 )
               : null),

@@ -8,6 +8,7 @@ import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.QuerySnapshot;
 import com.google.cloud.firestore.Transaction;
+import com.google.cloud.firestore.WriteResult;
 import com.howmuch.dto.ReportApprovalRequest;
 import java.util.HashMap;
 import java.util.List;
@@ -146,6 +147,27 @@ class FirebaseServiceReportApprovalTransactionTest {
         assertThat(service.getStoreById("store_a")).containsEntry("price1", "6000");
     }
 
+    /** QA 2026-10-07 #13: 수정 없음 알림은 '승인'이라 하지 않되, 설치된 앱이 분류하는 type은 그대로입니다. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void noChangeTellsTheReporterTheReviewEndedInsteadOfCallingItApproved() throws Exception {
+        report.put("reporterId", "user-9");
+        CollectionReference notifications = mock(CollectionReference.class);
+        DocumentReference notificationRef = mock(DocumentReference.class);
+        when(db.collection("notifications")).thenReturn(notifications);
+        when(notifications.document(anyString())).thenReturn(notificationRef);
+        when(notificationRef.create(anyMap())).thenReturn(ApiFutures.immediateFuture(mock(WriteResult.class)));
+
+        service.approveReport("report_a", approval("NO_CHANGE", Map.of()));
+
+        ArgumentCaptor<Map<String, Object>> created = ArgumentCaptor.forClass(Map.class);
+        verify(notificationRef).create(created.capture());
+        assertThat(created.getValue()).containsEntry("title", "제보 검토가 끝났어요")
+                .containsEntry("type", "REPORT_APPROVED").containsEntry("relatedReportId", "report_a")
+                .containsEntry("userId", "user-9");
+        assertThat(String.valueOf(created.getValue().get("body"))).contains("국밥집").contains("변경 없이");
+    }
+
     @Test void invalidNewStoreZeroCannotBeApprovedBypassingSubmissionValidation() {
         report.remove("reportType"); report.remove("changeType"); report.put("menu1", "국밥"); report.put("price1", "0");
         assertThatThrownBy(() -> service.approveReport("report_a")).isInstanceOf(IllegalArgumentException.class);
@@ -190,7 +212,7 @@ class FirebaseServiceReportApprovalTransactionTest {
         when(latest.getString("status")).thenReturn("APPROVED");
         when(transaction.get(reportRef)).thenReturn(ApiFutures.immediateFuture(latest));
         var edit = new com.howmuch.dto.UserReportRequest(); edit.setStoreId("store_a"); edit.setStoreName("국밥집");
-        edit.setReportType("STORE_INFO"); edit.setChangeType("other"); edit.setAddress("서울 중구");
+        edit.setReportType("STORE_INFO"); edit.setChangeType("price_mismatch"); edit.setAddress("서울 중구");
         assertThatThrownBy(() -> service.updateUserReport("report_a", "user-1", edit))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("승인");
         verify(transaction, never()).update(any(DocumentReference.class), anyMap());
@@ -208,7 +230,7 @@ class FirebaseServiceReportApprovalTransactionTest {
             return ApiFutures.immediateFuture(result);
         });
         var edit = new com.howmuch.dto.UserReportRequest(); edit.setStoreId("store_a"); edit.setStoreName("국밥집");
-        edit.setReportType("STORE_INFO"); edit.setChangeType("other"); edit.setAddress("서울 중구");
+        edit.setReportType("STORE_INFO"); edit.setChangeType("price_mismatch"); edit.setAddress("서울 중구");
         service.updateUserReport("report_a", "user-1", edit);
         var cached = (List<Map<String, Object>>) ReflectionTestUtils.getField(service, "cachedUserStores");
         assertThat(cached.getFirst()).containsEntry("status", "APPROVED");

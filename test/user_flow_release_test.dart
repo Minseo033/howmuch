@@ -134,6 +134,7 @@ void main() {
   testWidgets('allowed web location still opens actionable settings guidance', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -158,10 +159,22 @@ void main() {
     await tester.tap(find.text('위치 관리'));
     await tester.pumpAndSettle();
     expect(find.text('위치 권한 관리'), findsOneWidget);
-    expect(find.textContaining('Chrome: 주소창'), findsOneWidget);
+    // One step per browser, each read out as a whole sentence.
+    expect(
+      find.bySemanticsLabel(RegExp(r'Chrome\s+주소창 왼쪽 사이트 정보 → 사이트 설정 → 위치')),
+      findsOneWidget,
+    );
+    expect(
+      find.bySemanticsLabel(RegExp(r'Safari\s+웹사이트 설정의 위치 항목')),
+      findsOneWidget,
+    );
+    // Nothing to ask the browser once it has answered, so re-checking is
+    // the main action.
+    expect(find.text('위치 사용 허용 요청'), findsNothing);
     await tester.tap(find.text('권한 다시 확인'));
     await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(HowmuchDialog), findsNothing);
+    semantics.dispose();
   });
 
   testWidgets(

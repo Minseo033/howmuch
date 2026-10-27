@@ -93,6 +93,11 @@ void main() {
                 200,
               );
             }
+            // A server without the batch endpoint (contract C3) keeps the
+            // per-item fallback covered.
+            if (request.url.path.endsWith('/read-all')) {
+              return http.Response('', 404);
+            }
             final id = request.url.pathSegments[2];
             requests.add(id);
             return http.Response('{}', id == 'b' && failB ? 500 : 200);
@@ -140,6 +145,11 @@ void main() {
                 200,
               );
             }
+            // A server without the batch endpoint (contract C3) keeps the
+            // per-item fallback covered.
+            if (request.url.path.endsWith('/read-all')) {
+              return http.Response('', 404);
+            }
             requests.add(request.url.pathSegments[2]);
             return http.Response('{}', authorized ? 200 : 401);
           }),
@@ -174,6 +184,11 @@ void main() {
                 ]),
                 200,
               );
+            }
+            // A server without the batch endpoint (contract C3) keeps the
+            // per-item fallback covered.
+            if (request.url.path.endsWith('/read-all')) {
+              return http.Response('', 404);
             }
             final id = request.url.pathSegments[2];
             requests.add(id);
@@ -231,6 +246,86 @@ void main() {
       expect(state.map((item) => item.isUnread), [true, false, true]);
     },
   );
+
+  test('bulk read uses the batch endpoint when the server has it', () async {
+    final posts = <String>[];
+    var status = 401;
+    final notifier = NotificationsNotifier(
+      NotificationApiService(
+        MockClient((request) async {
+          if (request.method == 'GET') {
+            return http.Response(
+              jsonEncode([
+                for (final id in ['a', 'b']) {'id': id, 'isRead': false},
+              ]),
+              200,
+            );
+          }
+          posts.add(request.url.path);
+          return http.Response('{"success":true,"updated":2}', status);
+        }),
+      ),
+    );
+    addTearDown(notifier.dispose);
+    await notifier.loadNotifications();
+
+    await expectLater(
+      notifier.markAllRead(),
+      throwsA(
+        isA<NotificationApiException>().having(
+          (e) => e.isUnauthorized,
+          'unauthorized',
+          isTrue,
+        ),
+      ),
+    );
+    expect(notifier.state.requireValue.every((n) => n.isUnread), isTrue);
+
+    status = 200;
+    await notifier.markAllRead();
+    expect(posts, [
+      '/api/notifications/read-all',
+      '/api/notifications/read-all',
+    ]);
+    expect(notifier.state.requireValue.every((n) => !n.isUnread), isTrue);
+    await notifier.loadNotifications(isRefresh: true);
+    expect(
+      notifier.state.requireValue.every((n) => !n.isUnread),
+      isTrue,
+      reason: 'a refresh before the server catches up must not undo it',
+    );
+  });
+
+  test('maps notification targets from the server contract', () async {
+    final service = NotificationApiService(
+      MockClient(
+        (_) async => http.Response(
+          jsonEncode([
+            {
+              'id': 'p',
+              'type': 'PRICE_ALERT',
+              'storeId': 'store-1',
+              'relatedReportId': 'report-1',
+            },
+            {'id': 'r', 'type': 'REPORT_REJECTED', 'relatedReportId': 'r-9'},
+            {'id': 'c', 'type': 'FEED_COMMENT', 'relatedPostId': 'post 1'},
+            {'id': 'old', 'type': 'FEED_COMMENT', 'relatedPostId': null},
+          ]),
+          200,
+        ),
+      ),
+    );
+    final items = await service.fetchNotifications();
+    final destinations = items.map(notificationDestinationFor).toList();
+
+    expect(destinations[0]!.storeId, 'store-1');
+    expect(destinations[1]!.route, '${AppRoutes.reportDetailV2}?id=r-9');
+    expect(
+      destinations[2]!.route,
+      '${AppRoutes.communityPostDetail}?id=post+1',
+    );
+    expect(destinations[3]!.route, AppRoutes.communityFeed);
+  });
 
   test('a stale refresh cannot undo a successful read', () async {
     final refresh = Completer<http.Response>();

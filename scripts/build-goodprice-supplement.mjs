@@ -3,6 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertSafeSupplementApply } from './data_integrity.mjs';
+import { confirmedMenuPrice } from './goodprice_menus.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const snapshotPath = path.join(root, 'howmuch_backend/src/main/resources/stores-snapshot.json');
@@ -164,11 +165,12 @@ async function mapLimit(items, limit, worker) {
 function selectedMenus(menuList) {
   if (!Array.isArray(menuList)) return [];
   return menuList
-    .filter((menu) => cleanText(menu.menuNm).length > 0
-      && Number.isFinite(Number(menu.menuPc)) && Number(menu.menuPc) >= 0)
-    .sort((a, b) => (b.menuDsgnYn === 'Y') - (a.menuDsgnYn === 'Y'))
+    // 빈 가격·숫자 아닌 가격은 0원 메뉴로 만들지 않고 건너뜁니다(WEB-ADM-12).
+    .map((menu) => ({ menu, price: confirmedMenuPrice(menu.menuPc) }))
+    .filter(({ menu, price }) => cleanText(menu.menuNm).length > 0 && price !== null)
+    .sort((a, b) => (b.menu.menuDsgnYn === 'Y') - (a.menu.menuDsgnYn === 'Y'))
     .slice(0, 4)
-    .map((menu) => ({ name: cleanText(menu.menuNm), price: String(menu.menuPc) }));
+    .map(({ menu, price }) => ({ name: cleanText(menu.menuNm), price }));
 }
 
 function snapshotDuplicateReasons(candidate, snapshot) {

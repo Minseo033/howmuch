@@ -3,10 +3,14 @@ import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart';
 import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
+import 'package:howmuch/shared/widgets/login_required_state.dart';
 
 class PriceAlertSubscriptionScreen extends ConsumerStatefulWidget {
   const PriceAlertSubscriptionScreen({super.key});
@@ -71,18 +75,50 @@ class _PriceAlertSubscriptionScreenState
     if (mounted) context.pop();
   }
 
+  /// Login opens on top of this screen and comes back here, as a member or
+  /// still as a guest. The alerts follow the account and load by themselves
+  /// on every login state change; a load that failed while login was still
+  /// finishing is asked for again.
+  Future<void> _logIn() async {
+    await openLoginFlow(context);
+    if (!mounted || !ApiClient.isAuthenticated) return;
+    if (ref.read(priceAlertSettingsProvider).hasError) {
+      ref.read(priceAlertSettingsProvider.notifier).loadSettings();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // A login state change loads another account's alerts (or none), so the
+    // next alerts shown become the saved ones.
+    ref.listen(
+      priceAlertSettingsProvider.notifier,
+      (_, _) => _savedSettings = null,
+    );
     final settingsState = ref.watch(priceAlertSettingsProvider);
     return settingsState.when(
-      loading: () => const _PriceAlertLoading(),
-      error: (error, _) => _PriceAlertError(
-        message: error is PriceAlertApiException
-            ? error.message
-            : '가격 알림 매장 목록을 불러오지 못했어요.',
-        onRetry: () =>
-            ref.read(priceAlertSettingsProvider.notifier).loadSettings(),
-      ),
+      loading: () =>
+          _PriceAlertLoading(onBack: _closeOrGoToNotificationSettings),
+      // A guest has no alerts to load, and retrying fails the same way. A
+      // member turned down (403) would come straight back from login, so
+      // they get the retry.
+      error: (error, _) => !ApiClient.isAuthenticated
+          ? _PriceAlertStatusFrame(
+              onBack: _closeOrGoToNotificationSettings,
+              child: LoginRequiredState(
+                description: '로그인하면 찜한 매장의 가격 변동 알림을 받을 수 있어요.',
+                actionLabel: '로그인하기',
+                onAction: _logIn,
+              ),
+            )
+          : _PriceAlertError(
+              message: error is PriceAlertApiException
+                  ? error.message
+                  : '잠시 후 다시 시도해 주세요.',
+              onRetry: () =>
+                  ref.read(priceAlertSettingsProvider.notifier).loadSettings(),
+              onBack: _closeOrGoToNotificationSettings,
+            ),
       data: (settings) {
         _savedSettings ??= settings;
         return _buildContent(context, settings);
@@ -231,17 +267,27 @@ class _PriceAlertSubscriptionScreenState
                   setState(() => _isSaving = true);
                   final messenger = ScaffoldMessenger.of(context);
                   messenger.clearSnackBars();
-                  final saved = await ref
-                      .read(priceAlertSettingsProvider.notifier)
-                      .saveSettings(settings);
+                  final notifier = ref.read(
+                    priceAlertSettingsProvider.notifier,
+                  );
+                  final saved = await notifier.saveSettings(settings);
                   if (!context.mounted) return;
                   if (!saved) {
-                    setState(() => _isSaving = false);
+                    final reload = notifier.lastSaveNeedsReload;
+                    setState(() {
+                      _isSaving = false;
+                      // The reloaded list becomes the new saved baseline.
+                      if (reload) _savedSettings = null;
+                    });
                     messenger.showSnackBar(
                       HowmuchSnackBar(
-                        content: Text('가격 알림 저장에 실패했어요. 다시 시도해 주세요.'),
+                        content: Text(
+                          notifier.lastSaveError ??
+                              '가격 알림 저장에 실패했어요. 다시 시도해 주세요.',
+                        ),
                       ),
                     );
+                    if (reload) await notifier.loadSettings();
                     return;
                   }
                   _savedSettings = settings;
@@ -261,43 +307,127 @@ class _PriceAlertSubscriptionScreenState
 }
 
 class _PriceAlertLoading extends StatelessWidget {
-  const _PriceAlertLoading();
+  const _PriceAlertLoading({required this.onBack});
+
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.white,
-      body: Center(child: CircularProgressIndicator()),
+    return _PriceAlertStatusFrame(
+      onBack: onBack,
+      child: const Center(child: CircularProgressIndicator()),
     );
   }
 }
 
 class _PriceAlertError extends StatelessWidget {
-  const _PriceAlertError({required this.message, required this.onRetry});
+  const _PriceAlertError({
+    required this.message,
+    required this.onRetry,
+    required this.onBack,
+  });
 
   final String message;
   final VoidCallback onRetry;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+    return _PriceAlertStatusFrame(
+      onBack: onBack,
+      // The 알림 설정 error block, so both settings pages fail alike.
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(message, textAlign: TextAlign.center),
+              Container(
+                width: 60,
+                height: 60,
+                decoration: const BoxDecoration(
+                  color: AppColors.surface,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.error_outline_rounded,
+                  color: AppColors.warning,
+                  size: 30,
+                ),
+              ),
               const SizedBox(height: 16),
-              OutlinedButton.icon(
+              const Text(
+                '가격 알림을 불러오지 못했어요',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: PriceAlertSubscriptionScreen.ink,
+                  fontFamily: PriceAlertSubscriptionScreen.fontFamily,
+                  fontFamilyFallback: PriceAlertSubscriptionScreen.fontFallback,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: PriceAlertSubscriptionScreen.muted,
+                  fontFamily: PriceAlertSubscriptionScreen.fontFamily,
+                  fontFamilyFallback: PriceAlertSubscriptionScreen.fontFallback,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('다시 시도'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: PriceAlertSubscriptionScreen.blue,
+                  foregroundColor: AppColors.white,
+                  // 40 tall like the other error blocks, with a 48px tap area.
+                  minimumSize: const Size(140, 40),
+                  tapTargetSize: MaterialTapTargetSize.padded,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadii.button),
+                  ),
+                  textStyle: const TextStyle(
+                    fontFamily: PriceAlertSubscriptionScreen.fontFamily,
+                    fontFamilyFallback:
+                        PriceAlertSubscriptionScreen.fontFallback,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                child: const Text('다시 시도'),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Loading and error states keep the page header so the user can always go
+/// back instead of facing a bare spinner.
+class _PriceAlertStatusFrame extends StatelessWidget {
+  const _PriceAlertStatusFrame({required this.onBack, required this.child});
+
+  final VoidCallback onBack;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final topOffset = FigmaMobileCanvas.designSafePaddingOf(context).top;
+    return FigmaMobileCanvas(
+      backgroundColor: AppColors.white,
+      child: Stack(
+        children: [
+          Positioned.fill(top: _Header.heightFor(topOffset), child: child),
+          _Header(topOffset: topOffset, title: '가격 알림 구독', onBack: onBack),
+        ],
       ),
     );
   }
@@ -361,20 +491,25 @@ class _Header extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: 48.877838134765625,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  hoverColor: AppColors.primaryLight,
-                  onTap: onBack,
-                  child: const Padding(
-                    padding: EdgeInsets.zero,
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.arrow_back_rounded,
-                        size: 24,
-                        color: PriceAlertSubscriptionScreen.ink,
+              // The bare arrow had no name (QA 10/7 #50).
+              child: Semantics(
+                button: true,
+                label: '뒤로가기',
+                child: Material(
+                  color: AppColors.transparent,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    hoverColor: AppColors.primaryLight,
+                    onTap: onBack,
+                    child: const Padding(
+                      padding: EdgeInsets.zero,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          size: 24,
+                          color: PriceAlertSubscriptionScreen.ink,
+                        ),
                       ),
                     ),
                   ),
@@ -427,12 +562,13 @@ class _AllAlertCard extends StatelessWidget {
               const Expanded(
                 child: _TitleSubtitle(
                   title: '전체 알림',
-                  subtitle: '모든 매장의 변동 알림을 받습니다',
+                  // 이 화면의 대상은 찜한 매장뿐이라 '모든 매장'이라고 하지 않습니다.
+                  subtitle: '찜한 매장 알림을 한 번에 켜고 꺼요',
                   titleWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(width: 8),
-              _ToggleSm(label: '전체 매장 가격 알림', value: value, onTap: onTap),
+              _ToggleSm(label: '찜한 매장 전체 가격 알림', value: value, onTap: onTap),
             ],
           ),
         ),
@@ -582,9 +718,12 @@ class _ToggleSm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Without an enabled flag iOS reads the switch as disabled even when it
+    // is on and works (QA 10/7 #50).
     return Semantics(
       label: label,
       toggled: value,
+      enabled: true,
       onTap: onTap,
       excludeSemantics: true,
       child: InkWell(

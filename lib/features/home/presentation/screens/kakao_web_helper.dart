@@ -4,7 +4,12 @@ import 'dart:ui_web' as ui_web;
 import 'package:web/web.dart' as web;
 
 @JS('initKakaoMap')
-external void _initKakaoMap(JSString viewId, JSNumber lat, JSNumber lng);
+external void _initKakaoMap(
+  JSString viewId,
+  JSNumber lat,
+  JSNumber lng, [
+  JSNumber? level,
+]);
 
 @JS('getKakaoMapBounds')
 external JSString? _getKakaoMapBounds(JSString viewId);
@@ -68,6 +73,11 @@ external void _updateUserLocationMarker(
 external void _disposeKakaoMap(JSString viewId);
 @JS('recoverKakaoMap')
 external void _recoverKakaoMap(JSString viewId);
+@JS('setKakaoMapActive')
+external void _setKakaoMapActive(JSString viewId, JSBoolean active);
+
+void setKakaoMapActiveWeb(String viewId, bool active) =>
+    _setKakaoMapActive(viewId.toJS, active.toJS);
 
 const kakaoWebViewType = 'howmuch-kakao-map';
 bool _factoryRegistered = false;
@@ -94,20 +104,26 @@ void registerKakaoWebViewFactory(String viewId) {
 
 @JS('fitKakaoMapStores')
 external void _fitKakaoMapStores(JSString viewId, JSString coordinates);
-@JS('zoomKakaoMap')
-external void _zoomKakaoMap(JSString viewId, JSNumber delta);
 @JS('setKakaoMapSearchMode')
 external void _setKakaoMapSearchMode(JSString viewId, JSBoolean enabled);
 
 void fitKakaoMapStoresWeb(String viewId, String coordinates) =>
     _fitKakaoMapStores(viewId.toJS, coordinates.toJS);
-void zoomKakaoMapWeb(String viewId, int delta) =>
-    _zoomKakaoMap(viewId.toJS, delta.toJS);
 void setKakaoMapSearchModeWeb(String viewId, bool enabled) =>
     _setKakaoMapSearchMode(viewId.toJS, enabled.toJS);
 
-void initKakaoWebMap(String viewId) {
-  _initKakaoMap(viewId.toJS, 37.5665.toJS, 126.9780.toJS);
+/// Starts the map at Seoul City Hall, or where a previous home screen left it.
+void initKakaoWebMap(
+  String viewId, {
+  double lat = 37.5665,
+  double lng = 126.9780,
+  int? level,
+}) {
+  if (level == null) {
+    _initKakaoMap(viewId.toJS, lat.toJS, lng.toJS);
+  } else {
+    _initKakaoMap(viewId.toJS, lat.toJS, lng.toJS, level.toJS);
+  }
 }
 
 void disposeKakaoWebMap(String viewId) {

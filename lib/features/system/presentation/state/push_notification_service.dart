@@ -19,6 +19,25 @@ const _notificationChannel = AndroidNotificationChannel(
   importance: Importance.high,
 );
 
+/// APNs can finish registering shortly after notification permission is
+/// granted. FCM requires that native token first, so a bounded retry avoids a
+/// false registration failure on real iPhones without blocking indefinitely.
+@visibleForTesting
+Future<String?> waitForApplePushToken({
+  required Future<String?> Function() readToken,
+  Future<void> Function(Duration) pause = Future.delayed,
+  int maxAttempts = 12,
+  Duration retryDelay = const Duration(milliseconds: 250),
+}) async {
+  assert(maxAttempts > 0);
+  for (var attempt = 0; attempt < maxAttempts; attempt++) {
+    final token = (await readToken())?.trim();
+    if (token != null && token.isNotEmpty) return token;
+    if (attempt + 1 < maxAttempts) await pause(retryDelay);
+  }
+  return null;
+}
+
 /// FCM background handlers must stay top-level so the native runtime can call
 /// them when Flutter is not already running.
 @pragma('vm:entry-point')
@@ -48,6 +67,11 @@ class PushNotificationService {
   Future<bool>? _startup;
   bool _isRegistered = false;
   String? _registeredToken;
+  Future<bool>? _registration;
+  String? _registrationSession;
+
+  /// Whether the server holds this device's token, i.e. pushes can arrive.
+  bool get isRegistered => _isRegistered;
 
   Future<bool> start() {
     if (kIsWeb || !_supportsPush) return Future.value(false);
@@ -57,7 +81,27 @@ class PushNotificationService {
     });
   }
 
-  Future<bool> registerForCurrentSession() async {
+  /// Registers this device for the logged-in session. A call made while a
+  /// registration for the same session is running shares it: logging in
+  /// registers by itself (HowmuchApp), and a guest who logged in from the
+  /// push switch must not ask for the permission or send the token twice at
+  /// once.
+  Future<bool> registerForCurrentSession() {
+    final session = ApiClient.sessionToken;
+    final running = _registration;
+    if (running != null && session == _registrationSession) return running;
+    final attempt = _registerForCurrentSession();
+    _registration = attempt;
+    _registrationSession = session;
+    unawaited(
+      attempt.whenComplete(() {
+        if (identical(_registration, attempt)) _registration = null;
+      }),
+    );
+    return attempt;
+  }
+
+  Future<bool> _registerForCurrentSession() async {
     try {
       if (!await start()) return false;
 
@@ -67,6 +111,16 @@ class PushNotificationService {
         sound: true,
       );
       if (!_canShowNotifications(permission)) return false;
+
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        final apnsToken = await waitForApplePushToken(
+          readToken: FirebaseMessaging.instance.getAPNSToken,
+        );
+        if (apnsToken == null) {
+          debugPrint('APNs 토큰을 아직 받지 못해 FCM 등록을 다음 시도로 미룹니다.');
+          return false;
+        }
+      }
 
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null || token.isEmpty) return false;
@@ -78,14 +132,20 @@ class PushNotificationService {
     }
   }
 
-  Future<void> unregisterCurrentDevice() async {
+  /// Removes this device's token from the server. [sessionToken] authorizes
+  /// it for a session this device already dropped.
+  Future<void> unregisterCurrentDevice({String? sessionToken}) async {
     if (!_isRegistered || _registeredToken == null) return;
 
     try {
+      final headers = ApiClient.jsonHeaders(auth: sessionToken == null);
+      if (sessionToken != null) {
+        headers['Authorization'] = 'Bearer $sessionToken';
+      }
       await _client
           .delete(
             ApiClient.uri('/api/notifications/devices'),
-            headers: ApiClient.jsonHeaders(auth: true),
+            headers: headers,
             body: jsonEncode({
               'token': _registeredToken,
               'platform': _platformName,

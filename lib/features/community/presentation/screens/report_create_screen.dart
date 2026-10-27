@@ -1,25 +1,32 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:howmuch/core/constants/feature_flags.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
+import 'package:howmuch/core/location/browser_location.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart' show AppTextScale;
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
+    show HomeMapScreen, isFreshHomeLocation;
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
+import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
-import 'package:howmuch/shared/widgets/login_required_dialog.dart';
 
 class ReportPlaceSuggestion {
   const ReportPlaceSuggestion({
@@ -35,8 +42,23 @@ class ReportPlaceSuggestion {
   final int distanceMeters;
 }
 
+/// 카카오 업종을 먼저 보고, 업종으로 판단하지 못할 때만 매장명 단어를 씁니다.
+/// (예: '김밥천국 고속버스터미널점'이 매장명의 '버스' 때문에 교통으로 분류되지 않게)
 String? normalizeReportIndustry(String rawCategory, {String placeName = ''}) {
-  final value = '$rawCategory $placeName'.toLowerCase().replaceAll(' ', '');
+  final fromCategory = _industryFromText(rawCategory);
+  final fromName = _industryFromText(placeName);
+  if (fromCategory == null) return fromName;
+  // '음식점'처럼 넓은 업종이면 매장명이 같은 먹거리 업종 안에서 더 구체적일 때만 씁니다.
+  if (fromCategory == '음식점 · 기타' &&
+      fromName != null &&
+      (fromName.startsWith('음식점 ·') || fromName.startsWith('카페·디저트 ·'))) {
+    return fromName;
+  }
+  return fromCategory;
+}
+
+String? _industryFromText(String raw) {
+  final value = raw.toLowerCase().replaceAll(' ', '');
   if (value.isEmpty) return null;
 
   if (_containsCategory(value, const [
@@ -114,17 +136,94 @@ typedef PlaceSearch =
 typedef LocationLookup =
     Future<({double latitude, double longitude})?> Function();
 
+/// Picks one photo from the gallery, or null when the visitor picks none.
+typedef PhotoPicker = Future<XFile?> Function();
+
+/// Why the store search cannot use the current position at all.
+enum ReportLocationIssue { permissionDenied, serviceDisabled }
+
+/// Thrown by a [LocationLookup] when the position cannot be used at all. A
+/// lookup that only failed to get a fix in time returns null instead, so the
+/// search does not blame a permission the user granted (QA #34).
+class ReportLocationUnavailable implements Exception {
+  const ReportLocationUnavailable(this.issue);
+
+  final ReportLocationIssue issue;
+}
+
+/// The current position for the store search.
+///
+/// Uses the home map's position when it is recent. Otherwise it takes the
+/// same steps as the home map and search: on the web the shared browser
+/// request (reuses a fix up to two minutes old and does not count the time
+/// spent on the permission prompt); in the app the location service,
+/// permission, a recent fix, then a fresh one.
+Future<({double latitude, double longitude})?> lookUpReportLocation() async {
+  final known = HomeMapScreen.globalUserPosition;
+  if (known != null && isFreshHomeLocation(known.timestamp, DateTime.now())) {
+    return (latitude: known.latitude, longitude: known.longitude);
+  }
+  try {
+    final position = await _currentReportPosition();
+    return (latitude: position.latitude, longitude: position.longitude);
+  } on ReportLocationUnavailable {
+    rethrow;
+  } on PermissionDeniedException {
+    throw const ReportLocationUnavailable(ReportLocationIssue.permissionDenied);
+  } on LocationServiceDisabledException {
+    throw const ReportLocationUnavailable(ReportLocationIssue.serviceDisabled);
+  } catch (_) {
+    // A slow or failed fix: the permission may well be granted.
+    return null;
+  }
+}
+
+Future<Position> _currentReportPosition() async {
+  if (kIsWeb) return requestBrowserLocation();
+  if (!await Geolocator.isLocationServiceEnabled()) {
+    throw const ReportLocationUnavailable(ReportLocationIssue.serviceDisabled);
+  }
+  var permission = await Geolocator.checkPermission();
+  if (permission == LocationPermission.denied) {
+    permission = await Geolocator.requestPermission();
+  }
+  if (permission == LocationPermission.denied ||
+      permission == LocationPermission.deniedForever) {
+    throw const ReportLocationUnavailable(ReportLocationIssue.permissionDenied);
+  }
+  final cached = await Geolocator.getLastKnownPosition();
+  if (cached != null && isFreshHomeLocation(cached.timestamp, DateTime.now())) {
+    return cached;
+  }
+  return Geolocator.getCurrentPosition(
+    desiredAccuracy: LocationAccuracy.medium,
+    timeLimit: const Duration(seconds: 8),
+  ).timeout(const Duration(seconds: 10));
+}
+
+const maxReportMenuCount = 4;
+
+enum ReportPlaceSelectionMode { store, address }
+
+String? validateReportMenuCount(int count) => count < 1
+    ? '대표 메뉴는 최소 1개가 필요해요.'
+    : count > maxReportMenuCount
+    ? '메뉴는 최대 4개까지 저장할 수 있어요. 초과 메뉴를 제거해주세요.'
+    : null;
+
 class ReportCreateScreen extends ConsumerStatefulWidget {
   const ReportCreateScreen({
     super.key,
     this.initialReport,
     this.placeSearch,
     this.locationLookup,
+    this.photoPicker,
   });
 
   final UserReportStatus? initialReport;
   final PlaceSearch? placeSearch;
   final LocationLookup? locationLookup;
+  final PhotoPicker? photoPicker;
 
   @override
   ConsumerState<ReportCreateScreen> createState() => _ReportCreateScreenState();
@@ -167,8 +266,13 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   bool _checkedMenuPrice = false;
   int _activeStep = 1;
   bool _isSubmitting = false;
+  bool _saved = false;
+  bool _leaving = false;
   final List<XFile> _photos = [];
   final List<_MenuPriceControllers> _menuPrices = [];
+  final Map<String, Future<Uint8List>> _photoBytes = {};
+  final _uploads = ReportUploadSession();
+  late final String _initialSnapshot;
 
   @override
   void initState() {
@@ -203,6 +307,58 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       }
     }
     _scrollController.addListener(_syncStepWithScroll);
+    _initialSnapshot = _formSnapshot();
+  }
+
+  /// 작성 중 이탈 여부를 판단하기 위한 입력값 요약입니다.
+  String _formSnapshot() => [
+    _storeController.text.trim(),
+    _categoryController.text.trim(),
+    _addressController.text.trim(),
+    for (final menuPrice in _menuPrices)
+      '${menuPrice.menu.text.trim()}|${menuPrice.price.text.trim()}|${menuPrice.free}',
+    for (final photo in _photos) photo.path,
+    '$_visitedRecently|$_checkedMenuPrice',
+  ].join('\n');
+
+  bool get _hasUnsavedChanges =>
+      !_saved && !_leaving && _formSnapshot() != _initialSnapshot;
+
+  void _closeForm() {
+    if (context.canPop()) {
+      context.pop();
+      return;
+    }
+    context.go(AppRoutes.communityFeed);
+  }
+
+  void _handleBack() {
+    if (_isSubmitting) return;
+    if (_hasUnsavedChanges) {
+      _confirmLeave();
+      return;
+    }
+    _closeForm();
+  }
+
+  Future<void> _confirmLeave() async {
+    if (_isSubmitting) return;
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => HowmuchDialog(
+        title: '작성을 그만두고 나갈까요?',
+        description: '입력한 제보 내용은 저장되지 않아요.',
+        cancelLabel: '계속 작성',
+        confirmLabel: '나가기',
+        cancelFlex: 1,
+        confirmFlex: 1,
+        onConfirm: () => Navigator.of(dialogContext).pop(true),
+      ),
+    );
+    if (leave != true || !mounted) return;
+    setState(() => _leaving = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) _closeForm();
   }
 
   (String, String) _splitMenuText(String value) {
@@ -271,10 +427,6 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
         _checkedMenuPrice;
   }
 
-  bool _isRemoteImageUrl(String value) {
-    return value.startsWith('http://') || value.startsWith('https://');
-  }
-
   void _onFormChanged() {
     if (mounted) {
       setState(() {});
@@ -293,6 +445,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   }
 
   void _addMenuPrice() {
+    if (_menuPrices.length >= maxReportMenuCount) return;
     setState(() {
       _addInitialMenuPrice(menu: '', price: '');
     });
@@ -331,17 +484,16 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   }
 
   Future<void> _submit() async {
-    if (_isSubmitting) return;
-
-    final auth = ref.read(authStateProvider);
-    if (!auth.isLoggedIn) {
-      final shouldLogin = await showLoginRequiredDialog(
-        context,
-        message: '제보하려면 카카오 로그인이 필요해요.',
-      );
-      if (shouldLogin && mounted) {
-        context.push(AppRoutes.login);
-      }
+    if (_isSubmitting || _saved) return;
+    final initialReport = widget.initialReport;
+    if (initialReport != null && initialReport.isExistingStoreReport) {
+      // 가격 변동·정보 신고를 이 화면에서 저장하면 유형과 대상 매장이 사라집니다.
+      _showSnack('가격 변동 제보와 정보 신고는 제보 상세의 수정하기에서 고쳐주세요.');
+      return;
+    }
+    final menuCountError = validateReportMenuCount(_menuPrices.length);
+    if (menuCountError != null) {
+      _showSnack(menuCountError);
       return;
     }
 
@@ -350,158 +502,175 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       return;
     }
 
+    // 게스트에게는 보낼 수 있는 제보가 됐을 때 로그인을 묻습니다. 로그인 화면은
+    // 이 화면 위에 열렸다 닫히므로 입력과 사진이 그대로 남고, 로그인하면 이어서
+    // 같은 제보를 보냅니다.
+    final loggedIn = await requireLogin(
+      context,
+      message: '로그인하면 작성한 제보가 바로 접수돼요.',
+    );
+    if (!loggedIn || !mounted) return;
+
     setState(() => _isSubmitting = true);
     final reportService = ref.read(reportServiceProvider);
-    var uploadedImageUrls = <String>[];
-    var reportSaved = false;
+    UserReport? backendReport;
+    var saveRequestSent = false;
 
     try {
-      final menu1 = _menuPrices.isNotEmpty
-          ? _menuPrices[0].menu.text.trim()
+      String menuAt(int index) =>
+          _menuPrices.length > index ? _menuPrices[index].menu.text.trim() : '';
+      String priceAt(int index) => _menuPrices.length > index
+          ? _menuPrices[index].price.text.trim()
           : '';
-      final price1 = _menuPrices.isNotEmpty
-          ? _menuPrices[0].price.text.trim()
-          : '';
-      final menu2 = _menuPrices.length > 1
-          ? _menuPrices[1].menu.text.trim()
-          : '';
-      final price2 = _menuPrices.length > 1
-          ? _menuPrices[1].price.text.trim()
-          : '';
-      final menu3 = _menuPrices.length > 2
-          ? _menuPrices[2].menu.text.trim()
-          : '';
-      final price3 = _menuPrices.length > 2
-          ? _menuPrices[2].price.text.trim()
-          : '';
-      final menu4 = _menuPrices.length > 3
-          ? _menuPrices[3].menu.text.trim()
-          : '';
-      final price4 = _menuPrices.length > 3
-          ? _menuPrices[3].price.text.trim()
-          : '';
-      final free1 = _menuPrices.isNotEmpty && _menuPrices[0].free;
-      final free2 = _menuPrices.length > 1 && _menuPrices[1].free;
-      final free3 = _menuPrices.length > 2 && _menuPrices[2].free;
-      final free4 = _menuPrices.length > 3 && _menuPrices[3].free;
-      final savedMenuPrices = _menuPrices
-          .map(
-            (item) => UserReportMenuPrice(
-              menu: item.menu.text.trim(),
-              price: item.price.text.trim(),
-              free: item.free,
-            ),
-          )
-          .where((item) => item.menu.isNotEmpty || item.price.isNotEmpty)
-          .toList();
-      final existingImageUrls = _photos
-          .map((photo) => photo.path)
-          .where(_isRemoteImageUrl)
-          .toList();
-      final photosToUpload = _photos
-          .where((photo) => !_isRemoteImageUrl(photo.path))
-          .toList();
-      uploadedImageUrls = FeatureFlags.reportImageUploadEnabled
-          ? await reportService.uploadReportImages(photosToUpload)
-          : const [];
-      final reportImageUrls = [...existingImageUrls, ...uploadedImageUrls];
+      bool freeAt(int index) =>
+          _menuPrices.length > index && _menuPrices[index].free;
+      final reportImageUrls = await _uploads.resolveImageUrls(
+        reportService,
+        _photos,
+        uploadEnabled: FeatureFlags.reportImageUploadEnabled,
+      );
 
-      final backendReport = UserReport(
+      backendReport = UserReport(
         cityProvince: '',
         cityDistrict: '',
         storeName: _storeController.text.trim(),
         industry: _categoryController.text.trim(),
         address: _addressController.text.trim(),
         phoneNumber: '',
-        menu1: menu1,
-        price1: price1,
-        menu2: menu2,
-        price2: price2,
-        menu3: menu3,
-        price3: price3,
-        menu4: menu4,
-        price4: price4,
-        free1: free1,
-        free2: free2,
-        free3: free3,
-        free4: free4,
+        menu1: menuAt(0),
+        price1: priceAt(0),
+        menu2: menuAt(1),
+        price2: priceAt(1),
+        menu3: menuAt(2),
+        price3: priceAt(2),
+        menu4: menuAt(3),
+        price4: priceAt(3),
+        free1: freeAt(0),
+        free2: freeAt(1),
+        free3: freeAt(2),
+        free4: freeAt(3),
         imageUrls: reportImageUrls,
-        reporterId: auth.firebaseUid.isNotEmpty ? auth.firebaseUid : auth.email,
+        // 서버는 제보자를 로그인 세션으로만 판단하므로 계정 정보를 보내지 않습니다.
+        reporterId: '',
         visitedRecently: _visitedRecently,
         checkedMenuPrice: _checkedMenuPrice,
         latitude: 0.0,
         longitude: 0.0,
       );
 
-      final initialReport = widget.initialReport;
-      final String reportId;
-      if (initialReport == null) {
-        reportId = await reportService.submitReport(backendReport);
-      } else {
-        await reportService.updateReport(initialReport.id, backendReport);
-        reportId = initialReport.id;
+      // 이전 시도가 응답 없이 끝났다면, 다시 보내기 전에 이미 저장됐는지 확인합니다.
+      String? reportId = _uploads.saveOutcomeUnknown
+          ? await _findSavedReportId(reportService, backendReport)
+          : null;
+      if (reportId == null) {
+        saveRequestSent = true;
+        if (initialReport == null) {
+          reportId = await reportService.submitReport(backendReport);
+        } else {
+          await reportService.updateReport(initialReport.id, backendReport);
+          reportId = initialReport.id;
+        }
       }
-      reportSaved = true;
-
-      final localReport = UserReportStatus(
-        id: reportId,
-        store: _storeController.text.trim(),
-        menu: '$menu1 $price1원',
-        status: '검토 중',
-        statusColor: 0xFFF59E0B,
-        statusBg: 0xFFFFF3EA,
-        textColor: 0xFF92400E,
-        category: _categoryController.text.trim(),
-        address: _addressController.text.trim(),
-        menuPrices: savedMenuPrices,
-        imageUrls: reportImageUrls,
-        visitedRecently: _visitedRecently,
-        checkedMenuPrice: _checkedMenuPrice,
-        createdAt:
-            initialReport?.createdAt ??
-            DateTime.now().toUtc().toIso8601String(),
-        rejectReason: '',
-      );
-
-      if (initialReport == null) {
-        ref.read(userReportsProvider.notifier).addReport(localReport);
-        final profile = ref.read(userProfileProvider);
-        ref.read(userProfileProvider.notifier).state = profile.copyWith(
-          reportCount: profile.reportCount + 1,
-        );
-      } else {
-        ref.read(userReportsProvider.notifier).updateReport(localReport);
-      }
-
-      if (!mounted) return;
-      if (initialReport == null) {
-        context.push(AppRoutes.reportComplete);
-      } else {
-        context.go('${AppRoutes.reportDetailV2}?id=$reportId');
-      }
+      await _completeSaved(reportService, reportId);
     } on ReportServiceException catch (error) {
-      if (!reportSaved && error.cleanupUploadedImages) {
-        await reportService.cleanupReportImages(uploadedImageUrls);
+      // 서버가 거절했으므로 저장되지 않았습니다.
+      if (error.cleanupUploadedImages) {
+        await _uploads.discardUnsaved(reportService);
       }
       if (mounted) _showSnack(error.message);
     } catch (error) {
       debugPrint('제보 저장 중 예외: $error');
-      if (!reportSaved && uploadedImageUrls.isNotEmpty) {
-        await reportService.cleanupReportImages(uploadedImageUrls);
+      if (saveRequestSent && backendReport != null) {
+        // 시간 초과나 연결 끊김은 서버에 저장됐을 수 있어 사진을 지우지 않고 확인합니다.
+        _uploads.saveOutcomeUnknown = true;
+        final savedId = await _findSavedReportId(reportService, backendReport);
+        if (savedId != null) {
+          await _completeSaved(reportService, savedId);
+        } else if (mounted) {
+          _showSnack(reportSaveOutcomeUnknownMessage);
+        }
+      } else {
+        await _uploads.discardUnsaved(reportService);
+        if (mounted) _showSnack('제보 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
       }
-      if (mounted) _showSnack('제보 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
-  Future<void> _pickCategory() async {
-    final selected = await _showOptionPicker(
-      title: '업종 선택',
-      options: _categoryOptions,
-      initialValue: _categoryController.text,
+  Future<String?> _findSavedReportId(
+    ReportService reportService,
+    UserReport report,
+  ) async {
+    final reports = await reportService.fetchMyReports();
+    if (reports == null) return null;
+    return matchSavedReport(
+      reports,
+      report,
+      reportId: widget.initialReport?.id,
+    )?.id;
+  }
+
+  Future<void> _completeSaved(
+    ReportService reportService,
+    String reportId,
+  ) async {
+    _uploads.markSaved();
+    // 저장된 뒤에는 같은 폼으로 다시 제출할 수 없게 잠급니다.
+    _saved = true;
+    // Never show an optimistic draft as if the server saved every field.
+    final savedReports = await reportService.fetchMyReports();
+    if (!mounted) return;
+    if (savedReports == null ||
+        !savedReports.any((item) => item.id == reportId)) {
+      _showSnack('제보는 저장됐어요. 저장 내용을 다시 확인해주세요.');
+      context.go(AppRoutes.myReportsV2);
+      return;
+    }
+    ref.read(userReportsProvider.notifier).setReports(savedReports);
+    final profile = ref.read(userProfileProvider);
+    ref.read(userProfileProvider.notifier).state = profile.copyWith(
+      reportCount: savedReports.length,
     );
-    if (selected != null) {
+    if (widget.initialReport == null) {
+      // 완료 화면이 작성 화면을 대신해, 뒤로 가도 입력이 남은 폼으로 돌아가지 않습니다.
+      context.pushReplacement(
+        '${AppRoutes.reportComplete}?id=${Uri.encodeQueryComponent(reportId)}',
+      );
+    } else {
+      context.go('${AppRoutes.reportDetailV2}?id=$reportId');
+    }
+  }
+
+  Future<void> _pickCategory() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final mediaQuery = MediaQuery.of(context);
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      constraints: BoxConstraints(
+        maxWidth: math.min(
+          FigmaMobileCanvas.maxWebWidth,
+          mediaQuery.size.width,
+        ),
+        // Sized to its chips and scrolls when they do not fit, leaving a
+        // strip of the form above it.
+        maxHeight: math.max(
+          0,
+          math.min(
+            mediaQuery.size.height * .88,
+            mediaQuery.size.height - mediaQuery.padding.top - 8,
+          ),
+        ),
+      ),
+      builder: (_) => _CategoryPickerSheet(
+        options: _categoryOptions,
+        current: _categoryController.text,
+      ),
+    );
+    if (selected != null && mounted) {
       _categoryController.text = selected;
       setState(() {});
     }
@@ -571,35 +740,20 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     final injectedLookup = widget.locationLookup;
     if (injectedLookup != null) return injectedLookup();
     if (widget.placeSearch != null) return null;
-
-    try {
-      if (!await Geolocator.isLocationServiceEnabled()) return null;
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return null;
-      }
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 8),
-      ).timeout(const Duration(seconds: 10));
-      return (latitude: position.latitude, longitude: position.longitude);
-    } catch (_) {
-      return null;
-    }
+    return lookUpReportLocation();
   }
 
-  Future<void> _pickPlace({String initialQuery = ''}) async {
+  Future<void> _pickPlace({
+    required ReportPlaceSelectionMode mode,
+    String initialQuery = '',
+  }) async {
     FocusManager.instance.primaryFocus?.unfocus();
     final mediaQuery = MediaQuery.of(context);
     final selected = await showModalBottomSheet<ReportPlaceSuggestion>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
@@ -621,7 +775,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     );
     if (selected != null && mounted) {
       _addressController.text = selected.address;
-      if (selected.name.isNotEmpty) {
+      if (mode == ReportPlaceSelectionMode.store && selected.name.isNotEmpty) {
         _storeController.text = selected.name;
         final industry = normalizeReportIndustry(
           selected.category,
@@ -632,93 +786,15 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     }
   }
 
-  Future<void> _pickStore() =>
-      _pickPlace(initialQuery: _storeController.text.trim());
+  Future<void> _pickStore() => _pickPlace(
+    mode: ReportPlaceSelectionMode.store,
+    initialQuery: _storeController.text.trim(),
+  );
 
-  Future<void> _pickAddress() =>
-      _pickPlace(initialQuery: _addressController.text.trim());
-
-  Future<String?> _showOptionPicker({
-    required String title,
-    required List<String> options,
-    required String initialValue,
-  }) async {
-    FocusManager.instance.primaryFocus?.unfocus();
-    final mediaQuery = MediaQuery.of(context);
-
-    return showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: const Color(0xFFF4F6FA),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      constraints: BoxConstraints(
-        maxWidth: math.min(
-          FigmaMobileCanvas.maxWebWidth,
-          mediaQuery.size.width,
-        ),
-        maxHeight: math.max(
-          0,
-          mediaQuery.size.height - mediaQuery.padding.top - 8,
-        ),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(AppSizes.horizontalPadding),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: ReportCreateStyle.ink,
-                fontFamily: ReportCreateStyle.fontFamily,
-                fontFamilyFallback: ReportCreateStyle.fontFallback,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 280),
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: options.length,
-                separatorBuilder: (_, _) =>
-                    const Divider(height: 1, color: ReportCreateStyle.border),
-                itemBuilder: (context, index) {
-                  final option = options[index];
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      option,
-                      style: const TextStyle(
-                        color: ReportCreateStyle.ink,
-                        fontFamily: ReportCreateStyle.fontFamily,
-                        fontFamilyFallback: ReportCreateStyle.fontFallback,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        height: 1.5,
-                      ),
-                    ),
-                    trailing: option == initialValue
-                        ? const Icon(
-                            Icons.check_rounded,
-                            color: ReportCreateStyle.blue,
-                            size: 18,
-                          )
-                        : null,
-                    onTap: () => Navigator.of(context).pop(option),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Future<void> _pickAddress() => _pickPlace(
+    mode: ReportPlaceSelectionMode.address,
+    initialQuery: _addressController.text.trim(),
+  );
 
   Future<void> _pickPhotos() async {
     if (_photos.length >= ReportService.maxImageCount) {
@@ -726,15 +802,28 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       return;
     }
     try {
-      final pickedImage = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-      );
+      final pickPhoto = widget.photoPicker;
+      final pickedImage = pickPhoto != null
+          ? await pickPhoto()
+          : await _imagePicker.pickImage(
+              source: ImageSource.gallery,
+              imageQuality: 85,
+            );
       if (!mounted || pickedImage == null) {
         return;
       }
-
-      setState(() => _photos.add(pickedImage));
+      // 제출할 때가 아니라 고르는 즉시 용량을 확인합니다.
+      final selection = await selectReportPhotos([
+        pickedImage,
+      ], remaining: ReportService.maxImageCount - _photos.length);
+      if (!mounted) return;
+      final notice = reportPhotoSelectionNotice(
+        oversized: selection.oversized,
+        overLimit: selection.overLimit,
+      );
+      if (notice != null) _showSnack(notice);
+      if (selection.accepted.isEmpty) return;
+      setState(() => _photos.addAll(selection.accepted));
     } on PlatformException {
       if (!mounted) {
         return;
@@ -748,8 +837,15 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       return;
     }
 
-    setState(() => _photos.removeAt(index));
+    setState(() {
+      final removed = _photos.removeAt(index);
+      _photoBytes.remove(removed.path);
+    });
   }
+
+  /// 입력할 때마다 화면이 다시 그려져도 같은 사진을 다시 읽지 않도록 보관합니다.
+  Future<Uint8List> _photoBytesFor(XFile photo) =>
+      _photoBytes.putIfAbsent(photo.path, photo.readAsBytes);
 
   @override
   Widget build(BuildContext context) {
@@ -757,109 +853,119 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     final topOffset = safePadding.top;
     const stepProgressHeight = 60.98;
     const topChromeHeight = HowmuchTopBar.height + stepProgressHeight;
+    final isGuest = !ref.watch(authStateProvider).isLoggedIn;
 
-    return GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: FigmaMobileCanvas(
-        backgroundColor: const Color(0xFFF4F6FA),
-        child: Stack(
-          children: [
-            Positioned(
-              left: 0,
-              top: 0,
-              right: 0,
-              height: topOffset + topChromeHeight,
-              child: const ColoredBox(color: Colors.white),
-            ),
-            Positioned(
-              left: 0,
-              top: topOffset,
-              right: 0,
-              height: HowmuchTopBar.height,
-              child: const _Header(),
-            ),
-            Positioned(
-              left: 0,
-              top: topOffset + HowmuchTopBar.height,
-              right: 0,
-              height: stepProgressHeight,
-              child: _StepProgress(
-                activeStep: _activeStep,
-                basicComplete: _basicInfoComplete,
-                priceComplete: _priceInfoComplete,
-                confirmComplete: _confirmInfoComplete,
-                onTap: _goToStep,
+    return PopScope(
+      canPop: !_isSubmitting && !_hasUnsavedChanges,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleBack();
+      },
+      child: GestureDetector(
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: FigmaMobileCanvas(
+          backgroundColor: const Color(0xFFF4F6FA),
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                right: 0,
+                height: topOffset + topChromeHeight,
+                child: const ColoredBox(color: Colors.white),
               ),
-            ),
-            Positioned(
-              left: 0,
-              top: topOffset + topChromeHeight,
-              right: 0,
-              bottom: 0,
-              child: ListView(
-                controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
-                ),
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  15.994,
-                  20,
-                  safePadding.bottom + 24,
-                ),
-                children: [
-                  const _TipBox(),
-                  const SizedBox(height: 11.989),
-                  const _SectionLabel(title: '기본 정보', required: true),
-                  const SizedBox(height: 10),
-                  _BasicInfoCard(
-                    storeController: _storeController,
-                    categoryController: _categoryController,
-                    addressController: _addressController,
-                    onStoreSearch: _pickStore,
-                    onCategoryTap: _pickCategory,
-                    onAddressTap: _pickAddress,
-                  ),
-                  const SizedBox(height: 15.994),
-                  const _SectionLabel(title: '가격 정보', required: true),
-                  const SizedBox(height: 10),
-                  _PriceInfoCard(
-                    menuPrices: _menuPrices,
-                    onAdd: _addMenuPrice,
-                    onRemove: _removeMenuPrice,
-                    onChanged: _onFormChanged,
-                  ),
-                  const SizedBox(height: 15.994),
-                  const _SectionLabel(
-                    title: FeatureFlags.reportImageUploadEnabled
-                        ? '사진 및 확인'
-                        : '방문 확인',
-                    required: !FeatureFlags.reportImageUploadEnabled,
-                    optional: FeatureFlags.reportImageUploadEnabled,
-                  ),
-                  const SizedBox(height: 10),
-                  _PhotoConfirmCard(
-                    showPhotoUpload: FeatureFlags.reportImageUploadEnabled,
-                    photos: _photos,
-                    visitedRecently: _visitedRecently,
-                    checkedMenuPrice: _checkedMenuPrice,
-                    onPhotoTap: _pickPhotos,
-                    onPhotoRemove: _removePhoto,
-                    onVisitedChanged: (value) =>
-                        setState(() => _visitedRecently = value),
-                    onCheckedChanged: (value) =>
-                        setState(() => _checkedMenuPrice = value),
-                  ),
-                  const SizedBox(height: 15.994),
-                  _SubmitFooter(
-                    onPressed: _submit,
-                    isSubmitting: _isSubmitting,
-                    isEditing: widget.initialReport != null,
-                  ),
-                ],
+              Positioned(
+                left: 0,
+                top: topOffset,
+                right: 0,
+                height: HowmuchTopBar.height,
+                child: _Header(onBack: _handleBack),
               ),
-            ),
-          ],
+              Positioned(
+                left: 0,
+                top: topOffset + HowmuchTopBar.height,
+                right: 0,
+                height: stepProgressHeight,
+                child: _StepProgress(
+                  activeStep: _activeStep,
+                  basicComplete: _basicInfoComplete,
+                  priceComplete: _priceInfoComplete,
+                  confirmComplete: _confirmInfoComplete,
+                  onTap: _goToStep,
+                ),
+              ),
+              Positioned(
+                left: 0,
+                top: topOffset + topChromeHeight,
+                right: 0,
+                bottom: 0,
+                child: ListView(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    15.994,
+                    20,
+                    safePadding.bottom + 24,
+                  ),
+                  children: [
+                    _TipBox(
+                      onLoginTap: isGuest ? () => openLoginFlow(context) : null,
+                    ),
+                    const SizedBox(height: 11.989),
+                    const _SectionLabel(title: '기본 정보', required: true),
+                    const SizedBox(height: 10),
+                    _BasicInfoCard(
+                      storeController: _storeController,
+                      categoryController: _categoryController,
+                      addressController: _addressController,
+                      onStoreSearch: _pickStore,
+                      onCategoryTap: _pickCategory,
+                      onAddressTap: _pickAddress,
+                    ),
+                    const SizedBox(height: 15.994),
+                    const _SectionLabel(title: '가격 정보', required: true),
+                    const SizedBox(height: 10),
+                    _PriceInfoCard(
+                      menuPrices: _menuPrices,
+                      onAdd: _addMenuPrice,
+                      onRemove: _removeMenuPrice,
+                      onChanged: _onFormChanged,
+                    ),
+                    const SizedBox(height: 15.994),
+                    const _SectionLabel(
+                      title: FeatureFlags.reportImageUploadEnabled
+                          ? '사진 및 확인'
+                          : '방문 확인',
+                      required: !FeatureFlags.reportImageUploadEnabled,
+                      optional: FeatureFlags.reportImageUploadEnabled,
+                    ),
+                    const SizedBox(height: 10),
+                    _PhotoConfirmCard(
+                      showPhotoUpload: FeatureFlags.reportImageUploadEnabled,
+                      photos: _photos,
+                      photoBytes: _photoBytesFor,
+                      visitedRecently: _visitedRecently,
+                      checkedMenuPrice: _checkedMenuPrice,
+                      onPhotoTap: _pickPhotos,
+                      onPhotoRemove: _removePhoto,
+                      onVisitedChanged: (value) =>
+                          setState(() => _visitedRecently = value),
+                      onCheckedChanged: (value) =>
+                          setState(() => _checkedMenuPrice = value),
+                    ),
+                    const SizedBox(height: 15.994),
+                    _SubmitFooter(
+                      onPressed: _saved ? null : _submit,
+                      isSubmitting: _isSubmitting,
+                      isEditing: widget.initialReport != null,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -914,7 +1020,9 @@ class _MenuPriceControllers {
 }
 
 class _Header extends StatelessWidget {
-  const _Header();
+  const _Header({required this.onBack});
+
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -922,13 +1030,7 @@ class _Header extends StatelessWidget {
       title: '가성비 매장 제보',
       titleFontSize: 17,
       showBorder: false,
-      onBack: () {
-        if (context.canPop()) {
-          context.pop();
-          return;
-        }
-        context.go(AppRoutes.communityFeed);
-      },
+      onBack: onBack,
     );
   }
 }
@@ -950,38 +1052,45 @@ class _StepProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(color: Colors.white),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSizes.horizontalPadding,
-        ),
-        child: Row(
-          children: [
-            _StepItem(
-              number: '1',
-              label: '기본 정보',
-              active: activeStep == 1,
-              complete: basicComplete,
-              onTap: () => onTap(1),
-            ),
-            Expanded(child: _StepLine(active: basicComplete)),
-            _StepItem(
-              number: '2',
-              label: '가격 정보',
-              active: activeStep == 2,
-              complete: priceComplete,
-              onTap: () => onTap(2),
-            ),
-            Expanded(child: _StepLine(active: basicComplete && priceComplete)),
-            _StepItem(
-              number: '3',
-              label: '확인',
-              active: activeStep == 3,
-              complete: confirmComplete,
-              onTap: () => onTap(3),
-            ),
-          ],
+    // A fixed-height bar: its labels stop growing at the app's cap for chrome
+    // so they are not cut off at large text sizes (QA 10/7 #5).
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: AppTextScale.compactChrome,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(color: Colors.white),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.horizontalPadding,
+          ),
+          child: Row(
+            children: [
+              _StepItem(
+                number: '1',
+                label: '기본 정보',
+                active: activeStep == 1,
+                complete: basicComplete,
+                onTap: () => onTap(1),
+              ),
+              Expanded(child: _StepLine(active: basicComplete)),
+              _StepItem(
+                number: '2',
+                label: '가격 정보',
+                active: activeStep == 2,
+                complete: priceComplete,
+                onTap: () => onTap(2),
+              ),
+              Expanded(
+                child: _StepLine(active: basicComplete && priceComplete),
+              ),
+              _StepItem(
+                number: '3',
+                label: '확인',
+                active: activeStep == 3,
+                complete: confirmComplete,
+                onTap: () => onTap(3),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1100,29 +1209,46 @@ class _StepLine extends StatelessWidget {
 }
 
 class _TipBox extends StatelessWidget {
-  const _TipBox();
+  const _TipBox({this.onLoginTap});
+
+  /// 게스트일 때만 전달합니다. 보낼 때 로그인해도 되지만 미리 로그인할 수 있게 합니다.
+  final VoidCallback? onLoginTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final loginTap = onLoginTap;
+    final box = Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF3EA),
         borderRadius: BorderRadius.circular(14),
       ),
-      child: const Center(
+      child: Center(
         child: Text(
-          '동네의 좋은 가격 정보를 함께 나눠주세요.\n검토 후 지도에 표시됩니다.',
+          loginTap == null
+              ? '동네의 좋은 가격 정보를 함께 나눠주세요.\n검토 후 지도에 표시됩니다.'
+              : '보낼 때 로그인하면 제보가 바로 접수돼요.\n여기를 눌러 미리 로그인할 수도 있어요.',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Color(0xFF92400E),
+            color: const Color(0xFF92400E),
             fontFamily: ReportCreateStyle.fontFamily,
             fontFamilyFallback: ReportCreateStyle.fontFallback,
             fontSize: 12,
-            fontWeight: FontWeight.w400,
+            fontWeight: loginTap == null ? FontWeight.w400 : FontWeight.w600,
             height: 1.45,
           ),
         ),
+      ),
+    );
+    if (loginTap == null) return box;
+    return Semantics(
+      button: true,
+      label: '카카오 로그인하기',
+      child: GestureDetector(
+        key: const ValueKey('report-guest-login-tip'),
+        behavior: HitTestBehavior.opaque,
+        onTap: loginTap,
+        child: box,
       ),
     );
   }
@@ -1255,6 +1381,234 @@ class _BasicInfoCard extends StatelessWidget {
   }
 }
 
+/// What the store search knows about the current position. Only a refused
+/// permission is described as one (QA #34).
+enum _SheetLocation {
+  locating('현재 위치 확인 중…'),
+  located('현재 위치에서 가까운 순으로 보여드려요.'),
+  permissionDenied('위치 권한이 없어 검색 관련도순으로 보여드려요.'),
+  serviceDisabled('위치 서비스가 꺼져 있어 검색 관련도순으로 보여드려요.'),
+  unavailable('현재 위치를 확인하지 못해 검색 관련도순으로 보여드려요.');
+
+  const _SheetLocation(this.message);
+
+  final String message;
+}
+
+const _sheetTitleStyle = TextStyle(
+  color: ReportCreateStyle.ink,
+  fontFamily: ReportCreateStyle.fontFamily,
+  fontFamilyFallback: ReportCreateStyle.fontFallback,
+  fontSize: 17,
+  fontWeight: FontWeight.w800,
+  height: 1.4,
+);
+
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 36,
+        height: 4,
+        decoration: BoxDecoration(
+          color: AppColors.disabled,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+}
+
+/// Picks the report's industry from chips grouped like '음식점 · 한식'.
+class _CategoryPickerSheet extends StatefulWidget {
+  const _CategoryPickerSheet({required this.options, required this.current});
+
+  /// Industries written as '그룹 · 업종', in the order they are shown.
+  final List<String> options;
+  final String current;
+
+  @override
+  State<_CategoryPickerSheet> createState() => _CategoryPickerSheetState();
+}
+
+class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
+  final _currentKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    // When the chips do not fit, the sheet opens at the current industry.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final current = _currentKey.currentContext;
+      if (current != null && current.mounted) {
+        Scrollable.ensureVisible(current, alignment: .5);
+      }
+    });
+  }
+
+  List<(String, List<String>)> get _groups {
+    final groups = <(String, List<String>)>[];
+    for (final option in widget.options) {
+      final group = option.split(' · ').first;
+      if (groups.isEmpty || groups.last.$1 != group) groups.add((group, []));
+      groups.last.$2.add(option);
+    }
+    return groups;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: const ValueKey('report-category-picker'),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 10),
+            const _SheetHandle(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+              child: Semantics(
+                header: true,
+                child: const Text('업종 선택', style: _sheetTitleStyle),
+              ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final (group, options) in _groups) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 14, 4, 3),
+                        child: Semantics(
+                          header: true,
+                          child: Text(
+                            group,
+                            style: const TextStyle(
+                              color: ReportCreateStyle.muted,
+                              fontFamily: ReportCreateStyle.fontFamily,
+                              fontFamilyFallback:
+                                  ReportCreateStyle.fontFallback,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Wrap(
+                        children: [
+                          for (final option in options)
+                            _CategoryChip(
+                              key: option == widget.current
+                                  ? _currentKey
+                                  : null,
+                              option: option,
+                              selected: option == widget.current,
+                              onTap: () => Navigator.of(context).pop(option),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    super.key,
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  /// The whole industry, such as '음식점 · 중식'. The chip shows the part after
+  /// the group, which is the heading above it.
+  final String option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    // Screen readers hear the group with the name and which chip is the
+    // current industry (QA 10/7 #53).
+    return Semantics(
+      container: true,
+      button: true,
+      inMutuallyExclusiveGroup: true,
+      selected: selected,
+      label: option,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        // The space around the pill is part of its 48px tall target and
+        // makes the gaps between chips.
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            constraints: const BoxConstraints(minHeight: 38),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected ? ReportCreateStyle.blue : Colors.white,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: selected
+                    ? ReportCreateStyle.blue
+                    : AppColors.borderMedium,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (selected) ...[
+                  const Icon(
+                    Icons.check_rounded,
+                    size: 15,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  option.split(' · ').last,
+                  style: TextStyle(
+                    color: selected ? Colors.white : AppColors.textBody,
+                    fontFamily: ReportCreateStyle.fontFamily,
+                    fontFamilyFallback: ReportCreateStyle.fontFallback,
+                    fontSize: 14,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AddressSearchSheet extends StatefulWidget {
   const _AddressSearchSheet({
     required this.search,
@@ -1271,30 +1625,53 @@ class _AddressSearchSheet extends StatefulWidget {
 }
 
 class _AddressSearchSheetState extends State<_AddressSearchSheet> {
+  /// Searches typed while the position is still being found wait this long
+  /// for it, so the first results are already ordered by distance (QA #34).
+  static const _locationWait = Duration(seconds: 3);
+
   late final TextEditingController _controller;
   Timer? _debounce;
+  Timer? _locationWaitTimer;
   List<ReportPlaceSuggestion> _results = const [];
   bool _isLoading = false;
-  bool _isLocating = true;
+  _SheetLocation _locationStatus = _SheetLocation.locating;
   bool _hasSearched = false;
   bool _hasError = false;
   int _requestId = 0;
   ({double latitude, double longitude})? _location;
 
+  bool get _isLocating => _locationStatus == _SheetLocation.locating;
+
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialQuery);
-    _isLoading = widget.initialQuery.trim().length >= 2;
+    final initialQuery = widget.initialQuery.trim();
+    _isLoading = initialQuery.length >= 2;
     _loadLocation();
+    if (_isLoading) _searchWhenLocated(initialQuery);
   }
 
   Future<void> _loadLocation() async {
-    final location = await widget.locate();
+    ({double latitude, double longitude})? location;
+    var status = _SheetLocation.unavailable;
+    try {
+      location = await widget.locate();
+      if (location != null) status = _SheetLocation.located;
+    } on ReportLocationUnavailable catch (error) {
+      status = switch (error.issue) {
+        ReportLocationIssue.permissionDenied => _SheetLocation.permissionDenied,
+        ReportLocationIssue.serviceDisabled => _SheetLocation.serviceDisabled,
+      };
+    } catch (_) {
+      // Treated as a position that could not be found.
+    }
     if (!mounted) return;
+    _locationWaitTimer?.cancel();
+    _locationWaitTimer = null;
     setState(() {
       _location = location;
-      _isLocating = false;
+      _locationStatus = status;
     });
     final query = _controller.text.trim();
     if (query.length >= 2) {
@@ -1307,6 +1684,7 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _locationWaitTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -1329,7 +1707,23 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
       _isLoading = true;
       _hasError = false;
     });
-    _debounce = Timer(const Duration(milliseconds: 300), () => _search(query));
+    _debounce = Timer(
+      const Duration(milliseconds: 300),
+      () => _searchWhenLocated(query),
+    );
+  }
+
+  void _searchWhenLocated(String query) {
+    if (!_isLocating) {
+      _search(query);
+      return;
+    }
+    // _loadLocation searches with the latest query once the position is in.
+    _locationWaitTimer ??= Timer(_locationWait, () {
+      _locationWaitTimer = null;
+      final latest = _controller.text.trim();
+      if (mounted && _isLocating && latest.length >= 2) _search(latest);
+    });
   }
 
   Future<void> _search(String query) async {
@@ -1387,23 +1781,13 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: ReportCreateStyle.border,
+                    color: AppColors.disabled,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
-              const Text(
-                '매장 또는 주소 검색',
-                style: TextStyle(
-                  color: ReportCreateStyle.ink,
-                  fontFamily: ReportCreateStyle.fontFamily,
-                  fontFamilyFallback: ReportCreateStyle.fontFallback,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700,
-                  height: 1.35,
-                ),
-              ),
+              const SizedBox(height: 16),
+              const Text('매장 또는 주소 검색', style: _sheetTitleStyle),
               const SizedBox(height: 4),
               const Text(
                 '매장명, 도로명 또는 지번으로 찾아보세요.',
@@ -1431,11 +1815,7 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      _isLocating
-                          ? '현재 위치 확인 중…'
-                          : _location != null
-                          ? '현재 위치에서 가까운 순으로 보여드려요.'
-                          : '위치 권한이 없어 검색 관련도순으로 보여드려요.',
+                      _locationStatus.message,
                       style: const TextStyle(
                         color: ReportCreateStyle.muted,
                         fontFamily: ReportCreateStyle.fontFamily,
@@ -1456,7 +1836,9 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
                 onChanged: _onQueryChanged,
                 onSubmitted: (value) {
                   _debounce?.cancel();
-                  if (value.trim().length >= 2) _search(value.trim());
+                  if (value.trim().length >= 2) {
+                    _searchWhenLocated(value.trim());
+                  }
                 },
                 style: const TextStyle(
                   color: ReportCreateStyle.ink,
@@ -1467,7 +1849,18 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
                 ),
                 decoration: InputDecoration(
                   hintText: '예: 롯데리아, 테헤란로 123',
-                  prefixIcon: const Icon(Icons.search_rounded, size: 21),
+                  hintStyle: const TextStyle(
+                    color: ReportCreateStyle.muted,
+                    fontFamily: ReportCreateStyle.fontFamily,
+                    fontFamilyFallback: ReportCreateStyle.fontFallback,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    size: 21,
+                    color: ReportCreateStyle.muted,
+                  ),
                   suffixIcon: _controller.text.isEmpty
                       ? null
                       : IconButton(
@@ -1476,22 +1869,24 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
                             _controller.clear();
                             _onQueryChanged('');
                           },
-                          icon: const Icon(Icons.close_rounded, size: 19),
+                          icon: const Icon(
+                            Icons.cancel_rounded,
+                            size: 19,
+                            color: AppColors.disabled,
+                          ),
                         ),
+                  // A cream field on the white sheet, outlined only while
+                  // typing.
                   filled: true,
-                  fillColor: const Color(0xFFF4F6FA),
+                  fillColor: AppColors.surface,
                   contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: ReportCreateStyle.border,
-                    ),
+                    borderSide: BorderSide.none,
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: ReportCreateStyle.border,
-                    ),
+                    borderSide: const BorderSide(color: Colors.transparent),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -1538,59 +1933,17 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
 
     return ListView.separated(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
       itemCount: _results.length,
-      separatorBuilder: (_, _) =>
-          const Divider(height: 1, color: ReportCreateStyle.border),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final place = _results[index];
-        final hasPlaceName = place.name.isNotEmpty;
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 2),
-          minVerticalPadding: 12,
-          leading: Icon(
-            hasPlaceName
-                ? Icons.storefront_outlined
-                : Icons.location_on_outlined,
-            color: ReportCreateStyle.blue,
-            size: 22,
-          ),
-          title: Text(
-            hasPlaceName ? place.name : place.address,
-            style: const TextStyle(
-              color: ReportCreateStyle.ink,
-              fontFamily: ReportCreateStyle.fontFamily,
-              fontFamilyFallback: ReportCreateStyle.fontFallback,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              height: 1.45,
-            ),
-          ),
-          subtitle: hasPlaceName
-              ? Text(
-                  place.address,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: ReportCreateStyle.muted,
-                    fontFamily: ReportCreateStyle.fontFamily,
-                    fontFamilyFallback: ReportCreateStyle.fontFallback,
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
-                )
+        return _PlaceResultTile(
+          key: ValueKey('report-place-result-$index'),
+          place: place,
+          distance: place.distanceMeters >= 0
+              ? _formatDistance(place.distanceMeters)
               : null,
-          trailing: place.distanceMeters >= 0
-              ? Text(
-                  _formatDistance(place.distanceMeters),
-                  style: const TextStyle(
-                    color: ReportCreateStyle.blue,
-                    fontFamily: ReportCreateStyle.fontFamily,
-                    fontFamilyFallback: ReportCreateStyle.fontFallback,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                )
-              : const Icon(Icons.chevron_right_rounded, size: 20),
           onTap: () => Navigator.of(context).pop(place),
         );
       },
@@ -1603,6 +1956,131 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
     return kilometers < 10
         ? '${kilometers.toStringAsFixed(1)}km'
         : '${kilometers.round()}km';
+  }
+}
+
+class _PlaceResultTile extends StatelessWidget {
+  const _PlaceResultTile({
+    super.key,
+    required this.place,
+    required this.distance,
+    required this.onTap,
+  });
+
+  final ReportPlaceSuggestion place;
+
+  /// How far the place is, such as '418m', when the search knows it.
+  final String? distance;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPlaceName = place.name.isNotEmpty;
+    final distance = this.distance;
+    // One button per result, read as its name, address and distance.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        child: Material(
+          color: Colors.white,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: ReportCreateStyle.border),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primaryLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      hasPlaceName
+                          ? Icons.storefront_outlined
+                          : Icons.location_on_outlined,
+                      color: ReportCreateStyle.blue,
+                      size: 19,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          hasPlaceName ? place.name : place.address,
+                          style: const TextStyle(
+                            color: ReportCreateStyle.ink,
+                            fontFamily: ReportCreateStyle.fontFamily,
+                            fontFamilyFallback: ReportCreateStyle.fontFallback,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            height: 1.4,
+                          ),
+                        ),
+                        if (hasPlaceName) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            place.address,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: ReportCreateStyle.muted,
+                              fontFamily: ReportCreateStyle.fontFamily,
+                              fontFamilyFallback:
+                                  ReportCreateStyle.fontFallback,
+                              fontSize: 12,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  if (distance != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        distance,
+                        style: const TextStyle(
+                          color: ReportCreateStyle.blue,
+                          fontFamily: ReportCreateStyle.fontFamily,
+                          fontFamilyFallback: ReportCreateStyle.fontFallback,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          height: 1.4,
+                        ),
+                      ),
+                    )
+                  else
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 20,
+                      color: ReportCreateStyle.muted,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1621,28 +2099,67 @@ class _AddressSearchMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 30, color: ReportCreateStyle.muted),
-          const SizedBox(height: 10),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: ReportCreateStyle.muted,
-              fontFamily: ReportCreateStyle.fontFamily,
-              fontFamilyFallback: ReportCreateStyle.fontFallback,
-              fontSize: 13,
-              height: 1.5,
+    final actionLabel = this.actionLabel;
+    final onAction = this.onAction;
+    // Scrolls rather than overflowing when the keyboard leaves little room.
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: const BoxDecoration(
+                      color: AppColors.surface,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 24, color: ReportCreateStyle.muted),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: ReportCreateStyle.muted,
+                      fontFamily: ReportCreateStyle.fontFamily,
+                      fontFamilyFallback: ReportCreateStyle.fontFallback,
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
+                  ),
+                  if (actionLabel != null && onAction != null) ...[
+                    const SizedBox(height: 14),
+                    OutlinedButton(
+                      onPressed: onAction,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: ReportCreateStyle.blue,
+                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        side: const BorderSide(color: ReportCreateStyle.border),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        textStyle: const TextStyle(
+                          fontFamily: ReportCreateStyle.fontFamily,
+                          fontFamilyFallback: ReportCreateStyle.fontFallback,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      child: Text(actionLabel),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
-          if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: 8),
-            TextButton(onPressed: onAction, child: Text(actionLabel!)),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -1671,6 +2188,8 @@ class _PriceInfoCard extends StatelessWidget {
         children: [
           for (var index = 0; index < menuPrices.length; index++) ...[
             _MenuPriceRow(
+              key: ObjectKey(menuPrices[index]),
+              index: index,
               menuPrice: menuPrices[index],
               showRemove: menuPrices.length > 1,
               onRemove: () => onRemove(index),
@@ -1683,7 +2202,7 @@ class _PriceInfoCard extends StatelessWidget {
             width: double.infinity,
             height: 34,
             child: OutlinedButton.icon(
-              onPressed: onAdd,
+              onPressed: menuPrices.length < maxReportMenuCount ? onAdd : null,
               icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text('메뉴 추가'),
               style: OutlinedButton.styleFrom(
@@ -1702,6 +2221,14 @@ class _PriceInfoCard extends StatelessWidget {
               ),
             ),
           ),
+          if (menuPrices.length >= maxReportMenuCount)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                '메뉴는 최대 4개까지 입력할 수 있어요.',
+                style: TextStyle(color: ReportCreateStyle.muted, fontSize: 12),
+              ),
+            ),
         ],
       ),
     );
@@ -1710,12 +2237,16 @@ class _PriceInfoCard extends StatelessWidget {
 
 class _MenuPriceRow extends StatelessWidget {
   const _MenuPriceRow({
+    super.key,
+    required this.index,
     required this.menuPrice,
     required this.showRemove,
     required this.onRemove,
     required this.onChanged,
   });
 
+  /// Position in the menu list, starting at 0 for the main menu.
+  final int index;
   final _MenuPriceControllers menuPrice;
   final bool showRemove;
   final VoidCallback onRemove;
@@ -1723,6 +2254,10 @@ class _MenuPriceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Every row shows the '대표 메뉴' label, so screen readers heard the same
+    // name for all of them. Added rows are named by their order, like the
+    // completion screen (QA 10/7 #53).
+    final name = index == 0 ? '대표 메뉴' : '메뉴 ${index + 1}';
     return SizedBox(
       child: Column(
         children: [
@@ -1732,6 +2267,7 @@ class _MenuPriceRow extends StatelessWidget {
               Expanded(
                 child: _EditableFormRow(
                   label: '대표 메뉴',
+                  semanticLabel: index == 0 ? null : name,
                   required: true,
                   controller: menuPrice.menu,
                 ),
@@ -1740,6 +2276,7 @@ class _MenuPriceRow extends StatelessWidget {
               Expanded(
                 child: _EditableFormRow(
                   label: '가격',
+                  semanticLabel: index == 0 ? null : '$name 가격',
                   required: true,
                   controller: menuPrice.price,
                   keyboardType: TextInputType.number,
@@ -1793,24 +2330,18 @@ class _MenuPriceRow extends StatelessWidget {
               ],
             ],
           ),
-          Semantics(
-            container: true,
-            label: '무료 메뉴 여부',
-            child: Material(
-              type: MaterialType.transparency,
-              child: CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('무료 (가격은 정확히 0원만 가능)'),
-                value: menuPrice.free,
-                onChanged: (value) {
-                  menuPrice.free = value ?? false;
-                  if (menuPrice.free) menuPrice.price.text = '0';
-                  onChanged();
-                },
-              ),
-            ),
+          // The same check as the visit confirmations below, with the row
+          // height of a list tile so it stays easy to hit.
+          _CheckLine(
+            label: '무료 (가격은 정확히 0원만 가능)',
+            semanticLabel: index == 0 ? '무료 메뉴 여부' : '$name 무료 여부',
+            value: menuPrice.free,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            onChanged: (value) {
+              menuPrice.free = value;
+              if (value) menuPrice.price.text = '0';
+              onChanged();
+            },
           ),
         ],
       ),
@@ -1822,6 +2353,7 @@ class _EditableFormRow extends StatelessWidget {
   const _EditableFormRow({
     required this.label,
     required this.controller,
+    this.semanticLabel,
     this.trailing,
     this.keyboardType,
     this.textInputAction,
@@ -1835,6 +2367,11 @@ class _EditableFormRow extends StatelessWidget {
 
   final String label;
   final TextEditingController controller;
+
+  /// The name screen readers hear for the field when it differs from the
+  /// visible [label]. The visible label is then left out of the semantics so
+  /// the field is not announced under two names.
+  final String? semanticLabel;
   final Widget? trailing;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
@@ -1847,34 +2384,38 @@ class _EditableFormRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visibleLabel = Text.rich(
+      TextSpan(
+        text: label,
+        children: [
+          if (required)
+            const TextSpan(
+              text: ' *',
+              style: TextStyle(
+                color: ReportCreateStyle.orange,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+        ],
+      ),
+      style: const TextStyle(
+        color: ReportCreateStyle.muted,
+        fontFamily: ReportCreateStyle.fontFamily,
+        fontFamilyFallback: ReportCreateStyle.fontFallback,
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        height: 1.5,
+      ),
+    );
     return SizedBox(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text.rich(
-            TextSpan(
-              text: label,
-              children: [
-                if (required)
-                  const TextSpan(
-                    text: ' *',
-                    style: TextStyle(
-                      color: ReportCreateStyle.orange,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-              ],
-            ),
-            style: const TextStyle(
-              color: ReportCreateStyle.muted,
-              fontFamily: ReportCreateStyle.fontFamily,
-              fontFamilyFallback: ReportCreateStyle.fontFallback,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              height: 1.5,
-            ),
-          ),
+          if (semanticLabel == null)
+            visibleLabel
+          else
+            ExcludeSemantics(child: visibleLabel),
           const SizedBox(height: 5.994),
           Container(
             height: 44,
@@ -1888,7 +2429,8 @@ class _EditableFormRow extends StatelessWidget {
               children: [
                 Expanded(
                   child: Semantics(
-                    label: '$label${required ? ', 필수 입력' : ''}',
+                    label:
+                        '${semanticLabel ?? label}${required ? ', 필수 입력' : ''}',
                     child: TextField(
                       controller: controller,
                       readOnly: readOnly,
@@ -1975,6 +2517,7 @@ class _PhotoConfirmCard extends StatelessWidget {
   const _PhotoConfirmCard({
     required this.showPhotoUpload,
     required this.photos,
+    required this.photoBytes,
     required this.visitedRecently,
     required this.checkedMenuPrice,
     required this.onPhotoTap,
@@ -1985,6 +2528,7 @@ class _PhotoConfirmCard extends StatelessWidget {
 
   final bool showPhotoUpload;
   final List<XFile> photos;
+  final Future<Uint8List> Function(XFile photo) photoBytes;
   final bool visitedRecently;
   final bool checkedMenuPrice;
   final VoidCallback onPhotoTap;
@@ -2004,7 +2548,11 @@ class _PhotoConfirmCard extends StatelessWidget {
             _PhotoUploadBox(photos: photos, onTap: onPhotoTap),
             if (photos.isNotEmpty) ...[
               const SizedBox(height: 7.997),
-              _PhotoThumbnailStrip(photos: photos, onRemove: onPhotoRemove),
+              _PhotoThumbnailStrip(
+                photos: photos,
+                photoBytes: photoBytes,
+                onRemove: onPhotoRemove,
+              ),
               const SizedBox(height: 9.989),
             ] else
               const SizedBox(height: 11.989),
@@ -2107,9 +2655,14 @@ class _PhotoUploadBox extends StatelessWidget {
 }
 
 class _PhotoThumbnailStrip extends StatelessWidget {
-  const _PhotoThumbnailStrip({required this.photos, required this.onRemove});
+  const _PhotoThumbnailStrip({
+    required this.photos,
+    required this.photoBytes,
+    required this.onRemove,
+  });
 
   final List<XFile> photos;
+  final Future<Uint8List> Function(XFile photo) photoBytes;
   final ValueChanged<int> onRemove;
 
   @override
@@ -2118,6 +2671,9 @@ class _PhotoThumbnailStrip extends StatelessWidget {
       builder: (context, constraints) {
         const gap = 7.997;
         final slotSize = (constraints.maxWidth - (gap * 2)) / 3;
+        final decodeWidth = (slotSize * MediaQuery.devicePixelRatioOf(context))
+            .ceil()
+            .clamp(1, 1200);
 
         return SizedBox(
           height: slotSize,
@@ -2126,11 +2682,16 @@ class _PhotoThumbnailStrip extends StatelessWidget {
             itemCount: photos.length,
             separatorBuilder: (context, index) => const SizedBox(width: gap),
             itemBuilder: (context, index) {
+              final photo = photos[index];
               return SizedBox(
                 width: slotSize,
                 height: slotSize,
                 child: _PhotoThumbnailSlot(
-                  photo: photos[index],
+                  photo: photo,
+                  bytes: isRemoteReportImage(photo.path)
+                      ? null
+                      : photoBytes(photo),
+                  decodeWidth: decodeWidth,
                   index: index,
                   onRemove: onRemove,
                 ),
@@ -2146,11 +2707,15 @@ class _PhotoThumbnailStrip extends StatelessWidget {
 class _PhotoThumbnailSlot extends StatelessWidget {
   const _PhotoThumbnailSlot({
     required this.photo,
+    required this.bytes,
+    required this.decodeWidth,
     required this.index,
     required this.onRemove,
   });
 
   final XFile? photo;
+  final Future<Uint8List>? bytes;
+  final int decodeWidth;
   final int index;
   final ValueChanged<int> onRemove;
 
@@ -2176,14 +2741,20 @@ class _PhotoThumbnailSlot extends StatelessWidget {
               Image.network(
                 imagePath,
                 fit: BoxFit.cover,
+                cacheWidth: decodeWidth,
                 errorBuilder: (_, _, _) => const _PhotoThumbnailFallback(),
               )
             else if (photo != null)
               FutureBuilder<Uint8List>(
-                future: photo.readAsBytes(),
+                future: bytes,
                 builder: (context, snapshot) {
                   if (snapshot.hasData) {
-                    return Image.memory(snapshot.data!, fit: BoxFit.cover);
+                    return Image.memory(
+                      snapshot.data!,
+                      fit: BoxFit.cover,
+                      cacheWidth: decodeWidth,
+                      gaplessPlayback: true,
+                    );
                   }
 
                   if (snapshot.hasError) {
@@ -2323,49 +2894,76 @@ class _CheckLine extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.semanticLabel,
+    this.padding = EdgeInsets.zero,
   });
 
   final String label;
   final bool value;
   final ValueChanged<bool> onChanged;
 
+  /// Read before [label] when the line needs more context, such as the menu
+  /// row it belongs to.
+  final String? semanticLabel;
+
+  /// Space around the line that still toggles it.
+  final EdgeInsetsGeometry padding;
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      behavior: HitTestBehavior.opaque,
-      child: Row(
-        children: [
-          Container(
-            width: 17.997,
-            height: 17.997,
-            decoration: BoxDecoration(
-              color: value ? ReportCreateStyle.blue : Colors.white,
-              border: Border.all(
-                color: value
-                    ? ReportCreateStyle.blue
-                    : ReportCreateStyle.border,
-                width: .909,
+    // A hand-drawn check box: say what it confirms and whether it is checked
+    // (it read as plain text, QA 10/7 #53). Without the enabled flag iOS reads
+    // a checked item as a disabled switch.
+    return Semantics(
+      container: true,
+      checked: value,
+      enabled: true,
+      label: semanticLabel,
+      child: GestureDetector(
+        onTap: () => onChanged(!value),
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: padding,
+          child: Row(
+            children: [
+              Container(
+                width: 17.997,
+                height: 17.997,
+                decoration: BoxDecoration(
+                  color: value ? ReportCreateStyle.blue : Colors.white,
+                  border: Border.all(
+                    color: value
+                        ? ReportCreateStyle.blue
+                        : ReportCreateStyle.border,
+                    width: .909,
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: value
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 13,
+                      )
+                    : null,
               ),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: value
-                ? const Icon(Icons.check_rounded, color: Colors.white, size: 13)
-                : null,
+              const SizedBox(width: 7.997),
+              Flexible(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: ReportCreateStyle.ink,
+                    fontFamily: ReportCreateStyle.fontFamily,
+                    fontFamilyFallback: ReportCreateStyle.fontFallback,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 7.997),
-          Text(
-            label,
-            style: const TextStyle(
-              color: ReportCreateStyle.ink,
-              fontFamily: ReportCreateStyle.fontFamily,
-              fontFamilyFallback: ReportCreateStyle.fontFallback,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              height: 1.5,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -2378,40 +2976,54 @@ class _SubmitFooter extends StatelessWidget {
     required this.isEditing,
   });
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool isSubmitting;
   final bool isEditing;
 
   @override
   Widget build(BuildContext context) {
+    final label = isEditing ? '제보 수정하기' : '제보 제출하기';
     return SizedBox(
       width: double.infinity,
       height: 50,
       child: FilledButton(
         onPressed: isSubmitting ? null : onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: ReportCreateStyle.blue,
-          foregroundColor: Colors.white,
-          elevation: 8,
-          shadowColor: const Color(0x4D2563EB),
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
-        ),
+        style:
+            FilledButton.styleFrom(
+              backgroundColor: ReportCreateStyle.blue,
+              foregroundColor: Colors.white,
+              // While the report is sent the button stays blue behind its
+              // spinner; only a form that can no longer be sent turns grey.
+              disabledBackgroundColor: isSubmitting
+                  ? ReportCreateStyle.blue
+                  : AppColors.disabledSurface,
+              disabledForegroundColor: isSubmitting
+                  ? Colors.white
+                  : AppColors.textMuted,
+              shadowColor: const Color(0x4D2563EB),
+              padding: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+            ).copyWith(
+              // The blue glow is only for a button that can be pressed.
+              elevation: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.disabled) ? 0 : 8,
+              ),
+            ),
         child: isSubmitting
-            ? const SizedBox(
+            ? SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
                   color: Colors.white,
                   strokeWidth: 2,
+                  semanticsLabel: isEditing ? '제보 수정 중' : '제보 제출 중',
                 ),
               )
             : Text(
-                isEditing ? '제보 수정하기' : '제보 제출하기',
+                label,
                 style: const TextStyle(
-                  color: Colors.white,
                   fontFamily: ReportCreateStyle.fontFamily,
                   fontFamilyFallback: ReportCreateStyle.fontFallback,
                   fontSize: 15,

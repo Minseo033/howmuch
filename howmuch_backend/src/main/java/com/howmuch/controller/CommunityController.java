@@ -26,9 +26,10 @@ public class CommunityController {
 
     // 💡 커뮤니티 피드 목록 조회 (제보 현황)
     @GetMapping("/feed")
-    public ResponseEntity<?> getCommunityFeeds() {
+    public ResponseEntity<?> getCommunityFeeds(HttpServletRequest request) {
         try {
-            List<FeedResponseDto> feeds = firebaseService.getCommunityFeeds();
+            String uid = (String) request.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
+            List<FeedResponseDto> feeds = firebaseService.getCommunityFeeds(uid);
             return ResponseEntity.ok(feeds);
         } catch (Exception e) {
             log.error("Failed to fetch community feeds", e);

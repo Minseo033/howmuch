@@ -5,8 +5,13 @@ import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/keep_all_text.dart';
 import 'package:howmuch/features/savings/presentation/state/savings_state.dart';
+
+/// Same ceiling as the server (POST /api/savings/goal rejects larger values).
+const maxSavingsGoalAmount = 1000000000;
 
 class SavingsGoalSettingScreen extends StatefulWidget {
   const SavingsGoalSettingScreen({super.key});
@@ -76,19 +81,31 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _loadError = '절약 정보를 불러오지 못했어요.';
+          _loadError = '절약 정보를 불러오지 못했어요';
         });
       }
     }
+  }
+
+  /// Shows the spinner again while retrying, so the tap visibly does
+  /// something and cannot start a second load.
+  void _retryLoadGoal() {
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+    _loadGoal();
   }
 
   Future<void> _saveGoal() async {
     if (_isSaving || _isLoading || _loadError != null) return;
     final newGoal = int.tryParse(_goalController.text.replaceAll(',', ''));
     if (newGoal == null || newGoal <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(HowmuchSnackBar(content: Text('목표 금액을 입력해주세요.')));
+      _showNotice('목표 금액을 입력해주세요.');
+      return;
+    }
+    if (newGoal > maxSavingsGoalAmount) {
+      _showNotice('절약 목표는 10억원 이하로 입력해주세요.');
       return;
     }
     setState(() => _isSaving = true);
@@ -102,17 +119,26 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
         throw StateError('목표 저장 실패');
       }
       _state.monthlyGoal.value = newGoal;
-      if (mounted) context.pop();
+      // The report screen uses the saved amount to refresh its progress.
+      if (mounted) context.pop(newGoal);
     } catch (e) {
       debugPrint('절약 목표 저장 실패: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          HowmuchSnackBar(content: Text('목표를 저장하지 못했어요. 다시 시도해주세요.')),
-        );
+        _showNotice('목표를 저장하지 못했어요. 다시 시도해주세요.');
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  /// Replaces the notice on screen at once instead of queueing behind it, and
+  /// floats above the save button so it can be tapped again (QA #37).
+  void _showNotice(String message) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        HowmuchSnackBar(content: Text(message), aboveNavigation: true),
+      );
   }
 
   @override
@@ -174,63 +200,73 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                               const SizedBox(height: 6),
                               SizedBox(
                                 height: 56,
-                                child: TextField(
-                                  controller: _goalController,
-                                  enabled:
-                                      !_isLoading &&
-                                      !_isSaving &&
-                                      _loadError == null,
-                                  textInputAction: TextInputAction.done,
-                                  onSubmitted: (_) =>
-                                      FocusScope.of(context).unfocus(),
-                                  cursorColor: const Color(0xFF2563EB),
-                                  keyboardType: TextInputType.number,
-                                  textAlignVertical: TextAlignVertical.center,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  style: const TextStyle(
-                                    fontFamily: 'Noto Sans KR',
-                                    fontFamilyFallback: ['Noto Sans KR'],
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF0F172A),
-                                    fontSize: 22,
-                                    height: 1.2,
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText: '예: 50000',
-                                    hintStyle: const TextStyle(
-                                      color: Color(0xFFCBD5E1),
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    suffixText: '원',
-                                    suffixStyle: const TextStyle(
+                                // iOS read the field only by its hint, and
+                                // not at all while it was disabled during
+                                // loading with no value (QA 10/7 #53). A label
+                                // keeps it named and reachable.
+                                child: Semantics(
+                                  label: '이번 달 절약 목표 금액',
+                                  child: TextField(
+                                    controller: _goalController,
+                                    enabled:
+                                        !_isLoading &&
+                                        !_isSaving &&
+                                        _loadError == null,
+                                    textInputAction: TextInputAction.done,
+                                    onSubmitted: (_) =>
+                                        FocusScope.of(context).unfocus(),
+                                    cursorColor: const Color(0xFF2563EB),
+                                    keyboardType: TextInputType.number,
+                                    textAlignVertical: TextAlignVertical.center,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      // 1,000,000,000 is the largest accepted goal.
+                                      LengthLimitingTextInputFormatter(10),
+                                    ],
+                                    style: const TextStyle(
                                       fontFamily: 'Noto Sans KR',
                                       fontFamilyFallback: ['Noto Sans KR'],
-                                      color: Color(0xFF64748B),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF0F172A),
+                                      fontSize: 22,
+                                      height: 1.2,
                                     ),
-                                    filled: true,
-                                    fillColor: const Color(0xFFF4F6FA),
-                                    isDense: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 14,
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFFE5E7EB),
-                                        width: 0.909,
+                                    decoration: InputDecoration(
+                                      hintText: '예: 50000',
+                                      hintStyle: const TextStyle(
+                                        color: Color(0xFFCBD5E1),
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
                                       ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF2563EB),
-                                        width: 1.4,
+                                      suffixText: '원',
+                                      suffixStyle: const TextStyle(
+                                        fontFamily: 'Noto Sans KR',
+                                        fontFamilyFallback: ['Noto Sans KR'],
+                                        color: Color(0xFF64748B),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      filled: true,
+                                      fillColor: const Color(0xFFF4F6FA),
+                                      isDense: true,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 14,
+                                          ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFFE5E7EB),
+                                          width: 0.909,
+                                        ),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFF2563EB),
+                                          width: 1.4,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -411,14 +447,14 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
 
   Widget _buildCurrentProgress() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      // Tells screen readers why the field and '목표 저장하기' are still
+      // disabled while the goal loads (QA 10/7 #53).
+      return const Center(
+        child: CircularProgressIndicator(semanticsLabel: '절약 목표를 불러오는 중'),
+      );
     }
     if (_loadError != null) {
-      return OutlinedButton.icon(
-        onPressed: _loadGoal,
-        icon: const Icon(Icons.refresh_rounded),
-        label: Text(_loadError!),
-      );
+      return _GoalLoadError(title: _loadError!, onRetry: _retryLoadGoal);
     }
     final saved = _state.currentSaved.value;
     final goal = _state.monthlyGoal.value;
@@ -509,4 +545,91 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
     RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
     (match) => '${match[1]},',
   );
+}
+
+/// Takes the place of the "이번 달 실제 기록" card when the goal and this
+/// month's record could not be loaded.
+class _GoalLoadError extends StatelessWidget {
+  const _GoalLoadError({required this.title, required this.onRetry});
+
+  final String title;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.horizontalPadding,
+        vertical: 24,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.border, width: 0.909),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.error_outline_rounded,
+              color: AppColors.muted,
+              size: 22,
+            ),
+          ),
+          const SizedBox(height: 12),
+          KeepAllText(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Noto Sans KR',
+              fontFamilyFallback: ['Noto Sans KR'],
+              color: AppColors.ink,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const KeepAllText(
+            '연결 상태를 확인하고 다시 시도해 주세요.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Noto Sans KR',
+              fontFamilyFallback: ['Noto Sans KR'],
+              color: AppColors.muted,
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: onRetry,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primaryLight,
+              foregroundColor: AppColors.primary,
+              minimumSize: const Size(0, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              textStyle: const TextStyle(
+                fontFamily: 'Noto Sans KR',
+                fontFamilyFallback: ['Noto Sans KR'],
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            icon: const Icon(Icons.refresh_rounded, size: 16),
+            label: const Text('다시 시도'),
+          ),
+        ],
+      ),
+    );
+  }
 }

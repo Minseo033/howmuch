@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
@@ -9,11 +13,19 @@ import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dar
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:http/http.dart' as http;
+
+/// The server acknowledges a durable job; deletion continues independently.
+const withdrawalRequestTimeout = Duration(seconds: 60);
+
+enum _WithdrawalStatus { completed, pending, notStarted, unknown }
 
 class WithdrawalScreen extends ConsumerStatefulWidget {
   const WithdrawalScreen({super.key});
 
   static const red = AppColors.error;
+  // Red used for text or behind white text must meet AA.
+  static const redText = AppColors.errorText;
   static const ink = AppColors.ink;
   static const black = AppColors.black;
   static const muted = AppColors.muted;
@@ -41,10 +53,22 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     '유사한 다른 서비스를 이용해요',
     '기타',
   ];
-  int _selectedReason = 1;
+  // No preselected answer: the choice is optional and only the user's own.
+  int? _selectedReason;
   bool _confirmed = false;
   bool _asking = false;
   bool _isWithdrawing = false;
+  String? _withdrawalRequestId;
+
+  String _newRequestId() {
+    final random = Random.secure();
+    final bytes = List.generate(16, (_) => random.nextInt(256));
+    bytes[6] = (bytes[6] & 15) | 64;
+    bytes[8] = (bytes[8] & 63) | 128;
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+  }
 
   void _leave() {
     if (_asking || _isWithdrawing) return;
@@ -160,6 +184,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
               height: footerHeight,
               child: _StickyActions(
                 safeBottom: bottomOffset,
+                busy: _isWithdrawing,
                 onCancel: _leave,
                 onWithdraw: _withdraw,
               ),
@@ -202,38 +227,96 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     }
 
     setState(() => _isWithdrawing = true);
+    _withdrawalRequestId ??= _newRequestId();
+    var status = _WithdrawalStatus.unknown;
     try {
-      final url = ApiClient.uri('/api/user');
-      final response = await ApiClient.delete(
-        url,
-        headers: ApiClient.jsonHeaders(auth: true),
-      ).timeout(ApiClient.defaultTimeout);
+      // Keep the receipt available even when this request revokes the session.
+      final response = await http
+          .delete(
+            ApiClient.uri('/api/user'),
+            headers: {
+              ...ApiClient.jsonHeaders(auth: true),
+              'X-Withdrawal-Request-Id': _withdrawalRequestId!,
+            },
+          )
+          .timeout(withdrawalRequestTimeout);
 
       if (!mounted) return;
-      if (response.statusCode != 200) {
-        setState(() => _isWithdrawing = false);
-        messenger.showSnackBar(
-          HowmuchSnackBar(content: Text('탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요.')),
-        );
-        return;
-      }
-    } catch (e) {
-      if (!mounted) return;
+      status = _readStatus(response);
+    } catch (_) {
+      // A timeout is never proof that withdrawal started.
+    }
+    if (status == _WithdrawalStatus.unknown) {
+      status = await _checkStatusAfterTimeout();
+    }
+    if (!mounted) return;
+    if (status != _WithdrawalStatus.completed &&
+        status != _WithdrawalStatus.pending) {
       setState(() => _isWithdrawing = false);
       messenger.showSnackBar(
-        HowmuchSnackBar(content: Text('네트워크 오류가 발생했습니다.')),
+        HowmuchSnackBar(
+          content: Text(
+            status == _WithdrawalStatus.notStarted
+                ? '탈퇴 접수를 확인하지 못했어요. 네트워크를 확인한 뒤 다시 시도해주세요.'
+                : '탈퇴 처리 결과를 확인하지 못했어요. 잠시 후 다시 시도해주세요.',
+          ),
+        ),
       );
       return;
     }
 
-    await ref
-        .read(kakaoLoginServiceProvider)
-        .clearLocalSession(unregisterDevice: false);
+    final loginService = ref.read(kakaoLoginServiceProvider);
+    // The durable job prevents rejoining until deletion finishes.
+    await loginService.unlinkKakaoAfterWithdrawal();
+    await loginService.clearLocalSession(unregisterDevice: false);
     if (!mounted) return;
 
     messenger.clearSnackBars();
-    context.go(AppRoutes.login);
-    messenger.showSnackBar(HowmuchSnackBar(content: Text('회원 탈퇴가 완료되었어요.')));
+    context.go(AppRoutes.home);
+    messenger.showSnackBar(
+      HowmuchSnackBar(
+        content: Text(
+          status == _WithdrawalStatus.completed
+              ? '회원 탈퇴가 완료되었어요.'
+              : '회원 탈퇴 요청이 접수됐어요. 남은 데이터는 서버에서 삭제를 마무리해요.',
+        ),
+      ),
+    );
+  }
+
+  _WithdrawalStatus _readStatus(http.Response response) {
+    if (response.statusCode != 200 && response.statusCode != 202) {
+      return _WithdrawalStatus.unknown;
+    }
+    try {
+      final data = jsonDecode(response.body);
+      if (data is! Map ||
+          data['success'] != true ||
+          data['requestId'] != _withdrawalRequestId) {
+        return _WithdrawalStatus.unknown;
+      }
+      if (data['state'] == 'COMPLETED') return _WithdrawalStatus.completed;
+      if (data['state'] == 'PENDING') return _WithdrawalStatus.pending;
+    } catch (_) {
+      // Malformed responses cannot confirm acceptance.
+    }
+    return _WithdrawalStatus.unknown;
+  }
+
+  Future<_WithdrawalStatus> _checkStatusAfterTimeout() async {
+    try {
+      final response = await http
+          .get(
+            ApiClient.uri('/api/user/withdrawal-status'),
+            headers: {'X-Withdrawal-Request-Id': _withdrawalRequestId!},
+          )
+          .timeout(ApiClient.defaultTimeout);
+      if (response.statusCode == 404) return _WithdrawalStatus.notStarted;
+      return _readStatus(response);
+    } catch (_) {
+      // Still unreachable: the outcome stays unknown.
+    }
+    return _WithdrawalStatus.unknown;
   }
 }
 
@@ -323,7 +406,8 @@ class _DeletedDataCard extends StatelessWidget {
   const _DeletedDataCard({super.key});
 
   static const items = [
-    ('내 제보 내역', '전체 삭제', Icons.feed_outlined),
+    // Matches the server's deletion: approved reports stay without the author.
+    ('내 제보 내역', '승인 제보는 익명 유지', Icons.feed_outlined),
     ('찜한 매장', '전체 삭제', Icons.favorite_border_rounded),
     ('방문 인증 · 절약 리포트', '전체 삭제', Icons.trending_down_rounded),
     ('작성한 리뷰 · 댓글', '전체 삭제', Icons.chat_bubble_outline_rounded),
@@ -418,15 +502,15 @@ class _InfoBox extends StatelessWidget {
               text: const TextSpan(
                 style: _infoText,
                 children: [
-                  TextSpan(text: '승인된 제보 데이터는 '),
+                  TextSpan(text: '승인된 제보는 '),
                   TextSpan(
-                    text: '익명화되어 다른 사용자에게 계속 제공',
+                    text: '작성자 정보와 사진을 지운 뒤 매장 정보로 계속 제공',
                     style: TextStyle(
                       color: WithdrawalScreen.ink,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  TextSpan(text: '됩니다. (개인정보처리방침 제 7조)'),
+                  TextSpan(text: '돼요. (개인정보 처리방침 8장)'),
                 ],
               ),
             ),
@@ -445,7 +529,7 @@ class _ReasonsCard extends StatelessWidget {
   });
 
   final List<String> reasons;
-  final int selectedIndex;
+  final int? selectedIndex;
   final ValueChanged<int> onChanged;
 
   @override
@@ -483,18 +567,29 @@ class _ReasonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          height: 44,
-          child: Row(
-            children: [
-              Text(label, style: selected ? _reasonSelectedText : _reasonText),
-              const Spacer(),
-              _RadioMark(selected: selected),
-            ],
+    // Drawn by hand, so announce it as one choice of a radio group.
+    return Semantics(
+      inMutuallyExclusiveGroup: true,
+      checked: selected,
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: Material(
+        color: AppColors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            height: 44,
+            child: Row(
+              children: [
+                Text(
+                  label,
+                  style: selected ? _reasonSelectedText : _reasonText,
+                ),
+                const Spacer(),
+                _RadioMark(selected: selected),
+              ],
+            ),
           ),
         ),
       ),
@@ -510,49 +605,52 @@ class _ConsentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.transparent,
-      child: InkWell(
-        key: const ValueKey('withdrawal-consent'),
-        borderRadius: BorderRadius.circular(22),
-        onTap: onTap,
-        child: Ink(
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            border: Border.all(
-              color: AppColors.error.withValues(alpha: .2),
-              width: .909,
-            ),
-            borderRadius: BorderRadius.circular(22),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                left: 16.9033203125,
-                top: 17.983,
-                child: _CheckBoxMark(selected: confirmed),
+    return Semantics(
+      checked: confirmed,
+      child: Material(
+        color: AppColors.transparent,
+        child: InkWell(
+          key: const ValueKey('withdrawal-consent'),
+          borderRadius: BorderRadius.circular(22),
+          onTap: onTap,
+          child: Ink(
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              border: Border.all(
+                color: AppColors.error.withValues(alpha: .2),
+                width: .909,
               ),
-              Positioned(
-                left: 46.88916015625,
-                top: 15.994,
-                width: 240.24147033691406,
-                child: RichText(
-                  text: const TextSpan(
-                    style: _consentText,
-                    children: [
-                      TextSpan(text: '위 내용을 모두 확인했으며,\n'),
-                      TextSpan(
-                        text: '탈퇴 시 데이터가 영구 삭제됨에 동의합니다.',
-                        style: TextStyle(
-                          color: WithdrawalScreen.red,
-                          fontWeight: FontWeight.w700,
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  left: 16.9033203125,
+                  top: 17.983,
+                  child: _CheckBoxMark(selected: confirmed),
+                ),
+                Positioned(
+                  left: 46.88916015625,
+                  top: 15.994,
+                  width: 240.24147033691406,
+                  child: RichText(
+                    text: const TextSpan(
+                      style: _consentText,
+                      children: [
+                        TextSpan(text: '위 내용을 모두 확인했으며,\n'),
+                        TextSpan(
+                          text: '탈퇴 시 데이터가 영구 삭제됨에 동의합니다.',
+                          style: TextStyle(
+                            color: WithdrawalScreen.redText,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -563,6 +661,7 @@ class _ConsentCard extends StatelessWidget {
 class _StickyActions extends StatelessWidget {
   const _StickyActions({
     required this.safeBottom,
+    required this.busy,
     required this.onCancel,
     required this.onWithdraw,
   });
@@ -572,6 +671,7 @@ class _StickyActions extends StatelessWidget {
   static const bottomGap = 8.0;
 
   final double safeBottom;
+  final bool busy;
   final VoidCallback onCancel;
   final VoidCallback onWithdraw;
 
@@ -616,10 +716,10 @@ class _StickyActions extends StatelessWidget {
                 const SizedBox(width: 7.997),
                 Expanded(
                   child: _ActionButton(
-                    label: '탈퇴하기',
-                    background: WithdrawalScreen.red,
+                    label: busy ? '탈퇴 처리 중…' : '탈퇴하기',
+                    background: WithdrawalScreen.redText,
                     foreground: AppColors.white,
-                    shadowColor: WithdrawalScreen.red.withValues(alpha: .3),
+                    shadowColor: WithdrawalScreen.redText.withValues(alpha: .3),
                     onTap: onWithdraw,
                   ),
                 ),
@@ -813,7 +913,7 @@ class _SectionLabel extends StatelessWidget {
 }
 
 const _warningTitleText = TextStyle(
-  color: WithdrawalScreen.red,
+  color: WithdrawalScreen.redText,
   fontFamily: WithdrawalScreen.fontFamily,
   fontFamilyFallback: WithdrawalScreen.fontFallback,
   fontSize: 13,
@@ -849,7 +949,7 @@ const _deletedTitleText = TextStyle(
 );
 
 const _deletedValueText = TextStyle(
-  color: WithdrawalScreen.red,
+  color: WithdrawalScreen.redText,
   fontFamily: WithdrawalScreen.fontFamily,
   fontFamilyFallback: WithdrawalScreen.fontFallback,
   fontSize: 11,

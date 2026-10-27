@@ -14,7 +14,9 @@ import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -61,6 +63,38 @@ class AuthControllerTest {
 
         var response = new AuthController(authService, tokens, limiter)
                 .authenticateKakao(request, new MockHttpServletRequest());
+
+        assertEquals(503, response.getStatusCode().value());
+        assertEquals("5", response.getHeaders().getFirst("Retry-After"));
+    }
+
+    @Test
+    void logoutRevokesOnlyThePresentedTokenAndSucceedsWithoutOne() {
+        SessionTokenService tokens = mock(SessionTokenService.class);
+        when(tokens.revokeToken("phone-token")).thenReturn(true);
+        AuthController controller = new AuthController(
+                mock(AuthService.class), tokens, mock(SimpleRateLimiter.class));
+        MockHttpServletRequest logout = new MockHttpServletRequest("POST", "/api/auth/logout");
+        logout.addHeader("Authorization", "Bearer phone-token");
+
+        assertEquals(200, controller.logout(logout).getStatusCode().value());
+        verify(tokens).revokeToken("phone-token");
+        // Nothing to revoke without a token, and signing out must still succeed.
+        assertEquals(200, controller.logout(new MockHttpServletRequest("POST", "/api/auth/logout"))
+                .getStatusCode().value());
+        verifyNoMoreInteractions(tokens);
+    }
+
+    @Test
+    void logoutReportsARetryableFailureWhenTheRevocationStoreIsDown() {
+        SessionTokenService tokens = mock(SessionTokenService.class);
+        when(tokens.revokeToken("phone-token"))
+                .thenThrow(mock(SessionRevocationStore.UnavailableException.class));
+        MockHttpServletRequest logout = new MockHttpServletRequest("POST", "/api/auth/logout");
+        logout.addHeader("Authorization", "Bearer phone-token");
+
+        var response = new AuthController(mock(AuthService.class), tokens, mock(SimpleRateLimiter.class))
+                .logout(logout);
 
         assertEquals(503, response.getStatusCode().value());
         assertEquals("5", response.getHeaders().getFirst("Retry-After"));

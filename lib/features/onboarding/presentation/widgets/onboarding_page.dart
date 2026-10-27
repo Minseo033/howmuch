@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/keep_all_text.dart';
 
 enum OnboardingArtwork { nearby, savings, storeReport }
 
@@ -31,13 +32,16 @@ class OnboardingPage extends StatefulWidget {
     required this.slides,
     required this.onComplete,
     this.initialStep = 0,
-    this.onSkipPressed,
+    this.onLoginPressed,
   });
 
   final List<OnboardingSlideData> slides;
   final int initialStep;
   final VoidCallback onComplete;
-  final VoidCallback? onSkipPressed;
+
+  /// Shown under the last slide's button for visitors who already have an
+  /// account.
+  final VoidCallback? onLoginPressed;
 
   static const blue = Color(0xFF2563EB);
   static const orange = Color(0xFFF97316);
@@ -164,7 +168,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 step: index,
                 totalSteps: widget.slides.length,
                 onNext: _goNext,
-                onSkip: widget.onSkipPressed,
+                onLogin: widget.onLoginPressed,
               );
             },
           ),
@@ -180,14 +184,14 @@ class _OnboardingSlideView extends StatelessWidget {
     required this.step,
     required this.totalSteps,
     required this.onNext,
-    this.onSkip,
+    this.onLogin,
   });
 
   final OnboardingSlideData slide;
   final int step;
   final int totalSteps;
   final VoidCallback onNext;
-  final VoidCallback? onSkip;
+  final VoidCallback? onLogin;
 
   @override
   Widget build(BuildContext context) {
@@ -199,7 +203,7 @@ class _OnboardingSlideView extends StatelessWidget {
         final bottomGap = safeBottom > 0 ? safeBottom / 2 : 20.0;
         // Keep the artwork fluid on short phones. The previous 240px minimum
         // made the copy and CTA extend below a 320x568 viewport.
-        final fixedHeight = 64 + 34 + 180 + 28 + 6 + 20 + 52 + 30 + bottomGap;
+        final fixedHeight = 64 + 34 + 180 + 28 + 6 + 20 + 52 + 48 + bottomGap;
         final artworkHeight = (constraints.maxHeight - fixedHeight).clamp(
           140.0,
           320.0,
@@ -220,12 +224,23 @@ class _OnboardingSlideView extends StatelessWidget {
                     child: Center(
                       child: FittedBox(
                         fit: BoxFit.contain,
-                        child: _ArtworkLayer(artwork: slide.artwork),
+                        // The artwork is one fixed-size picture scaled as a
+                        // whole. Its labels keep their drawn size so large
+                        // system text cannot clip or overlap them.
+                        child: MediaQuery.withNoTextScaling(
+                          child: _ArtworkLayer(artwork: slide.artwork),
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 34),
-                  SizedBox(height: 180, child: _SlideCopy(slide: slide)),
+                  // A minimum rather than a fixed height: with large system
+                  // text the copy grows and the page scrolls instead of the
+                  // copy being cut off.
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 180),
+                    child: _SlideCopy(slide: slide),
+                  ),
                   const SizedBox(height: 28),
                   _StepIndicator(step: step, totalSteps: totalSteps),
                   const SizedBox(height: 20),
@@ -237,12 +252,13 @@ class _OnboardingSlideView extends StatelessWidget {
                       onPressed: onNext,
                     ),
                   ),
-                  if (isLast && onSkip != null) ...[
-                    const SizedBox(height: 12),
+                  if (isLast && onLogin != null) ...[
+                    const SizedBox(height: 4),
+                    // A full-height touch target; the text was an 18px strip.
                     SizedBox(
-                      height: 18,
+                      height: 44,
                       child: TextButton(
-                        onPressed: onSkip,
+                        onPressed: onLogin,
                         style: TextButton.styleFrom(
                           padding: EdgeInsets.zero,
                           foregroundColor: OnboardingPage.muted,
@@ -254,11 +270,11 @@ class _OnboardingSlideView extends StatelessWidget {
                             height: 1.5,
                           ),
                         ),
-                        child: const Text('로그인 없이 둘러보기'),
+                        child: const Text('이미 계정이 있나요? 로그인'),
                       ),
                     ),
                   ] else ...[
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 48),
                   ],
                   SizedBox(height: bottomGap),
                 ],
@@ -306,12 +322,13 @@ class _SlideCopy extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         _Eyebrow(slide: slide),
         const SizedBox(height: 14),
-        Text(
+        KeepAllText(
           slide.title,
+          textAlign: TextAlign.center,
           style: const TextStyle(
             color: OnboardingPage.ink,
             fontFamily: OnboardingPage.fontFamily,
@@ -322,8 +339,9 @@ class _SlideCopy extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        Text(
+        KeepAllText(
           slide.description,
+          textAlign: TextAlign.center,
           style: const TextStyle(
             color: OnboardingPage.muted,
             fontFamily: OnboardingPage.fontFamily,

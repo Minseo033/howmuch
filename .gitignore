@@ -4,6 +4,7 @@
 # IDE
 .idea/
 .vscode/
+*.iml
 
 # Flutter / Dart
 .dart_tool/
@@ -30,9 +31,9 @@ node_modules/
 # Logs
 *.log
 
-# Local Jev quality-gate inputs and outputs
-tools/jev-quality-gate/quality-signals*.json
-tools/jev-quality-gate/result*.json
+# Python caches from data scripts
+__pycache__/
+*.pyc
 
 
 # Firebase Service Account Key

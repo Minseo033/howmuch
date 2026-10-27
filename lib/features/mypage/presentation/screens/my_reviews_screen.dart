@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 import 'package:howmuch/features/store/review_model.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
+import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
+import 'package:howmuch/shared/widgets/login_required_state.dart';
 
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/figma_mobile_canvas.dart';
@@ -16,31 +22,110 @@ class MyReviewsScreen extends ConsumerStatefulWidget {
 }
 
 class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
+  final Set<String> _deletingReviewIds = <String>{};
+
   @override
   void initState() {
     super.initState();
+    // The list is shared by the whole app. Opening the screen reloads it so
+    // reviews written elsewhere (another device, the web) show up; the last
+    // list stays on screen meanwhile (QA #11).
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(myReviewsProvider.notifier).loadReviews();
+      if (!mounted) return;
+      ref.read(myReviewsProvider.notifier).loadReviews(force: true);
     });
+  }
+
+  Future<void> _refresh() async {
+    await ref.read(myReviewsProvider.notifier).loadReviews(force: true);
+    if (!mounted) return;
+    final reviews = ref.read(myReviewsProvider);
+    // A failed refresh keeps the list, so say that it is not up to date.
+    if (reviews.hasError && reviews.hasValue) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          HowmuchSnackBar(
+            content: const Text('내 리뷰를 새로고침하지 못했어요. 잠시 후 다시 시도해주세요.'),
+          ),
+        );
+    }
+  }
+
+  /// Login opens on top of this screen and comes back here, as a member or
+  /// still as a guest. The list follows the login state (see [build]); a load
+  /// that failed while login was still finishing is asked for again.
+  Future<void> _logIn() async {
+    await openLoginFlow(context);
+    if (!mounted || !ApiClient.isAuthenticated) return;
+    if (ref.read(myReviewsProvider).hasError) {
+      await ref.read(myReviewsProvider.notifier).loadReviews(force: true);
+    }
+  }
+
+  Future<void> _confirmDeleteReview(Review review) async {
+    if (review.id.isEmpty || _deletingReviewIds.contains(review.id)) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => HowmuchDialog(
+        title: '리뷰를 삭제할까요?',
+        description: '삭제한 리뷰는 복구할 수 없어요.',
+        confirmLabel: '삭제하기',
+        destructive: true,
+        confirmKey: ValueKey('confirm_delete_review_${review.id}'),
+        onConfirm: () => Navigator.of(dialogContext).pop(true),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _deletingReviewIds.add(review.id));
+    try {
+      await ref.read(myReviewsProvider.notifier).deleteReview(review.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(HowmuchSnackBar(content: const Text('리뷰를 삭제했어요.')));
+    } catch (error) {
+      debugPrint('리뷰 삭제 오류: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          HowmuchSnackBar(
+            content: const Text('리뷰를 삭제하지 못했어요. 잠시 후 다시 시도해주세요.'),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => _deletingReviewIds.remove(review.id));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Every login state change replaces the list with one that nothing loads:
+    // the ones while login is open on top of this screen (a new account that
+    // leaves profile setup is a guest again) and a login that finishes after
+    // the visitor left it. Load it for whoever is here: the account's
+    // reviews, or the login prompt for a guest.
+    ref.listen(myReviewsProvider.notifier, (_, notifier) {
+      notifier.loadReviews(force: true);
+    });
     final reviewsState = ref.watch(myReviewsProvider);
     final reviewCount = reviewsState.valueOrNull?.length ?? 0;
 
     return FigmaMobileCanvas(
-      backgroundColor: AppColors.backgroundDark,
+      backgroundColor: AppColors.surface,
       child: Scaffold(
-        backgroundColor: AppColors.backgroundDark,
+        backgroundColor: AppColors.surface,
         appBar: CustomAppBar(
           title: '내 리뷰',
           actions: [
             Center(
               child: Padding(
                 padding: const EdgeInsets.only(right: 20),
-                child: RichText(
-                  text: TextSpan(
+                // Text.rich picks up the app font; RichText did not.
+                child: Text.rich(
+                  TextSpan(
                     text: '총 ',
                     style: const TextStyle(
                       color: AppColors.muted,
@@ -64,6 +149,8 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
         ),
         body: SafeArea(
           child: reviewsState.when(
+            // An error with a loaded list keeps showing that list.
+            skipError: true,
             loading: () => _buildLoadingBody(),
             error: (error, stackTrace) => _buildErrorBody(error),
             data: _buildReviewBody,
@@ -85,10 +172,8 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
         Expanded(
           child: reviews.isEmpty
               ? _buildEmptyState()
-              : RefreshIndicator(
-                  onRefresh: () => ref
-                      .read(myReviewsProvider.notifier)
-                      .loadReviews(force: true),
+              : _FlatRefresh(
+                  onRefresh: _refresh,
                   child: ListView.separated(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.symmetric(
@@ -115,8 +200,8 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
         children: [
           Expanded(
             child: _StatsCard(
-              child: RichText(
-                text: TextSpan(
+              child: Text.rich(
+                TextSpan(
                   text: '$count',
                   style: const TextStyle(
                     color: AppColors.primary,
@@ -185,71 +270,24 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
   }
 
   Widget _buildErrorBody(Object error) {
-    final authRequired = error is MyReviewsAuthRequiredException;
-    final title = authRequired ? '로그인이 필요해요.' : '내 리뷰를 불러오지 못했어요.';
-    final description = authRequired
-        ? '내가 작성한 리뷰는 로그인 후 확인할 수 있어요.'
-        : '잠시 후 다시 시도해주세요.';
-
-    return Column(
-      children: [
-        _buildStatsHeader(0, 0),
-        Expanded(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    authRequired
-                        ? Icons.lock_outline_rounded
-                        : Icons.wifi_off_rounded,
-                    color: AppColors.muted,
-                    size: 44,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.black,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    description,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (!authRequired)
-                    OutlinedButton(
-                      onPressed: () {
-                        ref
-                            .read(myReviewsProvider.notifier)
-                            .loadReviews(force: true);
-                      },
-                      child: const Text('다시 불러오기'),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
+    // No stats above these: zeros would read as no reviews written.
+    if (error is MyReviewsAuthRequiredException) {
+      // A login-required state needs a way to log in.
+      return LoginRequiredState(
+        description: '내가 작성한 리뷰는 로그인 후 확인할 수 있어요.',
+        actionLabel: '로그인하기',
+        onAction: _logIn,
+      );
+    }
+    return _LoadError(
+      onRetry: () =>
+          ref.read(myReviewsProvider.notifier).loadReviews(force: true),
     );
   }
 
   Widget _buildEmptyState() {
-    return RefreshIndicator(
-      onRefresh: () =>
-          ref.read(myReviewsProvider.notifier).loadReviews(force: true),
+    return _FlatRefresh(
+      onRefresh: _refresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -293,7 +331,6 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               if (review.storeSource == 'GOV')
                 const StatusBadge(type: BadgeType.government)
@@ -304,10 +341,38 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
                   '출처 확인 필요',
                   style: TextStyle(color: AppColors.muted, fontSize: 12),
                 ),
+              const Spacer(),
               Text(
                 dateText,
                 style: const TextStyle(color: AppColors.muted, fontSize: 12),
               ),
+              if (review.id.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  key: ValueKey('delete_review_${review.id}'),
+                  tooltip: '리뷰 삭제',
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 32,
+                    height: 32,
+                  ),
+                  padding: EdgeInsets.zero,
+                  onPressed: _deletingReviewIds.contains(review.id)
+                      ? null
+                      : () => _confirmDeleteReview(review),
+                  icon: _deletingReviewIds.contains(review.id)
+                      ? const SizedBox(
+                          width: 15,
+                          height: 15,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 19,
+                          color: AppColors.muted,
+                        ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
@@ -328,7 +393,7 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
                     Icons.star_rounded,
                     color: index < review.stars
                         ? AppColors.warning
-                        : Colors.grey.shade300,
+                        : AppColors.disabled,
                     size: 16,
                   );
                 }),
@@ -339,7 +404,7 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
                   menuText,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
                 ),
               ),
             ],
@@ -349,7 +414,7 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
             review.content,
             style: const TextStyle(
               fontSize: 14,
-              color: Colors.black87,
+              color: AppColors.textBody,
               height: 1.4,
             ),
           ),
@@ -395,6 +460,103 @@ class _StatsCard extends StatelessWidget {
         border: Border.all(color: AppColors.borderLight),
       ),
       child: child,
+    );
+  }
+}
+
+/// Pull to refresh as a flat pale-blue disc: no Material shadow, and it stays
+/// visible over the white cards it slides across.
+class _FlatRefresh extends StatelessWidget {
+  const _FlatRefresh({required this.onRefresh, required this.child});
+
+  final RefreshCallback onRefresh;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: AppColors.primary,
+      backgroundColor: AppColors.primaryLight,
+      elevation: 0,
+      child: child,
+    );
+  }
+}
+
+/// The app's load error: what failed, what to do, and a retry.
+class _LoadError extends StatelessWidget {
+  const _LoadError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.border, width: .909),
+              ),
+              child: const Icon(
+                Icons.error_outline_rounded,
+                color: AppColors.warning,
+                size: 30,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '내 리뷰를 불러오지 못했어요',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.ink,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '잠시 후 다시 시도해주세요.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.muted,
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: onRetry,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.white,
+                // 40 tall like the other error blocks, with a 48px tap area.
+                minimumSize: const Size(140, 40),
+                tapTargetSize: MaterialTapTargetSize.padded,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.button),
+                ),
+                textStyle: const TextStyle(
+                  fontFamily: 'Noto Sans KR',
+                  fontFamilyFallback: ['Noto Sans KR'],
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              child: const Text('다시 불러오기'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

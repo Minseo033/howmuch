@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/app/startup_location.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
@@ -76,10 +77,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (!ApiClient.isAuthenticated) {
       _markLoggedOut();
       _startupInFlight = false;
+      // Guests use the app without an account; a feature that needs one asks
+      // for login when it is used.
       context.go(
-        prefs.getBool('auth_terms_accepted_v1') == true
-            ? AppRoutes.login
-            : AppRoutes.authTerms,
+        guestStartupLocation(ref.read(startupLocationProvider).take()),
       );
       return;
     }
@@ -91,17 +92,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     });
 
     try {
-      // 별도 health probe를 기다리지 않고 실제 프로필 요청으로 준비 상태를
-      // 확인한다. 카카오 사용자 정보도 같은 시점에 조회해 왕복을 겹친다.
-      final results = await Future.wait<Object?>([
-        _loadKakaoIdentity(prefs),
-        ref.read(startupProfileLoaderProvider)(),
-      ]);
-      final kakaoIdentity =
-          results[0] as ({String profileImageUrl, String email});
-      final profile = results[1] as Map<String, dynamic>?;
-      final profileImageUrl = kakaoIdentity.profileImageUrl;
-      final kakaoEmail = kakaoIdentity.email;
+      // 별도 health probe나 느린 외부 SDK(최대 2초 타임아웃)를 기다리지 않고,
+      // 프로필 응답이 오는 즉시 캐시된 카카오 식별 정보로 화면을 전환한다.
+      final cachedImageUrl =
+          prefs.getString(kakaoProfileImagePreferenceKey)?.trim() ?? '';
+      final cachedEmail =
+          usableAccountEmail(prefs.getString(kakaoEmailPreferenceKey)) ?? '';
+      final profile = await ref.read(startupProfileLoaderProvider)();
       if (!mounted) return;
 
       if (profile == null) {
@@ -117,30 +114,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         return;
       }
 
-      if (profileImageUrl.isNotEmpty &&
-          profile['profileImageUrl']?.toString() != profileImageUrl) {
-        final rawCategories = profile['favoriteCategories'];
-        final categories = rawCategories is List
-            ? rawCategories.map((category) => category.toString()).toList()
-            : <String>[];
-        await UserProfileApiService().saveProfile(
-          nickname: profile['nickname']?.toString() ?? '',
-          email: usableAccountEmail(profile['email']) ?? kakaoEmail,
-          region: profile['region']?.toString() ?? '',
-          favoriteCategories: categories,
-          profileImageUrl: profileImageUrl,
-          nicknamePublic: profile['nicknamePublic'] as bool?,
-          activityPublic: profile['activityPublic'] as bool?,
-        );
-      }
-      if (!mounted) return;
-
       _applyAuthenticatedProfile(
         profile,
-        profileImageUrl: profileImageUrl,
-        kakaoEmail: kakaoEmail,
+        profileImageUrl: cachedImageUrl.isNotEmpty
+            ? cachedImageUrl
+            : (profile['profileImageUrl']?.toString().trim() ?? ''),
+        kakaoEmail: cachedEmail,
       );
-      context.go(AppRoutes.home);
+      unawaited(_syncKakaoIdentityInBackground(prefs, profile));
+      // A reloaded or typed address reopens that screen instead of home.
+      context.go(ref.read(startupLocationProvider).take());
     } on UserProfileAuthException {
       await ApiClient.setSessionToken(null);
       if (!mounted) return;
@@ -160,6 +143,43 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   void _retryConnection() {
     setState(() => _startupView = _StartupView.preparing);
     _routeAfterSplash();
+  }
+
+  Future<void> _syncKakaoIdentityInBackground(
+    SharedPreferences prefs,
+    Map<String, dynamic> profile,
+  ) async {
+    final kakaoIdentity = await _loadKakaoIdentity(prefs);
+    final profileImageUrl = kakaoIdentity.profileImageUrl;
+    final kakaoEmail = kakaoIdentity.email;
+    if (profileImageUrl.isEmpty && kakaoEmail.isEmpty) return;
+    if (mounted) {
+      _applyAuthenticatedProfile(
+        profile,
+        profileImageUrl: profileImageUrl,
+        kakaoEmail: kakaoEmail,
+      );
+    }
+    if (profileImageUrl.isNotEmpty &&
+        profile['profileImageUrl']?.toString() != profileImageUrl) {
+      final rawCategories = profile['favoriteCategories'];
+      final categories = rawCategories is List
+          ? rawCategories.map((category) => category.toString()).toList()
+          : <String>[];
+      try {
+        await UserProfileApiService().saveProfile(
+          nickname: profile['nickname']?.toString() ?? '',
+          email: usableAccountEmail(profile['email']) ?? kakaoEmail,
+          region: profile['region']?.toString() ?? '',
+          favoriteCategories: categories,
+          profileImageUrl: profileImageUrl,
+          nicknamePublic: profile['nicknamePublic'] as bool?,
+          activityPublic: profile['activityPublic'] as bool?,
+        );
+      } catch (e) {
+        debugPrint('백그라운드 프로필 이미지 동기화 실패: $e');
+      }
+    }
   }
 
   Future<({String profileImageUrl, String email})> _loadKakaoIdentity(
@@ -210,6 +230,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         : <String>[];
     final email = usableAccountEmail(profile['email']) ?? kakaoEmail;
     final firebaseUid = profile['firebaseUid']?.toString() ?? '';
+    final nicknamePublic = profile['nicknamePublic'];
+    final activityPublic = profile['activityPublic'];
 
     ref
         .read(authStateProvider.notifier)
@@ -231,6 +253,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             email: email.isNotEmpty ? email : state.email,
             region: profile['region']?.toString(),
             favoriteCategories: categories,
+            // The profile screen shows these stored visibility choices.
+            nicknamePublic: nicknamePublic is bool ? nicknamePublic : null,
+            activityPublic: activityPublic is bool ? activityPublic : null,
             profileImageUrl: profileImageUrl,
           ),
         );

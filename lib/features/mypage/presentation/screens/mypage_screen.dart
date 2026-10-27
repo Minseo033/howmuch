@@ -9,10 +9,11 @@ import 'package:howmuch/app/app_route_observer.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/device_permission_service.dart';
-import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
+import 'package:howmuch/features/savings/presentation/state/savings_period.dart';
 import 'package:howmuch/features/system/presentation/state/push_notification_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
@@ -58,6 +59,19 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
   String? _lastRoutePath;
   bool _hasLoadedSummary = false;
   String? _loadedSessionToken;
+  DateTime? _summaryLoadedAt;
+  int? _loadedReadCacheRevision;
+  Future<void>? _summaryLoad;
+  String? _loadingSessionToken;
+  int? _loadingReadCacheRevision;
+  static const _summaryMaxAge = Duration(seconds: 30);
+  // 내 제보 목록을 받아 온 세션입니다. 지금 세션과 다르면 아직 불러오는 중입니다.
+  String? _reportsSessionToken;
+  bool _reportsLoadFailed = false;
+
+  static const _reportsLoginMessage = '로그인하면 보낸 제보의 처리 상태를 볼 수 있어요.';
+  static const _notificationSettingsLoginMessage = '로그인하면 받을 알림을 고를 수 있어요.';
+  static const _accountLoginMessage = '로그인하면 계정 정보를 관리할 수 있어요.';
 
   @override
   void initState() {
@@ -66,9 +80,17 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     // 💡 내 제보를 서버에서 다시 불러옵니다.
     // (앱 재시작 후 로컬 상태가 비어 미리보기가 사라지는 문제 방지)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadMyReports();
       _loadProfileSummary();
     });
+    // Kakao can answer after the visitor already closed login, so the
+    // account can change while MY is showing. Load for it then; coming back
+    // from a screen on top reloads through didPopNext instead.
+    ref.listenManual(
+      authStateProvider.select((auth) => (auth.isLoggedIn, auth.sessionToken)),
+      (_, _) {
+        if (_isMypageVisible) _refreshSummary();
+      },
+    );
   }
 
   @override
@@ -79,7 +101,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     if (router != _router) {
       _router?.routerDelegate.removeListener(_handleRouterChange);
       _router = router;
-      _lastRoutePath = router.routeInformationProvider.value.uri.path;
+      _lastRoutePath = visibleAppPath(router);
       router.routerDelegate.addListener(_handleRouterChange);
     }
     final route = ModalRoute.of(context);
@@ -102,24 +124,47 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     if (state == AppLifecycleState.resumed) {
       ref.invalidate(locationAccessProvider);
       ref.invalidate(pushAccessProvider);
-      _refreshSummary();
+      if (_isMypageVisible) _refreshSummary();
     }
   }
 
-  void _refreshSummary() {
+  bool get _isMypageVisible =>
+      _router != null && visibleAppPath(_router!) == AppRoutes.mypage;
+
+  void _refreshSummary({bool force = false}) {
     if (!mounted) return;
-    _loadMyReports();
-    _loadProfileSummary();
+    unawaited(_loadProfileSummary(force: force));
+  }
+
+  /// Opens a screen with the account's own records. A guest is asked to log
+  /// in first and then lands on the screen they chose. Coming back from login
+  /// reloads this page through [didPopNext].
+  Future<void> _openMemberScreen(String location, String loginMessage) async {
+    if (!await requireLogin(context, message: loginMessage)) return;
+    if (mounted) context.push(location);
   }
 
   void _handleRouterChange() {
-    final path = _router?.routeInformationProvider.value.uri.path;
+    final router = _router;
+    final path = router == null ? null : visibleAppPath(router);
+    final previousPath = _lastRoutePath;
     final enteredMypage = shouldRefreshMypageOnRouteChange(
       _lastRoutePath,
       path,
     );
     _lastRoutePath = path;
-    if (enteredMypage) _refreshSummary();
+    if (enteredMypage) {
+      final force = {
+        AppRoutes.profileEdit,
+        AppRoutes.accountManagement,
+        AppRoutes.loginFlow,
+      }.contains(previousPath);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _isMypageVisible) {
+          _refreshSummary(force: force);
+        }
+      });
+    }
   }
 
   @override
@@ -132,35 +177,111 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
 
   Future<void> _loadMyReports() async {
     final sessionToken = ApiClient.sessionToken;
+    final revision = ApiClient.readCacheRevision;
     final reports = await ref.read(reportServiceProvider).fetchMyReports();
-    if (reports != null && mounted && sessionToken == ApiClient.sessionToken) {
-      ref.read(userReportsProvider.notifier).mergeFetchedReports(reports);
+    _applyMyReports(reports, sessionToken, revision);
+  }
+
+  /// 내 제보 조회 결과를 반영합니다. 실패해도 이미 받은 목록은 지우지 않습니다.
+  void _applyMyReports(
+    List<UserReportStatus>? reports,
+    String? sessionToken,
+    int revision,
+  ) {
+    if (!_canApplySummary(sessionToken, revision)) return;
+    if (reports != null) {
+      final notifier = ref.read(userReportsProvider.notifier);
+      if (_reportsSessionToken != null &&
+          _reportsSessionToken != sessionToken) {
+        // Local draft reports may belong to the previous account too.
+        notifier.setReports(reports);
+      } else {
+        notifier.mergeFetchedReports(reports);
+      }
     }
+    setState(() {
+      _reportsSessionToken = sessionToken;
+      _reportsLoadFailed = reports == null;
+    });
   }
 
   /// 프로필(/api/user/profile) + 이번 달 절약(/api/savings/stats) +
-  /// 제보 수(/api/report/my) + 찜 수(/api/favorites)를 채웁니다.
-  Future<void> _loadProfileSummary() async {
+  /// 내 제보(/api/report/my, 목록과 개수를 한 번에) + 찜 수(/api/favorites)를
+  /// 채웁니다.
+  Future<void> _loadProfileSummary({bool force = false}) {
     final auth = ref.read(authStateProvider);
     if (!auth.isLoggedIn) {
       if (mounted && _hasLoadedSummary) {
         setState(() {
           _hasLoadedSummary = false;
           _loadedSessionToken = null;
+          _summaryLoadedAt = null;
+          _loadedReadCacheRevision = null;
         });
       }
-      return;
+      return Future.value();
     }
     final sessionToken = ApiClient.sessionToken;
+    final revision = ApiClient.readCacheRevision;
+    final currentLoad = _summaryLoad;
+    if (currentLoad != null &&
+        _loadingSessionToken == sessionToken &&
+        _loadingReadCacheRevision == revision) {
+      return currentLoad;
+    }
+    final loadedAt = _summaryLoadedAt;
+    if (!force &&
+        _hasLoadedSummary &&
+        _loadedSessionToken == sessionToken &&
+        _loadedReadCacheRevision == revision &&
+        loadedAt != null &&
+        DateTime.now().difference(loadedAt) < _summaryMaxAge) {
+      return Future.value();
+    }
+    _loadingSessionToken = sessionToken;
+    _loadingReadCacheRevision = revision;
+    // The page stays mounted in its tab. Keep its numbers visible while a
+    // stale summary refreshes; only a different account needs placeholders.
+    late final Future<void> load;
+    load = _fetchProfileSummary(sessionToken, revision, force: force)
+        .whenComplete(() {
+          if (!identical(_summaryLoad, load)) return;
+          _summaryLoad = null;
+          if (mounted &&
+              _isMypageVisible &&
+              sessionToken == ApiClient.sessionToken &&
+              revision != ApiClient.readCacheRevision) {
+            _refreshSummary();
+          }
+        });
+    _summaryLoad = load;
+    return load;
+  }
+
+  bool _canApplySummary(String? sessionToken, int revision) =>
+      mounted &&
+      sessionToken == ApiClient.sessionToken &&
+      revision == ApiClient.readCacheRevision &&
+      ref.read(authStateProvider).isLoggedIn;
+
+  Future<void> _fetchProfileSummary(
+    String? sessionToken,
+    int revision, {
+    required bool force,
+  }) async {
+    final auth = ref.read(authStateProvider);
 
     if (widget.profileSummaryLoader != null) {
+      unawaited(_loadMyReports());
       try {
         await widget.profileSummaryLoader!(ref);
       } finally {
-        if (mounted && sessionToken == ApiClient.sessionToken) {
+        if (_canApplySummary(sessionToken, revision)) {
           setState(() {
             _hasLoadedSummary = true;
             _loadedSessionToken = sessionToken;
+            _summaryLoadedAt = DateTime.now();
+            _loadedReadCacheRevision = revision;
           });
         }
       }
@@ -168,17 +289,34 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     }
 
     // 4개 API 병렬 조회 (프로필 / 절약 통계 / 찜 수 / 제보 수)
-    final profileFuture = UserProfileApiService().fetchProfile().catchError((
-      e,
-    ) {
-      debugPrint('마이페이지 프로필 로드 오류: $e');
-      return null;
-    });
+    final profileFuture =
+        ApiClient.get(
+              ApiClient.uri('/api/user/profile'),
+              headers: ApiClient.jsonHeaders(auth: true),
+              cacheMaxAge: force ? Duration.zero : _summaryMaxAge,
+            )
+            .then<Map<String, dynamic>?>((response) {
+              if (response.statusCode == 200) {
+                return jsonDecode(utf8.decode(response.bodyBytes))
+                    as Map<String, dynamic>;
+              }
+              return null;
+            })
+            .catchError((Object error) {
+              debugPrint('마이페이지 프로필 로드 오류: $error');
+              return null;
+            });
 
+    final currentMonth = SavingsPeriod.currentMonth(DateTime.now());
     final savingsFuture =
         ApiClient.get(
-              ApiClient.uri('/api/savings/stats', {'period': 'this_month'}),
+              ApiClient.uri('/api/savings/stats', {
+                'period': 'this_month',
+                'startDate': currentMonth.startDate,
+                'endDateExclusive': currentMonth.endDateExclusive,
+              }),
               headers: ApiClient.jsonHeaders(auth: true),
+              cacheMaxAge: force ? Duration.zero : _summaryMaxAge,
             )
             .timeout(ApiClient.defaultTimeout)
             .then<Map<String, dynamic>?>((res) {
@@ -197,6 +335,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
         ApiClient.get(
               ApiClient.uri('/api/favorites'),
               headers: ApiClient.jsonHeaders(auth: true),
+              cacheMaxAge: force ? Duration.zero : _summaryMaxAge,
             )
             .timeout(ApiClient.defaultTimeout)
             .then<int?>((res) {
@@ -211,23 +350,20 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
               return null;
             });
 
-    final reportsFuture =
-        ApiClient.get(
-              ApiClient.uri('/api/report/my'),
-              headers: ApiClient.jsonHeaders(auth: true),
-            )
-            .timeout(ApiClient.defaultTimeout)
-            .then<int?>((res) {
-              if (res.statusCode == 200) {
-                final decoded = jsonDecode(utf8.decode(res.bodyBytes));
-                return decoded is List ? decoded.length : 0;
-              }
-              return null;
-            })
-            .catchError((e) {
-              debugPrint('마이페이지 제보 수 로드 오류: $e');
-              return null;
-            });
+    // One request feeds both the report preview and the count; refreshing
+    // used to call /api/report/my twice.
+    final reportsFuture = ref
+        .read(reportServiceProvider)
+        .fetchMyReports()
+        .then<int?>((reports) {
+          _applyMyReports(reports, sessionToken, revision);
+          return reports?.length;
+        })
+        .catchError((Object e) {
+          debugPrint('마이페이지 제보 로드 오류: $e');
+          _applyMyReports(null, sessionToken, revision);
+          return null;
+        });
 
     try {
       final results = await Future.wait([
@@ -237,12 +373,19 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
         reportsFuture,
       ]);
 
-      if (!mounted || sessionToken != ApiClient.sessionToken) return;
+      if (!_canApplySummary(sessionToken, revision)) return;
 
       final profile = results[0] as Map<String, dynamic>?;
       final savingsData = results[1] as Map<String, dynamic>?;
       final favoriteCount = results[2] as int?;
       final reportCount = results[3] as int?;
+      if (profile != null &&
+          savingsData != null &&
+          favoriteCount != null &&
+          reportCount != null) {
+        _summaryLoadedAt = DateTime.now();
+        _loadedReadCacheRevision = revision;
+      }
 
       ref.read(userProfileProvider.notifier).update((state) {
         var next = state;
@@ -299,7 +442,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
         );
       }
     } finally {
-      if (mounted && sessionToken == ApiClient.sessionToken) {
+      if (_canApplySummary(sessionToken, revision)) {
         setState(() {
           _hasLoadedSummary = true;
           _loadedSessionToken = sessionToken;
@@ -317,13 +460,24 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
         usableAccountEmail(auth.email) ??
         '이메일 정보 없음';
     final reports = ref.watch(userReportsProvider);
+    final reportsLoading =
+        auth.isLoggedIn && _reportsSessionToken != ApiClient.sessionToken;
+    // The provider can still contain the previous account's reports while
+    // the new account is loading. Keep the loading state, but never display
+    // another account's private report names/statuses.
+    final visibleReports = reportsLoading
+        ? const <UserReportStatus>[]
+        : reports;
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
     final bottomNavHeight = HowmuchBottomNav.heightFor(bottomOffset);
     const settingsCardHeight = 316.0;
-    final scrollContentHeight =
-        659.98583984375 + topOffset + settingsCardHeight + bottomNavHeight + 16;
+    // The report status card sits right below the menus; from there the page
+    // flows so the card can grow with large text and push the settings card
+    // down instead of overlapping it (QA 10/7 #5). At the default text size
+    // every block keeps its design position.
+    const reportCardTop = 458.76416015625;
 
     return FigmaMobileCanvas(
       backgroundColor: MypageScreen.surface,
@@ -334,151 +488,198 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
               physics: const AlwaysScrollableScrollPhysics(
                 parent: BouncingScrollPhysics(),
               ),
-              child: SizedBox(
-                width: double.infinity,
-                height: scrollContentHeight,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 0,
-                      height: 50.96590805053711 + topOffset,
-                      child: _Header(topOffset: topOffset),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 66.96044921875 + topOffset,
-                      height: 163.23863220214844,
-                      child: _ProfileCard(
-                        profile: profile,
-                        email: displayEmail,
-                        onEdit: () => context.push(AppRoutes.profileEdit),
-                        isLoadingMetrics:
-                            auth.isLoggedIn &&
-                            (!_hasLoadedSummary ||
-                                _loadedSessionToken != ApiClient.sessionToken),
-                      ),
-                    ),
-                    // QuickMenu row 1
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 246.193359375 + topOffset,
-                      height: 90,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '내 제보',
-                                icon: Icons.description_outlined,
-                                color: MypageScreen.orange,
-                                onTap: () =>
-                                    context.push(AppRoutes.myReportsV2),
-                              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    height: reportCardTop + topOffset,
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: 0,
+                          height: 50.96590805053711 + topOffset,
+                          child: _Header(
+                            topOffset: topOffset,
+                            onNotifications: () => _openMemberScreen(
+                              AppRoutes.notifications,
+                              '로그인하면 제보 처리, 문의 답변, 가격 변동 알림을 볼 수 있어요.',
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '찜한 매장',
-                                icon: Icons.favorite_border_rounded,
-                                color: MypageScreen.orange,
-                                onTap: () =>
-                                    context.push(AppRoutes.favoriteStores),
-                              ),
+                            onAccount: () => _openMemberScreen(
+                              AppRoutes.accountManagement,
+                              _accountLoginMessage,
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '내 리뷰',
-                                icon: Icons.rate_review_outlined,
-                                color: MypageScreen.blue,
-                                onTap: () => context.push(AppRoutes.myReviews),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                    // QuickMenu row 2
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 348.47998046875 + topOffset,
-                      height: 90,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '방문 기록',
-                                icon: Icons.location_on_outlined,
-                                color: MypageScreen.green,
-                                onTap: () =>
-                                    context.push(AppRoutes.visitHistory),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '절약 리포트',
-                                icon: Icons.bar_chart_rounded,
-                                color: MypageScreen.green,
-                                onTap: () => context.go(
-                                  AppRoutes.savingsReportDashboard,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '알림 설정',
-                                icon: Icons.notifications_none_rounded,
-                                color: MypageScreen.blue,
-                                onTap: () => context.push(
-                                  AppRoutes.notificationSettings,
-                                ),
-                              ),
-                            ),
-                          ],
+                        Positioned(
+                          left: 20,
+                          right: 20,
+                          top: 66.96044921875 + topOffset,
+                          height: 163.23863220214844,
+                          child: _ProfileCard(
+                            profile: profile,
+                            email: displayEmail,
+                            isGuest: !auth.isLoggedIn,
+                            onEdit: () => context.push(AppRoutes.profileEdit),
+                            onLogin: () => openLoginFlow(context),
+                            isLoadingMetrics:
+                                auth.isLoggedIn &&
+                                (!_hasLoadedSummary ||
+                                    _loadedSessionToken !=
+                                        ApiClient.sessionToken),
+                          ),
                         ),
-                      ),
+                        // QuickMenu row 1
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: 246.193359375 + topOffset,
+                          height: 90,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _QuickMenu(
+                                    label: '내 제보',
+                                    icon: Icons.description_outlined,
+                                    color: MypageScreen.orange,
+                                    onTap: () => _openMemberScreen(
+                                      AppRoutes.myReportsV2,
+                                      _reportsLoginMessage,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _QuickMenu(
+                                    label: '찜한 매장',
+                                    icon: Icons.favorite_border_rounded,
+                                    color: MypageScreen.orange,
+                                    onTap: () => _openMemberScreen(
+                                      AppRoutes.favoriteStores,
+                                      '로그인하면 찜한 매장을 모아 볼 수 있어요.',
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _QuickMenu(
+                                    label: '내 리뷰',
+                                    icon: Icons.rate_review_outlined,
+                                    color: MypageScreen.blue,
+                                    onTap: () => _openMemberScreen(
+                                      AppRoutes.myReviews,
+                                      '로그인하면 내가 쓴 리뷰를 모아 볼 수 있어요.',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // QuickMenu row 2
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: 348.47998046875 + topOffset,
+                          height: 90,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _QuickMenu(
+                                    label: '방문 기록',
+                                    icon: Icons.location_on_outlined,
+                                    color: MypageScreen.green,
+                                    onTap: () => _openMemberScreen(
+                                      AppRoutes.visitHistory,
+                                      '로그인하면 방문 인증한 매장과 아낀 금액을 볼 수 있어요.',
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _QuickMenu(
+                                    label: '절약 리포트',
+                                    icon: Icons.bar_chart_rounded,
+                                    color: MypageScreen.green,
+                                    onTap: () => context.go(
+                                      AppRoutes.savingsReportDashboard,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _QuickMenu(
+                                    label: '알림 설정',
+                                    icon: Icons.notifications_none_rounded,
+                                    color: MypageScreen.blue,
+                                    onTap: () => _openMemberScreen(
+                                      AppRoutes.notificationSettings,
+                                      _notificationSettingsLoginMessage,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 458.76416015625 + topOffset,
-                      height: 189.23294067382812,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: ConstrainedBox(
+                      // The design height holds two rows. With fewer rows the
+                      // card fits them instead of keeping an empty row's
+                      // space. It keeps the height while loading so the page
+                      // doesn't jump when the usual two rows arrive.
+                      constraints: BoxConstraints(
+                        minHeight: visibleReports.length >= 2 || reportsLoading
+                            ? 189.23294067382812
+                            : 0,
+                      ),
                       child: _ReportStatusCard(
-                        reports: reports,
-                        onViewAll: () => context.push(AppRoutes.myReportsV2),
+                        reports: visibleReports,
+                        isGuest: !auth.isLoggedIn,
+                        isLoading: reportsLoading,
+                        loadFailed: _reportsLoadFailed,
+                        onViewAll: () => _openMemberScreen(
+                          AppRoutes.myReportsV2,
+                          _reportsLoginMessage,
+                        ),
                         onReportTap: (report) => context.push(
                           '${AppRoutes.reportDetailV2}?id=${report.id}',
                           extra: report,
                         ),
                       ),
                     ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 659.98583984375 + topOffset,
+                  ),
+                  const SizedBox(height: 11.98873901367187),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: SizedBox(
                       height: settingsCardHeight,
                       child: _SettingsCard(
-                        onNotificationTap: () =>
-                            context.push(AppRoutes.notificationSettings),
-                        onAccountTap: () =>
-                            context.push(AppRoutes.accountManagement),
+                        onNotificationTap: () => _openMemberScreen(
+                          AppRoutes.notificationSettings,
+                          _notificationSettingsLoginMessage,
+                        ),
+                        onAccountTap: () => _openMemberScreen(
+                          AppRoutes.accountManagement,
+                          _accountLoginMessage,
+                        ),
                         onPublicDataTap: () =>
                             context.push(AppRoutes.publicDataSource),
                         onInquiryTap: () => context.push(AppRoutes.inquiry),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  SizedBox(height: bottomNavHeight + 16),
+                ],
               ),
             ),
           ),
@@ -499,9 +700,15 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.topOffset});
+  const _Header({
+    required this.topOffset,
+    required this.onNotifications,
+    required this.onAccount,
+  });
 
   final double topOffset;
+  final VoidCallback onNotifications;
+  final VoidCallback onAccount;
 
   @override
   Widget build(BuildContext context) {
@@ -534,7 +741,7 @@ class _Header extends StatelessWidget {
                   button: true,
                   label: '알림',
                   child: GestureDetector(
-                    onTap: () => context.push(AppRoutes.notifications),
+                    onTap: onNotifications,
                     behavior: HitTestBehavior.opaque,
                     child: const SizedBox(
                       width: 32,
@@ -553,7 +760,7 @@ class _Header extends StatelessWidget {
                   button: true,
                   label: '계정 설정',
                   child: GestureDetector(
-                    onTap: () => context.push(AppRoutes.accountManagement),
+                    onTap: onAccount,
                     behavior: HitTestBehavior.opaque,
                     child: const SizedBox(
                       width: 32,
@@ -581,17 +788,23 @@ class _ProfileCard extends StatelessWidget {
   const _ProfileCard({
     required this.profile,
     required this.email,
+    required this.isGuest,
     required this.onEdit,
+    required this.onLogin,
     this.isLoadingMetrics = false,
   });
 
   final UserProfile profile;
   final String email;
+  final bool isGuest;
   final VoidCallback onEdit;
+  final VoidCallback onLogin;
   final bool isLoadingMetrics;
 
   @override
   Widget build(BuildContext context) {
+    // A guest gets a login button where a member edits the profile.
+    final action = isGuest ? 'mypage-profile-login' : 'mypage-profile-edit';
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
       child: DecoratedBox(
@@ -604,133 +817,159 @@ class _ProfileCard extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 22, 20, 14),
-          child: Column(
-            children: [
-              Row(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final useStackedSubtitle = constraints.maxWidth < 260;
+              final useCompactEditAction = !isGuest && useStackedSubtitle;
+              return Column(
                 children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: AppColors.white.withValues(alpha: .25),
-                      shape: BoxShape.circle,
-                    ),
-                    child: SizedBox(
-                      width: 56,
-                      height: 56,
-                      child: ClipOval(
-                        child: _ProfileAvatarImage(
-                          imageUrl: profile.profileImageUrl,
-                          isGuest: profile.nickname == '게스트',
+                  Row(
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.white.withValues(alpha: .25),
+                          shape: BoxShape.circle,
                         ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          profile.nickname,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: _white17.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          email,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: _white11.copyWith(
-                            color: AppColors.white.withValues(alpha: .85),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Material(
-                    key: const ValueKey('mypage-profile-edit-button'),
-                    color: AppColors.white.withValues(alpha: .22),
-                    borderRadius: BorderRadius.circular(999),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(999),
-                      onTap: onEdit,
-                      child: SizedBox(
-                        height: 30,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Center(
-                            child: Row(
-                              key: const ValueKey(
-                                'mypage-profile-edit-content',
-                              ),
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Transform.translate(
-                                  offset: const Offset(0, -1),
-                                  child: const Text(
-                                    '프로필 수정',
-                                    key: ValueKey('mypage-profile-edit-label'),
-                                    style: _profileEditText,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.chevron_right_rounded,
-                                      key: ValueKey(
-                                        'mypage-profile-edit-chevron',
-                                      ),
-                                      color: AppColors.white,
-                                      size: 14,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        child: SizedBox(
+                          width: 56,
+                          height: 56,
+                          child: ClipOval(
+                            child: _ProfileAvatarImage(
+                              imageUrl: profile.profileImageUrl,
+                              isGuest: profile.nickname == '게스트',
                             ),
                           ),
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              profile.nickname,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _white17.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            if (!useStackedSubtitle) ...[
+                              Text(
+                                // A guest has no email to show; say what login adds.
+                                isGuest ? '로그인하면 기록이 남아요' : email,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _white11.copyWith(
+                                  color: AppColors.white.withValues(alpha: .85),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Material(
+                        key: ValueKey('$action-button'),
+                        color: AppColors.white.withValues(alpha: .22),
+                        borderRadius: BorderRadius.circular(999),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(999),
+                          onTap: isGuest ? onLogin : onEdit,
+                          child: SizedBox(
+                            height: 30,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: useCompactEditAction ? 8 : 12,
+                              ),
+                              child: Center(
+                                child: Row(
+                                  key: ValueKey('$action-content'),
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Transform.translate(
+                                      offset: const Offset(0, -1),
+                                      child: Text(
+                                        isGuest
+                                            ? '로그인'
+                                            : useCompactEditAction
+                                            ? '수정'
+                                            : '프로필 수정',
+                                        key: ValueKey('$action-label'),
+                                        style: _profileEditText,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: Center(
+                                        child: Icon(
+                                          Icons.chevron_right_rounded,
+                                          key: ValueKey('$action-chevron'),
+                                          color: AppColors.white,
+                                          size: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (useStackedSubtitle)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        isGuest ? '로그인하면 기록이 남아요' : email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _white11.copyWith(
+                          color: AppColors.white.withValues(alpha: .85),
+                        ),
+                      ),
                     ),
+                  const Spacer(),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ProfileMetric(
+                          key: const ValueKey('mypage-metric-saved-amount'),
+                          value: '${profile.savedAmountText}원',
+                          label: '이번 달 절약',
+                          isLoading: isLoadingMetrics,
+                        ),
+                      ),
+                      Expanded(
+                        child: _ProfileMetric(
+                          key: const ValueKey('mypage-metric-report-count'),
+                          // 내 제보 목록의 건수입니다. 같은 매장에 여러 번 제보해도 한 건씩 셉니다.
+                          value: '${profile.reportCount}건',
+                          label: '내 제보',
+                          bordered: true,
+                          isLoading: isLoadingMetrics,
+                        ),
+                      ),
+                      Expanded(
+                        child: _ProfileMetric(
+                          key: const ValueKey('mypage-metric-favorite-count'),
+                          value: '${profile.favoriteStoreCount}곳',
+                          label: '찜한 매장',
+                          bordered: true,
+                          isLoading: isLoadingMetrics,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  Expanded(
-                    child: _ProfileMetric(
-                      key: const ValueKey('mypage-metric-saved-amount'),
-                      value: '${profile.savedAmountText}원',
-                      label: '이번 달 절약',
-                      isLoading: isLoadingMetrics,
-                    ),
-                  ),
-                  Expanded(
-                    child: _ProfileMetric(
-                      key: const ValueKey('mypage-metric-report-count'),
-                      value: '${profile.reportCount}곳',
-                      label: '제보 매장',
-                      bordered: true,
-                      isLoading: isLoadingMetrics,
-                    ),
-                  ),
-                  Expanded(
-                    child: _ProfileMetric(
-                      key: const ValueKey('mypage-metric-favorite-count'),
-                      value: '${profile.favoriteStoreCount}곳',
-                      label: '찜한 매장',
-                      bordered: true,
-                      isLoading: isLoadingMetrics,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),
@@ -856,35 +1095,39 @@ class _QuickMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.white,
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
+    // Read as a button, not as plain text (QA 10/7 #54).
+    return Semantics(
+      button: true,
+      child: Material(
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(22),
-        onTap: onTap,
-        child: Container(
-          height: 94.2897720336914,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: MypageScreen.border, width: .909),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: .09),
-                  shape: BoxShape.circle,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: onTap,
+          child: Container(
+            height: 94.2897720336914,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: MypageScreen.border, width: .909),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: .09),
+                    shape: BoxShape.circle,
+                  ),
+                  child: SizedBox(
+                    width: 37.99715805053711,
+                    height: 37.99715805053711,
+                    child: Icon(icon, color: color, size: 18),
+                  ),
                 ),
-                child: SizedBox(
-                  width: 37.99715805053711,
-                  height: 37.99715805053711,
-                  child: Icon(icon, color: color, size: 18),
-                ),
-              ),
-              const SizedBox(height: 5.994),
-              Text(label, style: _quickMenuText),
-            ],
+                const SizedBox(height: 5.994),
+                Text(label, style: _quickMenuText),
+              ],
+            ),
           ),
         ),
       ),
@@ -895,11 +1138,17 @@ class _QuickMenu extends StatelessWidget {
 class _ReportStatusCard extends StatelessWidget {
   const _ReportStatusCard({
     required this.reports,
+    required this.isGuest,
+    required this.isLoading,
+    required this.loadFailed,
     required this.onViewAll,
     required this.onReportTap,
   });
 
   final List<UserReportStatus> reports;
+  final bool isGuest;
+  final bool isLoading;
+  final bool loadFailed;
   final VoidCallback onViewAll;
   final Function(UserReportStatus) onReportTap;
 
@@ -912,7 +1161,9 @@ class _ReportStatusCard extends StatelessWidget {
         16.903411865234375,
         16.9033203125,
         16.903411865234375,
-        .909,
+        // The space the design leaves under the second row, so a card with
+        // one row or the empty notice ends the same way.
+        12.57,
       ),
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -921,23 +1172,41 @@ class _ReportStatusCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          SizedBox(
-            height: 19.488636016845703,
+          // Grows with large text instead of cutting the title (QA 10/7 #5).
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 19.488636016845703),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('내 제보 상태', style: _sectionTitleText),
-                GestureDetector(
-                  onTap: onViewAll,
-                  behavior: HitTestBehavior.opaque,
-                  child: const Text('전체보기', style: _linkText),
+                const Flexible(
+                  child: Text('내 제보 상태', style: _sectionTitleText),
+                ),
+                Semantics(
+                  container: true,
+                  button: true,
+                  child: GestureDetector(
+                    onTap: onViewAll,
+                    behavior: HitTestBehavior.opaque,
+                    child: const Text('전체보기', style: _linkText),
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 11.989),
           if (visibleReports.isEmpty)
-            const _EmptyReportItem()
+            // 목록을 받기 전에는 빈 상태로 단정하지 않습니다.
+            _EmptyReportItem(
+              loading: isLoading,
+              // 게스트에게 '제보한 내역이 없다'고 하면 계정의 제보까지 없는 것처럼 보입니다.
+              message: isGuest
+                  ? '로그인하면 보낸 제보의 처리 상태를 볼 수 있어요'
+                  : isLoading
+                  ? '내 제보를 불러오는 중이에요'
+                  : loadFailed
+                  ? '내 제보를 불러오지 못했어요'
+                  : '아직 제보한 내역이 없어요',
+            )
           else
             for (var index = 0; index < visibleReports.length; index++) ...[
               _ReportItem(
@@ -961,68 +1230,102 @@ class _ReportItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: MypageScreen.surface,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
+    // Opens the report: read as a button (QA 10/7 #54).
+    return Semantics(
+      button: true,
+      child: Material(
+        color: MypageScreen.surface,
         borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: SizedBox(
-          width: 301.647705078125,
-          height: 56.974430084228516,
-          child: Stack(
-            children: [
-              Positioned(
-                left: 11.9886474609375,
-                top: 10,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          // The design height fits the default text size. Larger text grows
+          // the row instead of cutting the second line (QA 10/7 #5).
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 56.974430084228516),
+            child: SizedBox(
+              width: 301.647705078125,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  11.9886474609375,
+                  10,
+                  11.9886474609375,
+                  9.98,
+                ),
+                child: Row(
                   children: [
-                    Text(report.store, style: _reportStoreText),
-                    const SizedBox(height: .994),
-                    Text(report.menu, style: _muted11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            report.store,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _reportStoreText,
+                          ),
+                          const SizedBox(height: .994),
+                          Text(
+                            report.summaryText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _muted11,
+                          ),
+                        ],
+                      ),
+                    ),
+                    // 오른쪽 상태 배지와 겹치지 않도록 글자 폭을 제한합니다(배지 영역 90px).
+                    // 글자가 커져 배지가 넓어지면 글자 쪽이 줄어듭니다.
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        minWidth: 90 - 11.9886474609375,
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        widthFactor: 1,
+                        child: Container(
+                          constraints: const BoxConstraints(
+                            minHeight: 20.99431800842285,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8.99151611328125,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Color(report.statusBg),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Color(report.statusColor),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const SizedBox(width: 5, height: 5),
+                              ),
+                              const SizedBox(width: 3.991),
+                              Text(
+                                report.displayStatus,
+                                style: TextStyle(
+                                  color: Color(report.textColor),
+                                  fontFamily: MypageScreen.fontFamily,
+                                  fontFamilyFallback: MypageScreen.fontFallback,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              Positioned(
-                right: 11.9886474609375,
-                top: 17.98291015625,
-                child: Container(
-                  height: 20.99431800842285,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8.99151611328125,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Color(report.statusBg),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Color(report.statusColor),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const SizedBox(width: 5, height: 5),
-                      ),
-                      const SizedBox(width: 3.991),
-                      Text(
-                        report.status,
-                        style: TextStyle(
-                          color: Color(report.textColor),
-                          fontFamily: MypageScreen.fontFamily,
-                          fontFamilyFallback: MypageScreen.fontFallback,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1031,19 +1334,41 @@ class _ReportItem extends StatelessWidget {
 }
 
 class _EmptyReportItem extends StatelessWidget {
-  const _EmptyReportItem();
+  const _EmptyReportItem({required this.message, this.loading = false});
+
+  final String message;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 301.647705078125,
-      height: 88,
+      // Grows with large text instead of overflowing (QA 10/7 #5).
+      constraints: const BoxConstraints(minHeight: 88),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: MypageScreen.surface,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: const Text('진행 중인 제보가 없어요', style: _muted11),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (loading) ...[
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: MypageScreen.blue,
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Text(message, textAlign: TextAlign.center, style: _muted11),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1092,15 +1417,41 @@ class _SettingsCardState extends ConsumerState<_SettingsCard> {
       _message('브라우저 푸시는 지원하지 않아요. 앱의 알림함을 이용해 주세요.');
       return;
     }
-    if (access == DeviceAccess.blocked || access == DeviceAccess.allowed) {
+    final pushService = ref.read(pushNotificationServiceProvider);
+    // Pushes are sent to an account, so a guest logs in first and then goes
+    // on like a member's tap. Logging in registers this device by itself
+    // (HowmuchApp), but only when the phone allows notifications: a blocked
+    // permission still opens the settings, and a failed registration still
+    // says so.
+    if (!ApiClient.isAuthenticated) {
+      final loggedIn = await requireLogin(
+        context,
+        message: '로그인하면 이 기기로 푸시 알림을 받을 수 있어요.',
+      );
+      if (!loggedIn || !mounted) return;
+      access = await service.push();
+      if (!mounted) return;
+      if (access == DeviceAccess.allowed && pushService.isRegistered) {
+        ref.invalidate(pushAccessProvider);
+        return;
+      }
+    }
+    if (access == DeviceAccess.blocked ||
+        (access == DeviceAccess.allowed && pushService.isRegistered)) {
       await service.openSettings();
     } else {
+      // OS permission alone does not deliver pushes; the server must also
+      // hold this device's token, so retry registration and report failure.
+      // Right after a login this joins the registration logging in started.
       _busy = true;
-      final registered = await ref
-          .read(pushNotificationServiceProvider)
-          .registerForCurrentSession();
+      final registered = await pushService.registerForCurrentSession();
       _busy = false;
-      if (!registered) return;
+      if (!mounted) return;
+      if (!registered) {
+        _message('푸시 알림을 켜지 못했어요. 기기 알림 권한과 네트워크를 확인한 뒤 다시 시도해 주세요.');
+        ref.invalidate(pushAccessProvider);
+        return;
+      }
     }
     if (!mounted) return;
     ref.invalidate(pushAccessProvider);
@@ -1110,6 +1461,10 @@ class _SettingsCardState extends ConsumerState<_SettingsCard> {
   Widget build(BuildContext context) {
     final location = ref.watch(locationAccessProvider).valueOrNull;
     final push = ref.watch(pushAccessProvider).valueOrNull;
+    // Only when the OS allows pushes does the server registration matter.
+    final pushOn =
+        push == DeviceAccess.allowed &&
+        ref.read(pushNotificationServiceProvider).isRegistered;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -1127,10 +1482,12 @@ class _SettingsCardState extends ConsumerState<_SettingsCard> {
               onTap: () => _location(location ?? DeviceAccess.unknown),
             ),
             const _SettingsDivider(),
+            // 이 기기의 OS 권한과 푸시 등록 상태입니다. 어떤 알림을 받을지는 계정의
+            // 알림 설정(유형별)이 정하고, 둘 다 켜져 있어야 이 기기로 푸시가 옵니다.
             _ToggleRow(
               icon: Icons.notifications_active_outlined,
-              title: '푸시 알림',
-              value: push == DeviceAccess.allowed,
+              title: '이 기기 푸시 알림',
+              value: pushOn,
               onToggle: () => _push(push ?? DeviceAccess.unknown),
             ),
             const _SettingsDivider(),
@@ -1198,10 +1555,12 @@ class _ToggleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The row text names the switch, so no extra label (it was read twice).
+    // A switch without an enabled flag reads as disabled on iOS (QA 10/7 #50).
     return Semantics(
       button: true,
       toggled: value,
-      label: title,
+      enabled: true,
       child: Material(
         color: AppColors.transparent,
         child: InkWell(
@@ -1285,48 +1644,52 @@ class _PermissionRow extends StatelessWidget {
       null => '확인 중',
       _ => '허용 안 됨',
     };
-    return Material(
-      color: AppColors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          key: const ValueKey('mypage-location-row'),
-          height: 44,
-          child: Row(
-            children: [
-              const SizedBox(width: 16),
-              const _SettingsIcon(icon: Icons.location_on_outlined),
-              const SizedBox(width: 10),
-              const Text('위치 권한 설정', style: _settingText),
-              const Spacer(),
-              SizedBox(
-                key: const ValueKey('mypage-location-action'),
-                height: 24,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      value,
-                      key: const ValueKey('mypage-location-status'),
-                      style:
-                          (access == DeviceAccess.allowed
-                                  ? _allowedText
-                                  : _muted11)
-                              .copyWith(height: 1),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      key: ValueKey('mypage-location-chevron'),
-                      color: MypageScreen.muted,
-                      size: 18,
-                    ),
-                  ],
+    // Read as a button, not as plain text (QA 10/7 #54).
+    return Semantics(
+      button: true,
+      child: Material(
+        color: AppColors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            key: const ValueKey('mypage-location-row'),
+            height: 44,
+            child: Row(
+              children: [
+                const SizedBox(width: 16),
+                const _SettingsIcon(icon: Icons.location_on_outlined),
+                const SizedBox(width: 10),
+                const Text('위치 권한 설정', style: _settingText),
+                const Spacer(),
+                SizedBox(
+                  key: const ValueKey('mypage-location-action'),
+                  height: 24,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        value,
+                        key: const ValueKey('mypage-location-status'),
+                        style:
+                            (access == DeviceAccess.allowed
+                                    ? _allowedText
+                                    : _muted11)
+                                .copyWith(height: 1),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        key: ValueKey('mypage-location-chevron'),
+                        color: MypageScreen.muted,
+                        size: 18,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-            ],
+                const SizedBox(width: 16),
+              ],
+            ),
           ),
         ),
       ),
@@ -1347,26 +1710,30 @@ class _SettingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          height: 44,
-          child: Row(
-            children: [
-              const SizedBox(width: 16),
-              _SettingsIcon(icon: icon),
-              const SizedBox(width: 10),
-              Text(title, style: _settingText),
-              const Spacer(),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: MypageScreen.muted,
-                size: 18,
-              ),
-              const SizedBox(width: 16),
-            ],
+    // Read as a button, not as plain text (QA 10/7 #54).
+    return Semantics(
+      button: true,
+      child: Material(
+        color: AppColors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            height: 44,
+            child: Row(
+              children: [
+                const SizedBox(width: 16),
+                _SettingsIcon(icon: icon),
+                const SizedBox(width: 10),
+                Text(title, style: _settingText),
+                const Spacer(),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: MypageScreen.muted,
+                  size: 18,
+                ),
+                const SizedBox(width: 16),
+              ],
+            ),
           ),
         ),
       ),

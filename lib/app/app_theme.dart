@@ -15,6 +15,21 @@ class AppTheme {
       surface: AppColors.cream,
       onSurface: AppColors.ink,
       outlineVariant: AppColors.border,
+      // Stock Material parts (dialogs, menus, sheets, selected chips, check
+      // boxes) read these roles. Left to the seed they come out lavender,
+      // which is what made untouched parts look like a default Android app.
+      onSurfaceVariant: AppColors.muted,
+      outline: AppColors.borderMedium,
+      surfaceTint: Colors.transparent,
+      surfaceContainerLowest: AppColors.white,
+      surfaceContainerLow: AppColors.white,
+      surfaceContainer: AppColors.white,
+      surfaceContainerHigh: AppColors.white,
+      surfaceContainerHighest: AppColors.background,
+      primaryContainer: AppColors.primaryLight,
+      onPrimaryContainer: AppColors.primaryPressed,
+      secondaryContainer: AppColors.primaryLight,
+      onSecondaryContainer: AppColors.primaryPressed,
     );
 
     return ThemeData(
@@ -31,7 +46,6 @@ class AppTheme {
       ],
       scaffoldBackgroundColor: AppColors.surface,
       visualDensity: VisualDensity.standard,
-      splashFactory: InkSparkle.splashFactory,
       textTheme: const TextTheme(
         headlineSmall: TextStyle(
           color: AppColors.textPrimary,
@@ -102,6 +116,26 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           minimumSize: const Size(0, AppSizes.minimumTouchTarget),
+          disabledBackgroundColor: AppColors.disabledSurface,
+          disabledForegroundColor: AppColors.textMuted,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.button),
+          ),
+          textStyle: const TextStyle(
+            fontFamily: 'Noto Sans KR',
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(0, AppSizes.minimumTouchTarget),
+          backgroundColor: AppColors.primary,
+          foregroundColor: AppColors.white,
+          disabledBackgroundColor: AppColors.disabledSurface,
+          disabledForegroundColor: AppColors.textMuted,
+          elevation: 0,
+          shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.button),
           ),
@@ -114,6 +148,7 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(0, AppSizes.minimumTouchTarget),
+          side: const BorderSide(color: AppColors.borderMedium),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.button),
           ),
@@ -139,6 +174,93 @@ class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
         ),
+        backgroundColor: AppColors.white,
+        selectedColor: AppColors.primaryLight,
+        side: const BorderSide(color: AppColors.border),
+        showCheckmark: false,
+      ),
+      checkboxTheme: CheckboxThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        side: WidgetStateBorderSide.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? const BorderSide(color: Colors.transparent, width: 0)
+              : const BorderSide(color: AppColors.borderMedium, width: 1.5),
+        ),
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (!states.contains(WidgetState.selected)) return AppColors.white;
+          return states.contains(WidgetState.disabled)
+              ? AppColors.disabled
+              : AppColors.primary;
+        }),
+        checkColor: const WidgetStatePropertyAll(AppColors.white),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: AppColors.white,
+        modalBackgroundColor: AppColors.white,
+        surfaceTintColor: Colors.transparent,
+        dragHandleColor: AppColors.disabled,
+        dragHandleSize: Size(36, 4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadii.overlay),
+          ),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.overlay),
+        ),
+        titleTextStyle: const TextStyle(
+          color: AppColors.ink,
+          fontFamily: 'Noto Sans KR',
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          height: 1.35,
+        ),
+        contentTextStyle: const TextStyle(
+          color: AppColors.muted,
+          fontFamily: 'Noto Sans KR',
+          fontSize: 14,
+          height: 1.6,
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: AppColors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 6,
+        shadowColor: const Color(0x330F172A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.input),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        textStyle: const TextStyle(
+          color: AppColors.textBody,
+          fontFamily: 'Noto Sans KR',
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: AppColors.ink.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        textStyle: const TextStyle(
+          color: AppColors.white,
+          fontFamily: 'Noto Sans KR',
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          height: 1.4,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        waitDuration: const Duration(milliseconds: 500),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppColors.primary,
+        linearTrackColor: AppColors.primaryLight,
+        refreshBackgroundColor: AppColors.white,
       ),
       cardTheme: CardThemeData(
         color: colorScheme.surface,
@@ -154,6 +276,8 @@ class AppTheme {
         backgroundColor: AppColors.surfaceOverlay,
         contentTextStyle: const TextStyle(
           color: AppColors.textBody,
+          fontFamily: 'Noto Sans KR',
+          fontFamilyFallback: ['Noto Sans KR', 'Apple SD Gothic Neo'],
           fontSize: 13,
           fontWeight: FontWeight.w600,
           height: 1.45,

@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
+import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/features/recommendation/presentation/screens/optimal_route_screen.dart';
 import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
@@ -108,15 +112,29 @@ void main() {
         findsOneWidget,
       );
 
-      // Inter-store legs 1->2 (~166m) and 2->3 (~166m) must be labeled as walking (~2 min)
-      expect(find.text('도보 약 2분'), findsNWidgets(2));
-
-      // Far leg 3->4 (~2.3km) must NOT be labeled as walking (e.g. not "도보 약 28분")
+      // Each leg button carries the time of its own leg (QA #24): the first
+      // leg starts at the current location (~55m), the others at the
+      // previous stop (~166m, ~166m, ~2.3km).
+      expect(_legLabel(tester, 1), '1구간: 현재 위치 → 1호점 국수 · 도보 약 1분');
+      expect(_legLabel(tester, 2), '2구간: 1호점 국수 → 2호점 김밥 · 도보 약 2분');
+      expect(_legLabel(tester, 3), '3구간: 2호점 김밥 → 3호점 카페 · 도보 약 2분');
+      // A far leg is not labelled as a walk (e.g. not "도보 약 28분").
       expect(
-        find.textContaining('도보 약 2'),
-        findsNWidgets(2),
-      ); // only the two 2-minute walks
-      expect(find.text('대중교통/차량 이동 (2.3km)'), findsOneWidget);
+        _legLabel(tester, 4),
+        '4구간: 3호점 카페 → 4호점 디저트 · 대중교통/차량 이동 (2.3km)',
+      );
+      // No time is left between the cards, where it read as the time of the
+      // leg above it: each time sits inside the button of its own leg.
+      expect(find.text('도보 약 2분'), findsNWidgets(2));
+      for (final leg in [2, 3]) {
+        expect(
+          find.descendant(
+            of: find.byKey(ValueKey('route-leg-$leg')),
+            matching: find.text('도보 약 2분'),
+          ),
+          findsOneWidget,
+        );
+      }
 
       // Total distance is aggregated safely
       expect(find.text('총 거리'), findsOneWidget);
@@ -184,14 +202,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Between Store 1 and Store 2 (~222m): 도보 약 3분
-      // Between Store 2 and Store 3 (~222m): 도보 약 3분
-      expect(find.text('도보 약 3분'), findsNWidgets(2));
-
-      // Before the fix, the leg between Store 3 and Store 4 mistakenly used leg index 1 or 2 (도보 약 3분).
-      // With the fix, it MUST show 대중교통/차량 이동 (22.0km), NEVER a third "도보 약 3분"!
-      expect(find.text('도보 약 3분'), findsNWidgets(2)); // exactly 2, NOT 3
-      expect(find.text('대중교통/차량 이동 (22.0km)'), findsNothing);
+      // Store 1 -> Store 2 and Store 2 -> Store 3 are ~222m walks.
+      expect(_legLabel(tester, 2), endsWith('· 도보 약 3분'));
+      expect(_legLabel(tester, 3), endsWith('· 도보 약 3분'));
+      // The 22.4km store is outside the radius: no card and no leg to it.
+      expect(find.byKey(const ValueKey('route-leg-4')), findsNothing);
+      expect(find.textContaining('대중교통/차량 이동'), findsNothing);
       expect(find.byKey(const ValueKey('route-step-4')), findsNothing);
     },
   );
@@ -247,7 +263,114 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('the leg sheet opens directions for the leg that is picked', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final semantics = tester.ensureSemantics();
+
+    // Store 2 has no coordinates, so neither the leg to it nor the leg
+    // from it can be opened.
+    final service = _FakeRouteService(
+      route: {
+        'picks': [
+          {
+            'storeName': '1호점 국수',
+            'latitude': 37.5665,
+            'longitude': 126.9780,
+            'distanceMeters': 55,
+          },
+          {'storeName': '2호점 김밥', 'distanceMeters': 222},
+          {
+            'storeName': '3호점 카페',
+            'latitude': 37.5695,
+            'longitude': 126.9780,
+            'distanceMeters': 389,
+          },
+        ],
+      },
+    );
+    Map<String, dynamic>? opened;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [todaysPickServiceProvider.overrideWithValue(service)],
+        child: MaterialApp.router(
+          routerConfig: GoRouter(
+            routes: [
+              GoRoute(path: '/', builder: (_, _) => const OptimalRouteScreen()),
+              GoRoute(
+                path: AppRoutes.directionsExternalApp,
+                builder: (_, state) {
+                  opened = state.extra! as Map<String, dynamic>;
+                  return const Scaffold(body: Text('길찾기 화면'));
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('구간별 길찾기'));
+    await tester.pumpAndSettle();
+
+    final sheet = find.byKey(const ValueKey('route-legs-sheet'));
+    Finder inSheet(String text) =>
+        find.descendant(of: sheet, matching: find.text(text));
+    expect(inSheet('1호점 국수'), findsOneWidget);
+    expect(inSheet('현재 위치에서 출발'), findsOneWidget);
+    expect(inSheet('도보 약 1분 · 56m'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.byKey(const ValueKey('route-leg-sheet-1'))),
+      isSemantics(
+        label: '1구간, 현재 위치에서 1호점 국수까지, 도보 약 1분, 56m',
+        isButton: true,
+        isEnabled: true,
+        hasTapAction: true,
+      ),
+    );
+    expect(
+      tester.getSemantics(find.byKey(const ValueKey('route-leg-sheet-2'))),
+      isSemantics(
+        label: '2구간, 1호점 국수에서 2호점 김밥까지, 위치 정보가 없어 이 구간을 열 수 없어요.',
+        isButton: true,
+        isEnabled: false,
+        hasTapAction: false,
+      ),
+    );
+
+    // A leg that cannot be opened keeps the sheet open.
+    await tester.tap(find.byKey(const ValueKey('route-leg-sheet-2')));
+    await tester.pumpAndSettle();
+    expect(sheet, findsOneWidget);
+    expect(opened, isNull);
+
+    await tester.tap(find.byKey(const ValueKey('route-leg-sheet-1')));
+    await tester.pumpAndSettle();
+    expect(sheet, findsNothing);
+    expect(find.text('길찾기 화면'), findsOneWidget);
+    expect(opened, containsPair('storeName', '1호점 국수'));
+    expect(opened, containsPair('startName', '현재 위치'));
+    expect(opened, containsPair('startLatitude', 37.5660));
+    semantics.dispose();
+  });
 }
+
+/// The full label of the "N구간" button: the leg, then its travel time.
+String _legLabel(WidgetTester tester, int leg) => tester
+    .widgetList<Text>(
+      find.descendant(
+        of: find.byKey(ValueKey('route-leg-$leg')),
+        matching: find.byType(Text),
+      ),
+    )
+    .map((text) => text.semanticsLabel ?? text.data!)
+    .join(' · ');
 
 class _FakeRouteService extends TodaysPickService {
   _FakeRouteService({required this.route});
@@ -280,6 +403,8 @@ class _FakeWebViewPlatform extends WebViewPlatform {
 class _FakePlatformWebViewController extends PlatformWebViewController {
   _FakePlatformWebViewController(super.params) : super.implementation();
 
+  final _channels = <JavaScriptChannelParams>[];
+
   @override
   Future<void> setJavaScriptMode(JavaScriptMode javaScriptMode) async {}
 
@@ -287,7 +412,19 @@ class _FakePlatformWebViewController extends PlatformWebViewController {
   Future<void> setBackgroundColor(Color color) async {}
 
   @override
-  Future<void> loadHtmlString(String html, {String? baseUrl}) async {}
+  Future<void> addJavaScriptChannel(JavaScriptChannelParams params) async {
+    _channels.add(params);
+  }
+
+  /// Like a page whose map is drawn at once, it reports back after loading.
+  @override
+  Future<void> loadHtmlString(String html, {String? baseUrl}) async {
+    scheduleMicrotask(() {
+      for (final channel in _channels) {
+        channel.onMessageReceived(const JavaScriptMessage(message: 'ready'));
+      }
+    });
+  }
 
   @override
   Future<void> runJavaScript(String javaScript) async {}

@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthTermsScreen extends StatefulWidget {
-  const AuthTermsScreen({super.key});
+  const AuthTermsScreen({super.key, this.onAgreed, this.onBack});
+
+  /// Inside the login flow opened on top of a screen: called once the terms
+  /// are saved, instead of moving on to the login screen.
+  final VoidCallback? onAgreed;
+
+  /// Inside that login flow: a back button that leaves login.
+  final VoidCallback? onBack;
 
   @override
   State<AuthTermsScreen> createState() => _AuthTermsScreenState();
@@ -14,14 +22,17 @@ class AuthTermsScreen extends StatefulWidget {
 class _AuthTermsScreenState extends State<AuthTermsScreen> {
   bool _serviceTermsAccepted = false;
   bool _privacyPolicyAccepted = false;
+  bool _ageConfirmed = false;
   bool _isSaving = false;
 
-  bool get _allAccepted => _serviceTermsAccepted && _privacyPolicyAccepted;
+  bool get _allAccepted =>
+      _serviceTermsAccepted && _privacyPolicyAccepted && _ageConfirmed;
 
   void _setAllAccepted(bool accepted) {
     setState(() {
       _serviceTermsAccepted = accepted;
       _privacyPolicyAccepted = accepted;
+      _ageConfirmed = accepted;
     });
   }
 
@@ -29,13 +40,21 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
     if (!_allAccepted || _isSaving) return;
     setState(() => _isSaving = true);
     final preferences = await SharedPreferences.getInstance();
-    await preferences.setBool('auth_terms_accepted_v1', true);
-    if (mounted) context.go(AppRoutes.login);
+    // Stored on this device only; the server keeps no consent record yet.
+    await preferences.setBool(authTermsAcceptedPreferenceKey, true);
+    if (!mounted) return;
+    final onAgreed = widget.onAgreed;
+    if (onAgreed != null) {
+      onAgreed();
+    } else {
+      context.go(AppRoutes.login);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
+    final onBack = widget.onBack;
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFF4F6FA),
       child: SafeArea(
@@ -51,7 +70,21 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _ProgressLabel(),
+                if (onBack != null)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      tooltip: '뒤로가기',
+                      onPressed: onBack,
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
+                        size: 22,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  )
+                else
+                  const _ProgressLabel(),
                 SizedBox(height: constraints.maxHeight > 680 ? 90 : 22),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
@@ -69,7 +102,8 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
                 ),
                 const SizedBox(height: 22),
                 const Text(
-                  '서비스 이용 전\n약관을 확인해주세요',
+                  // Guests already use the app; the terms come with an account.
+                  '로그인 전에\n약관을 확인해주세요',
                   style: TextStyle(
                     color: Color(0xFF0F172A),
                     fontFamily: 'Noto Sans KR',
@@ -107,6 +141,12 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
                       setState(() => _privacyPolicyAccepted = value),
                   onOpen: () => context.push(AppRoutes.privacyPolicy),
                 ),
+                const SizedBox(height: 8),
+                _RequiredTermsTile(
+                  title: '만 14세 이상입니다',
+                  value: _ageConfirmed,
+                  onChanged: (value) => setState(() => _ageConfirmed = value),
+                ),
                 SizedBox(height: constraints.maxHeight > 680 ? 72 : 28),
                 SizedBox(
                   width: double.infinity,
@@ -134,7 +174,7 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
                 const SizedBox(height: 12),
                 const Center(
                   child: Text(
-                    '필수 약관에 동의해야 서비스를 이용할 수 있어요.',
+                    '필수 약관에 동의해야 로그인할 수 있어요.',
                     style: TextStyle(
                       color: Color(0xFF64748B),
                       fontFamily: 'Noto Sans KR',
@@ -191,32 +231,36 @@ class _AllTermsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFFEFF4FF),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
+    // The whole tile is one check box for screen readers, like the rows.
+    return Semantics(
+      container: true,
+      checked: value,
+      enabled: true,
+      child: Material(
+        color: const Color(0xFFEFF4FF),
         borderRadius: BorderRadius.circular(16),
-        onTap: () => onChanged(!value),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-          child: Row(
-            children: [
-              Checkbox(
-                value: value,
-                onChanged: (next) => onChanged(next ?? false),
-                activeColor: const Color(0xFF2563EB),
-              ),
-              const SizedBox(width: 4),
-              const Text(
-                '필수 약관 전체 동의',
-                style: TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontFamily: 'Noto Sans KR',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => onChanged(!value),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: Row(
+              children: [
+                _TermsCheck(value: value),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    '필수 약관 전체 동의',
+                    style: TextStyle(
+                      color: Color(0xFF0F172A),
+                      fontFamily: 'Noto Sans KR',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -229,53 +273,104 @@ class _RequiredTermsTile extends StatelessWidget {
     required this.title,
     required this.value,
     required this.onChanged,
-    required this.onOpen,
+    this.onOpen,
   });
 
   final String title;
   final bool value;
   final ValueChanged<bool> onChanged;
-  final VoidCallback onOpen;
+  final VoidCallback? onOpen;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
+    final onOpen = this.onOpen;
+    return Material(
+      color: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        side: const BorderSide(color: Color(0xFFE5E7EB)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        child: Row(
-          children: [
-            Checkbox(
-              value: value,
-              onChanged: (next) => onChanged(next ?? false),
-              activeColor: const Color(0xFF2563EB),
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                '[필수] $title',
-                style: const TextStyle(
-                  color: Color(0xFF374151),
-                  fontFamily: 'Noto Sans KR',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+      child: Row(
+        children: [
+          // The row toggles the agreement; the arrow opens the document.
+          Expanded(
+            child: Semantics(
+              container: true,
+              checked: value,
+              enabled: true,
+              child: InkWell(
+                onTap: () => onChanged(!value),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    14,
+                    onOpen == null ? 16 : 4,
+                    14,
+                  ),
+                  child: Row(
+                    children: [
+                      _TermsCheck(value: value),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '[필수] $title',
+                          style: const TextStyle(
+                            color: Color(0xFF374151),
+                            fontFamily: 'Noto Sans KR',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-            IconButton(
-              onPressed: onOpen,
-              icon: const Icon(
-                Icons.chevron_right_rounded,
-                color: Color(0xFF64748B),
+          ),
+          if (onOpen != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: IconButton(
+                tooltip: '$title 보기',
+                onPressed: onOpen,
+                icon: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFF64748B),
+                ),
               ),
             ),
-          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The app's hand-drawn check box (as in the report form), sized for these
+/// larger rows.
+class _TermsCheck extends StatelessWidget {
+  const _TermsCheck({required this.value});
+
+  final bool value;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        color: value ? const Color(0xFF2563EB) : Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: value ? const Color(0xFF2563EB) : const Color(0xFFD1D5DB),
+          width: 1.5,
         ),
       ),
+      child: value
+          ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+          : null,
     );
   }
 }

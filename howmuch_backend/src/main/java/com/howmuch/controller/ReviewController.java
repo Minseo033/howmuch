@@ -109,7 +109,6 @@ public class ReviewController {
             }
             if (request.getStoreId().length() > 200
                     || request.getStoreName().length() > 100
-                    || request.getAuthorName().length() > 50
                     || request.getMenu().length() > 100) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "success", false,
@@ -117,10 +116,11 @@ public class ReviewController {
                 ));
             }
 
-            String reviewId = firebaseService.saveReview(authorUid, request);
+            FirebaseService.SavedReview saved = firebaseService.createReview(authorUid, request);
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "reviewId", reviewId,
+                    "reviewId", saved.reviewId(),
+                    "authorName", saved.authorName(),
                     "message", "리뷰가 등록되었습니다."
             ));
         } catch (IllegalArgumentException e) {
@@ -135,14 +135,42 @@ public class ReviewController {
         }
     }
 
+    /** 로그인한 사용자가 본인이 작성한 리뷰만 삭제합니다. */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteMyReview(
+            @PathVariable String id,
+            HttpServletRequest httpRequest) {
+        String authorUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
+        if (authorUid == null || authorUid.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "success", false, "message", "로그인이 필요합니다."));
+        }
+        if (id == null || id.isBlank() || id.length() > 200) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "리뷰 ID가 올바르지 않습니다."));
+        }
+        try {
+            firebaseService.deleteOwnedReview(id.trim(), authorUid);
+            return ResponseEntity.ok(Map.of("success", true, "id", id.trim()));
+        } catch (java.util.NoSuchElementException e) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("[ReviewController] 내 리뷰 삭제 중 오류 발생: id={}", id, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "리뷰 삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+            ));
+        }
+    }
+
     private void normalizeReviewRequest(ReviewRequest request) {
         request.setStoreId(trimToNull(request.getStoreId()));
         request.setStoreName(trimToNull(request.getStoreName()));
         request.setMenu(trimToNull(request.getMenu()));
         request.setContent(trimToNull(request.getContent()));
-
-        String authorName = trimToNull(request.getAuthorName());
-        request.setAuthorName(authorName == null ? "사용자" : authorName);
+        // 작성자 표시명은 서버가 회원 정보로 정합니다. 클라이언트가 보낸 값은 저장하지 않습니다.
+        request.setAuthorName(null);
     }
 
     private boolean isBlank(String value) {

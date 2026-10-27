@@ -3,12 +3,10 @@ import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
-import 'package:go_router/go_router.dart';
-import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/store/presentation/state/visit_verification_policy.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/core/utils/latest_request_tracker.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
-import 'package:howmuch/features/store/presentation/state/visit_verification_policy.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -71,24 +69,6 @@ String receiptSubmissionErrorMessage(int statusCode, String responseBody) {
   };
 }
 
-String visitSubmissionErrorMessage(int statusCode, String responseBody) {
-  try {
-    final decoded = jsonDecode(responseBody);
-    if (decoded is Map && decoded['message'] is String) {
-      final message = (decoded['message'] as String).trim();
-      if (message.isNotEmpty) return message;
-    }
-  } catch (_) {
-    // JSON이 아닌 프록시 응답은 상태 코드별 안내로 처리합니다.
-  }
-  return switch (statusCode) {
-    401 || 403 => '방문 인증은 로그인 후 이용할 수 있어요.',
-    409 => '오늘 이미 이 매장의 방문 인증을 완료했어요.',
-    422 => '매장 위치 정보를 확인할 수 없어 인증할 수 없어요.',
-    _ => '방문 기록에 실패했습니다. 잠시 후 다시 시도해주세요.',
-  };
-}
-
 class _ReceiptSubmissionException implements Exception {
   const _ReceiptSubmissionException(this.message);
 
@@ -110,18 +90,23 @@ class VisitVerificationScreen extends StatefulWidget {
       _VisitVerificationScreenState();
 }
 
+enum _ReceiptStatus { pending, approved }
+
 class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   final _amountController = TextEditingController();
   final _menuController = TextEditingController();
-  bool _isSubmitting = false;
-  bool _isCheckingLocation = false;
   bool _isSubmittingReceipt = false;
-  XFile? _receiptImage;
+  bool _isCheckingLocation = false;
   double? _distanceMeters;
   double? _currentLatitude;
   double? _currentLongitude;
   double? _locationAccuracyMeters;
   String? _locationError;
+  XFile? _receiptImage;
+  _ReceiptStatus? _receiptStatus;
+
+  bool get _inputLocked =>
+      _isSubmittingReceipt || _isCheckingLocation || _receiptStatus != null;
 
   Timer? _estimateDebounce;
   final LatestRequestTracker _estimateRequests = LatestRequestTracker();
@@ -184,7 +169,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                   const SizedBox(height: 12),
                   _buildLocationVerificationCard(),
                   const SizedBox(height: 12),
-                  _buildReceiptComingSoonCard(),
+                  _buildReceiptCard(),
                   const SizedBox(height: 24),
                   // 메뉴 · 결제 금액 입력
                   _buildMenuPriceSection(),
@@ -197,13 +182,27 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
             ),
           ),
           bottomNavigationBar: CustomBottomButton(
-            text: _isSubmitting
-                ? '기록 중…'
-                : _isLocationVerified
-                ? '방문 기록하기'
-                : '위치 인증 후 기록하기',
+            text: _isSubmittingReceipt
+                ? '영수증 제출 중…'
+                : switch (_receiptStatus) {
+                    _ReceiptStatus.approved => '영수증 인증 완료',
+                    _ReceiptStatus.pending => '영수증 검토 대기 중',
+                    null =>
+                      !_isLocationVerified
+                          ? '위치 확인이 필요해요'
+                          : _receiptImage == null
+                          ? '영수증 사진을 선택해주세요'
+                          : '영수증 인증 제출',
+                  },
             backgroundColor: AppColors.primary,
-            onPressed: _isSubmitting || !_isLocationVerified ? null : _submit,
+            onPressed:
+                !_inputLocked &&
+                    _isLocationVerified &&
+                    _receiptImage != null &&
+                    widget.store != null &&
+                    _hasValidPaymentAmount
+                ? _submitReceipt
+                : null,
           ),
         ),
       ),
@@ -373,7 +372,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
         color: verified ? AppColors.primarySubtle : AppColors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: verified ? AppColors.primary : Colors.grey.shade200,
+          color: verified ? AppColors.primary : AppColors.border,
           width: verified ? 2 : 1,
         ),
       ),
@@ -422,7 +421,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                 verified
                     ? Icons.check_circle_rounded
                     : Icons.location_searching_rounded,
-                color: verified ? AppColors.primary : Colors.grey.shade400,
+                color: verified ? AppColors.primary : AppColors.disabled,
                 size: 24,
               ),
             ],
@@ -430,12 +429,30 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _isCheckingLocation ? null : _checkLocation,
+            // The screen's first step, so it is the solid button until the
+            // location is verified. After that it only re-checks, and the
+            // record button below takes over.
+            child: FilledButton.icon(
+              onPressed: _inputLocked ? null : _checkLocation,
+              style: FilledButton.styleFrom(
+                backgroundColor: verified ? AppColors.white : AppColors.primary,
+                foregroundColor: verified ? AppColors.primary : AppColors.white,
+                disabledBackgroundColor: AppColors.primaryLight,
+                disabledForegroundColor: AppColors.primary,
+                side: verified
+                    ? const BorderSide(color: AppColors.primaryAlpha)
+                    : null,
+                textStyle: const TextStyle(
+                  fontFamily: 'Noto Sans KR',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               icon: Icon(
                 _isCheckingLocation
                     ? Icons.hourglass_top_rounded
                     : Icons.my_location_rounded,
+                size: 20,
               ),
               label: Text(_isCheckingLocation ? '현재 위치 확인 중' : '현재 위치 확인'),
             ),
@@ -445,7 +462,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     );
   }
 
-  Widget _buildReceiptComingSoonCard() {
+  Widget _buildReceiptCard() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -472,52 +489,35 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _receiptImage == null
-                      ? '최근 7일 이내 영수증을 제출하면 OCR 또는 관리자 확인 후 반영돼요.'
-                      : '영수증 사진이 선택되었습니다. 결제 금액을 입력한 뒤 제출하세요.',
+                  switch (_receiptStatus) {
+                    _ReceiptStatus.approved =>
+                      '영수증 인증이 완료되어 방문 기록과 절약액에 반영됐어요.',
+                    _ReceiptStatus.pending =>
+                      '영수증이 접수됐어요. 관리자 승인 후 방문 기록과 절약액에 반영돼요.',
+                    null =>
+                      _receiptImage == null
+                          ? '위치 확인과 영수증 인증이 모두 필요해요. 최근 7일 이내 영수증 사진과 결제 금액을 입력해주세요.'
+                          : '영수증 사진이 선택됐어요. 메뉴와 실제 결제 금액을 확인한 뒤 하단의 영수증 인증 제출을 눌러주세요.',
+                  },
                   style: const TextStyle(
                     color: AppColors.muted,
                     fontSize: 12,
                     height: 1.4,
                   ),
                 ),
-                if (_receiptImage != null && !_isSubmittingReceipt) ...[
+                if (_receiptImage != null && !_inputLocked) ...[
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      FilledButton.icon(
-                        onPressed: _submitReceipt,
-                        icon: const Icon(Icons.send_rounded, size: 14),
-                        label: const Text(
-                          '영수증 인증 제출',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          minimumSize: const Size(0, 32),
-                        ),
+                  TextButton(
+                    onPressed: () => setState(() => _receiptImage = null),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.muted,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
                       ),
-                      const SizedBox(width: 8),
-                      TextButton(
-                        onPressed: () => setState(() => _receiptImage = null),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.muted,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          minimumSize: const Size(0, 32),
-                        ),
-                        child: const Text('취소', style: TextStyle(fontSize: 12)),
-                      ),
-                    ],
+                      minimumSize: const Size(0, 32),
+                    ),
+                    child: const Text('취소', style: TextStyle(fontSize: 12)),
                   ),
                   const SizedBox(height: 6),
                   const Text(
@@ -535,7 +535,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           const SizedBox(width: 8),
           IconButton(
             tooltip: '영수증 사진 선택',
-            onPressed: _isSubmittingReceipt ? null : _pickReceiptImage,
+            onPressed: _inputLocked ? null : _pickReceiptImage,
             icon: Icon(
               _receiptImage == null
                   ? Icons.add_a_photo_outlined
@@ -549,18 +549,41 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   }
 
   Future<void> _pickReceiptImage() async {
-    final image = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 80,
-    );
-    if (!mounted || image == null) return;
+    if (_inputLocked) return;
+    final XFile? image;
+    try {
+      image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+      );
+    } catch (error) {
+      // Denied photo access or an unavailable picker must not fail silently.
+      debugPrint('영수증 사진 선택 실패: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          HowmuchSnackBar(
+            content: Text('사진을 불러오지 못했어요. 사진 접근 권한을 확인한 뒤 다시 시도해주세요.'),
+          ),
+        );
+      }
+      return;
+    }
+    if (!mounted || image == null || _inputLocked) return;
     setState(() => _receiptImage = image);
   }
 
   Future<void> _submitReceipt() async {
     final image = _receiptImage;
     final store = widget.store;
-    if (image == null || store == null || _isSubmittingReceipt) return;
+    if (image == null || store == null || _inputLocked) {
+      return;
+    }
+    if (!_isLocationVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        HowmuchSnackBar(content: Text('매장 100m 이내에서 현재 위치를 확인해주세요.')),
+      );
+      return;
+    }
     if (!ApiClient.isAuthenticated) {
       ScaffoldMessenger.of(context).showSnackBar(
         HowmuchSnackBar(content: Text('영수증 인증은 로그인 후 이용할 수 있어요.')),
@@ -596,6 +619,20 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           'JPEG, PNG, WebP 형식의 영수증 사진만 선택해주세요.',
         );
       }
+      // Refresh GPS immediately before submission; selecting a receipt cannot
+      // keep an earlier location check valid after the user moves away.
+      await _checkLocation();
+      if (!mounted) return;
+      if (!_isLocationVerified) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(HowmuchSnackBar(content: Text(_locationDescription)));
+        return;
+      }
+      request.fields['latitude'] = _currentLatitude!.toString();
+      request.fields['longitude'] = _currentLongitude!.toString();
+      request.fields['locationAccuracyMeters'] = _locationAccuracyMeters!
+          .toString();
       request.files.add(
         http.MultipartFile.fromBytes(
           'images',
@@ -616,8 +653,23 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       }
       final responseData = jsonDecode(body) as Map<String, dynamic>;
       final status = responseData['status']?.toString().toUpperCase();
+      if (status != 'APPROVED' && status != 'PENDING') {
+        throw const _ReceiptSubmissionException(
+          '영수증 처리 결과를 확인하지 못했어요. 다시 확인해주세요.',
+        );
+      }
+      // Multipart submission bypasses ApiClient.post. A confirmed receipt
+      // may already have created the visit, so retire retained summary reads.
+      ApiClient.invalidateReadCache(
+        paths: {'/api/savings/stats', '/api/savings/history'},
+      );
       if (!mounted) return;
-      setState(() => _receiptImage = null);
+      setState(() {
+        _receiptImage = null;
+        _receiptStatus = status == 'APPROVED'
+            ? _ReceiptStatus.approved
+            : _ReceiptStatus.pending;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         HowmuchSnackBar(
           content: Text(
@@ -726,20 +778,23 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                       backgroundColor: AppColors.primarySubtle,
                       side: BorderSide.none,
                       padding: const EdgeInsets.symmetric(horizontal: 4),
-                      onPressed: () {
-                        _menuController.text = item.menu;
-                        // A range/alternative is not a visit payment. Keep the
-                        // amount blank so the user records the actual receipt total.
-                        final parsed = parsePriceValue(item.price);
-                        if (parsed != null &&
-                            parsed.isExact &&
-                            (parsed.minimum > 0 || item.free)) {
-                          _amountController.text = parsed.minimum.toString();
-                        } else {
-                          _amountController.clear();
-                        }
-                        _onInputChanged();
-                      },
+                      onPressed: _inputLocked
+                          ? null
+                          : () {
+                              _menuController.text = item.menu;
+                              // A range/alternative is not a visit payment. Keep the
+                              // amount blank so the user records the actual receipt total.
+                              final parsed = parsePriceValue(item.price);
+                              if (parsed != null &&
+                                  parsed.isExact &&
+                                  (parsed.minimum > 0 || item.free)) {
+                                _amountController.text = parsed.minimum
+                                    .toString();
+                              } else {
+                                _amountController.clear();
+                              }
+                              _onInputChanged();
+                            },
                     ),
                     const SizedBox(width: 6),
                   ],
@@ -749,12 +804,14 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           ],
           const SizedBox(height: 12),
           TextField(
+            enabled: !_inputLocked,
             controller: _menuController,
             onChanged: (_) => _onInputChanged(),
             decoration: _inputDecoration('메뉴 이름 (예: 김치찌개)'),
           ),
           const SizedBox(height: 10),
           TextField(
+            enabled: !_inputLocked,
             controller: _amountController,
             keyboardType: TextInputType.number,
             onChanged: (_) => _onInputChanged(),
@@ -762,21 +819,31 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           ),
           const SizedBox(height: 8),
           if (_isApprovedFreeMenu)
-            const Text('승인된 무료 메뉴는 0원으로 기록할 수 있어요. 무료 이용은 절약액에 합산하지 않아요.'),
+            const Text('승인된 무료 메뉴도 영수증 인증이 필요해요. 무료 이용은 절약액에 합산하지 않아요.'),
           Row(
             children: [
-              _buildQuickPriceChip('+1,000원', 1000),
-              const SizedBox(width: 6),
-              _buildQuickPriceChip('+5,000원', 5000),
-              const SizedBox(width: 6),
-              _buildQuickPriceChip('+10,000원', 10000),
-              const Spacer(),
-              if (_priceValue > 0)
+              // Chips wrap on narrow screens instead of pushing the clear
+              // button past the card edge.
+              Expanded(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _buildQuickPriceChip('+1,000원', 1000),
+                    _buildQuickPriceChip('+5,000원', 5000),
+                    _buildQuickPriceChip('+10,000원', 10000),
+                  ],
+                ),
+              ),
+              if (_priceValue > 0) ...[
+                const SizedBox(width: 6),
                 GestureDetector(
-                  onTap: () {
-                    _amountController.clear();
-                    _onInputChanged();
-                  },
+                  onTap: _inputLocked
+                      ? null
+                      : () {
+                          _amountController.clear();
+                          _onInputChanged();
+                        },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -795,6 +862,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                     ),
                   ),
                 ),
+              ],
             ],
           ),
         ],
@@ -805,11 +873,13 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   Widget _buildQuickPriceChip(String label, int addAmount) {
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: () {
-        final next = _priceValue + addAmount;
-        _amountController.text = _formatWon(next);
-        _onInputChanged();
-      },
+      onTap: _inputLocked
+          ? null
+          : () {
+              final next = _priceValue + addAmount;
+              _amountController.text = _formatWon(next);
+              _onInputChanged();
+            },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
@@ -880,13 +950,25 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   }
 
   /// 입력 변경 시 400ms 디바운스로 예상 절약 금액 조회 (GET /api/visits/estimate)
+  void _clearEstimateState() {
+    _estimatedSaved = null;
+    _referencePrice = null;
+    _referencePriceAvailable = null;
+    _referenceSourceLabel = null;
+    _referenceBasisDate = null;
+    _referenceSampleSize = 0;
+  }
+
   void _onInputChanged() {
     _estimateDebounce?.cancel();
     final requestId = _estimateRequests.next();
-    _estimateDebounce = Timer(
-      const Duration(milliseconds: 400),
-      () => _fetchEstimate(requestId),
-    );
+    _clearEstimateState();
+    if (_hasValidPaymentAmount) {
+      _estimateDebounce = Timer(
+        const Duration(milliseconds: 400),
+        () => _fetchEstimate(requestId),
+      );
+    }
     setState(() {});
   }
 
@@ -894,14 +976,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     final price = _priceValue;
     if (!_hasValidPaymentAmount) {
       if (!mounted || !_estimateRequests.isCurrent(requestId)) return;
-      setState(() {
-        _estimatedSaved = null;
-        _referencePrice = null;
-        _referencePriceAvailable = null;
-        _referenceSourceLabel = null;
-        _referenceBasisDate = null;
-        _referenceSampleSize = 0;
-      });
+      setState(_clearEstimateState);
       return;
     }
     try {
@@ -913,9 +988,8 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
         }),
         headers: ApiClient.jsonHeaders(auth: true),
       ).timeout(ApiClient.defaultTimeout);
-      if (response.statusCode == 200 &&
-          mounted &&
-          _estimateRequests.isCurrent(requestId)) {
+      if (!mounted || !_estimateRequests.isCurrent(requestId)) return;
+      if (response.statusCode == 200) {
         final data =
             jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
         setState(() {
@@ -926,9 +1000,14 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           _referenceBasisDate = data['basisDate'] as String?;
           _referenceSampleSize = (data['sampleSize'] as num?)?.toInt() ?? 0;
         });
+      } else {
+        setState(_clearEstimateState);
       }
     } catch (e) {
       debugPrint('예상 절약 금액 조회 오류: $e');
+      if (mounted && _estimateRequests.isCurrent(requestId)) {
+        setState(_clearEstimateState);
+      }
     }
   }
 
@@ -937,83 +1016,6 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (Match m) => '${m[1]},',
     );
-  }
-
-  /// 방문 인증 생성 (POST /api/visits) — 절약 금액은 서버 룰로 계산됨
-  Future<void> _submit() async {
-    if (!_isLocationVerified) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        HowmuchSnackBar(content: Text('매장 100m 이내에서 현재 위치를 확인해주세요.')),
-      );
-      return;
-    }
-    final parsedPrice = parsePriceValue(_amountController.text);
-    final price = parsedPrice != null && parsedPrice.isExact
-        ? parsedPrice.minimum
-        : 0;
-    if (price <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(HowmuchSnackBar(content: Text('결제 금액을 입력해주세요.')));
-      return;
-    }
-    setState(() => _isSubmitting = true);
-    try {
-      // 기록 직전에 위치를 다시 확인해, 인증 후 이동한 상태로 저장되지 않게 합니다.
-      await _checkLocation();
-      if (!mounted || !_isLocationVerified) {
-        return;
-      }
-      final response = await ApiClient.post(
-        ApiClient.uri('/api/visits'),
-        headers: ApiClient.jsonHeaders(auth: true),
-        body: jsonEncode({
-          'storeId': widget.store?.id,
-          'storeName': _storeName,
-          'industry': widget.store?.industry,
-          'menu': _menuController.text.trim(),
-          'price': price,
-          'verificationMethod': 'LOCATION',
-          'verificationDistanceMeters': _distanceMeters!.round(),
-          'latitude': _currentLatitude,
-          'longitude': _currentLongitude,
-          'locationAccuracyMeters': _locationAccuracyMeters,
-        }),
-      ).timeout(ApiClient.defaultTimeout);
-
-      if (!mounted) return;
-      if (response.statusCode == 200) {
-        final data =
-            jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-        context.push(
-          AppRoutes.visitVerificationComplete,
-          extra: {
-            'savedAmount': (data['savedAmount'] as num?)?.toInt() ?? 0,
-            'storeName': _storeName,
-            'menu': _menuController.text.trim(),
-            'price': price,
-          },
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          HowmuchSnackBar(
-            content: Text(
-              visitSubmissionErrorMessage(
-                response.statusCode,
-                utf8.decode(response.bodyBytes),
-              ),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(HowmuchSnackBar(content: Text('네트워크 오류가 발생했습니다.')));
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
   }
 
   Widget _buildSavingsCard() {

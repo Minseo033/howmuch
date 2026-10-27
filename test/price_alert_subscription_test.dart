@@ -88,7 +88,7 @@ void main() {
         try {
           await tester.pumpWidget(createTestApp());
           await tester.pumpAndSettle();
-          final toggle = find.bySemanticsLabel('전체 매장 가격 알림');
+          final toggle = find.bySemanticsLabel('찜한 매장 전체 가격 알림');
           expect(toggle, findsOneWidget);
           final focusable = find.descendant(
             of: toggle,

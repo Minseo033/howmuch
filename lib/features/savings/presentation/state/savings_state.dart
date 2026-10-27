@@ -11,9 +11,4 @@ class SavingsGlobalState {
   final ValueNotifier<int> currentSaved = ValueNotifier<int>(0);
 
   final ValueNotifier<int> visitCount = ValueNotifier<int>(0);
-
-  double get achievementRate {
-    if (monthlyGoal.value == 0) return 0;
-    return currentSaved.value / monthlyGoal.value;
-  }
 }

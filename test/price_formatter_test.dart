@@ -11,7 +11,6 @@ void main() {
   test('preserves non-numeric labels and handles empty values', () {
     expect(formatWon('가격 변동'), '가격 변동');
     expect(formatWon(null, fallback: '가격 정보 없음'), '가격 정보 없음');
-    expect(formatWonAmount(18920), '18,920');
   });
 
   test('does not concatenate alternatives or range endpoints', () {

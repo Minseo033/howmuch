@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -51,7 +52,10 @@ class FirebaseServiceReceiptApprovalTest {
         when(db.collection("receipt_verifications")).thenReturn(receipts);
         when(db.collection("visits")).thenReturn(visits);
         when(receipts.document("receipt-1")).thenReturn(receiptRef);
-        when(visits.document()).thenReturn(visitRef);
+        when(visits.document(anyString())).thenReturn(visitRef);
+        DocumentSnapshot noVisitYet = mock(DocumentSnapshot.class);
+        when(transaction.get(visitRef)).thenReturn(ApiFutures.immediateFuture(noVisitYet));
+        when(transaction.create(any(DocumentReference.class), anyMap())).thenReturn(transaction);
         when(visitRef.getId()).thenReturn("visit-1");
         when(transaction.get(receiptRef)).thenReturn(ApiFutures.immediateFuture(receipt));
         when(transaction.set(any(DocumentReference.class), anyMap())).thenReturn(transaction);
@@ -67,6 +71,8 @@ class FirebaseServiceReceiptApprovalTest {
             }
         });
         service = new FirebaseService(db, imageStorage);
+        when(receipt.get("verificationDistanceMeters")).thenReturn(25.0);
+        when(receipt.get("locationAccuracyMeters")).thenReturn(5.0);
     }
 
     @Test
@@ -88,10 +94,11 @@ class FirebaseServiceReceiptApprovalTest {
 
         assertThat(result).containsEntry("visitId", "visit-1");
         ArgumentCaptor<Map<String, Object>> visitData = ArgumentCaptor.forClass(Map.class);
-        verify(transaction).set(eq(visitRef), visitData.capture());
+        verify(transaction).create(eq(visitRef), visitData.capture());
         assertThat(visitData.getValue())
                 .containsEntry("userId", "user-1")
-                .containsEntry("verificationMethod", "RECEIPT_OCR");
+                .containsEntry("verificationMethod", "LOCATION_RECEIPT")
+                .containsEntry("verificationDistanceMeters", 25.0);
         ArgumentCaptor<Map<String, Object>> receiptUpdate = ArgumentCaptor.forClass(Map.class);
         verify(transaction).update(eq(receiptRef), receiptUpdate.capture());
         assertThat(receiptUpdate.getValue())
@@ -144,7 +151,7 @@ class FirebaseServiceReceiptApprovalTest {
         ReflectionTestUtils.setField(service, "cachedStores", java.util.List.of(Map.of("storeId", "store-1", "storeName", "테스트 식당",
                 "menu1", "무료 국밥", "price1", "0", "free1", true)));
         service.approveReceiptVerification("receipt-1", "ADMIN");
-        verify(transaction).set(eq(visitRef), argThat(data -> Boolean.TRUE.equals(data.get("isFree"))
+        verify(transaction).create(eq(visitRef), argThat(data -> Boolean.TRUE.equals(data.get("isFree"))
                 && Long.valueOf(0L).equals(data.get("price")) && Long.valueOf(0L).equals(data.get("savedAmount"))));
     }
 
@@ -162,7 +169,7 @@ class FirebaseServiceReceiptApprovalTest {
         Map<String, Object> result = service.approveReceiptVerification("receipt-1", "ADMIN");
 
         assertThat(result).containsEntry("status", "APPROVED");
-        verify(transaction).set(any(DocumentReference.class), anyMap());
+        verify(transaction).create(any(DocumentReference.class), anyMap());
         verify(transaction).update(any(DocumentReference.class), anyMap());
     }
 
@@ -178,6 +185,98 @@ class FirebaseServiceReceiptApprovalTest {
         assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "AUTO_OCR"))
                 .isInstanceOf(ReceiptOcrEvidenceException.class);
         verify(transaction, never()).set(any(DocumentReference.class), anyMap());
+    }
+
+    @Test
+    void refusesAutomaticApprovalWhenOcrMenuMatchIsFalse() {
+        when(receipt.exists()).thenReturn(true);
+        when(receipt.getString("status")).thenReturn("PENDING");
+        mockUsableOcrEvidence();
+        when(receipt.getBoolean("ocrMenuMatch")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "AUTO_OCR"))
+                .isInstanceOf(ReceiptOcrEvidenceException.class);
+        verify(transaction, never()).create(any(DocumentReference.class), anyMap());
+    }
+
+    @Test
+    void resolveMenuForSavingsPreventsSwappingRegisteredMenuToAnUnrelatedExpensiveDish() {
+        ReflectionTestUtils.setField(service, "cachedStores", java.util.List.of(Map.of(
+                "storeId", "store-1",
+                "storeName", "캠퍼스분식",
+                "menu1", "짜장",
+                "price1", "4000",
+                "menu2", "라면",
+                "price2", "4500",
+                "menu3", "삼계탕",
+                "price3", "15000",
+                "menu4", "김밥",
+                "price4", "4000")));
+
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 4000L, false))
+                .isEqualTo("김밥");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "짜장", 4000L, false))
+                .isEqualTo("김밥");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "김밥가짜", 4000L, false))
+                .isEqualTo("김밥");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "김밥가짜", 4000L, null))
+                .isEqualTo("김밥");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "짜장", 4000L, true))
+                .isEqualTo("짜장");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 4000L, null))
+                .isEqualTo("김밥");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 9000L, false))
+                .isEqualTo("");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 9000L, null))
+                .isEqualTo("");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 15000L, null))
+                .isEqualTo("삼계탕");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "김밥", 4000L, true))
+                .isEqualTo("김밥");
+    }
+
+    @Test
+    void refusesApprovalOrRejectionWhenSubmissionVersionHasAdvanced() {
+        when(receipt.exists()).thenReturn(true);
+        when(receipt.getString("status")).thenReturn("PENDING");
+        when(receipt.getLong("submissionVersion")).thenReturn(2L);
+        when(receipt.getString("createdAt")).thenReturn("2026-10-16T12:00:00Z");
+
+        assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "ADMIN", 1L, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("다시 제출되어");
+        assertThatThrownBy(() -> service.rejectReceiptVerification("receipt-1", "사유", "ADMIN", 2L, "2026-10-16T11:00:00Z"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("다시 제출되어");
+        assertThatThrownBy(() -> service.rejectReceiptVerification("receipt-1", "사유", "ADMIN", null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("다시 제출되어");
+        assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "ADMIN", null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("다시 제출되어");
+        verify(transaction, never()).update(any(DocumentReference.class), anyMap());
+    }
+
+    @Test
+    void manualApprovalCannotCreateAVisitWithoutLocationEvidence() {
+        when(receipt.exists()).thenReturn(true);
+        when(receipt.getString("status")).thenReturn("PENDING");
+        when(receipt.get("verificationDistanceMeters")).thenReturn(null);
+        assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "ADMIN"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("위치 확인 정보");
+        verify(transaction, never()).create(any(DocumentReference.class), anyMap());
+        verify(transaction, never()).update(any(DocumentReference.class), anyMap());
+    }
+
+    @Test
+    void manualApprovalCannotBypassAnInvalidStoredLocation() {
+        when(receipt.exists()).thenReturn(true);
+        when(receipt.getString("status")).thenReturn("PENDING");
+        when(receipt.get("verificationDistanceMeters")).thenReturn(101.0);
+        assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "ADMIN"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("100m");
+        verify(transaction, never()).create(any(DocumentReference.class), anyMap());
+        verify(transaction, never()).update(any(DocumentReference.class), anyMap());
     }
 
     private void mockUsableOcrEvidence() {

@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -84,5 +85,39 @@ class CommunityCommentsControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         verifyNoInteractions(firebaseService);
+    }
+
+    @Test
+    void deletesOnlyThroughTheAuthenticatedUsersOwnershipCheck() throws Exception {
+        request.setAttribute(SessionAuthFilter.UID_ATTRIBUTE, "user-1");
+        when(firebaseService.deleteOwnedComment("comment-1", "user-1"))
+                .thenReturn(List.of("comment-1", "reply-1"));
+
+        ResponseEntity<?> response = controller.deleteMyComment("comment-1", request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map<?, ?> body = (Map<?, ?>) response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.get("deletedIds")).isEqualTo(List.of("comment-1", "reply-1"));
+        verify(firebaseService).deleteOwnedComment("comment-1", "user-1");
+    }
+
+    @Test
+    void rejectsCommentDeletionWithoutAuthentication() throws Exception {
+        ResponseEntity<?> response = controller.deleteMyComment("comment-1", request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        verify(firebaseService, never()).deleteOwnedComment("comment-1", null);
+    }
+
+    @Test
+    void hidesWhetherACommentBelongsToAnotherUser() throws Exception {
+        request.setAttribute(SessionAuthFilter.UID_ATTRIBUTE, "user-1");
+        when(firebaseService.deleteOwnedComment("comment-1", "user-1"))
+                .thenThrow(new java.util.NoSuchElementException("댓글을 찾을 수 없습니다."));
+
+        ResponseEntity<?> response = controller.deleteMyComment("comment-1", request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 }

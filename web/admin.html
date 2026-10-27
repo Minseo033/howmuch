@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex, nofollow" />
 <title>얼마고? 어드민</title>
+<link rel="icon" type="image/png" sizes="64x64" href="favicon-howmuch.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-howmuch.png" />
 <style>
   :root {
     --bg: #F4F6FA;
@@ -210,11 +212,11 @@
     font-family: inherit; background: var(--card);
   }
   .notification-target-search input:focus { outline: 2px solid var(--primary); border-color: transparent; }
+  /* QA 2026-10-07 #4: 목록을 입력칸 아래에 끼워 넣어 제목·내용 칸과 발송 버튼을 덮지 않게 하고, 높이를 제한합니다. */
   .notification-target-results {
-    position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0;
-    max-height: 276px; overflow-y: auto; padding: 6px;
+    margin-top: 6px; max-height: 232px; overflow-y: auto; overscroll-behavior: contain; padding: 6px;
     background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow);
   }
   .notification-target-option {
     width: 100%; display: flex; align-items: center; gap: 10px;
@@ -224,9 +226,9 @@
   .notification-target-option:hover,
   .notification-target-option:focus-visible { background: var(--primary-soft); outline: none; }
   .notification-target-option .detail { min-width: 0; }
-  .notification-target-option .name { font-size: 13px; font-weight: 800; }
+  .notification-target-option .name { display: block; font-size: 13px; font-weight: 800; }
   .notification-target-option .meta {
-    margin-top: 2px; color: var(--muted); font-size: 11px;
+    display: block; margin-top: 2px; color: var(--muted); font-size: 11px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .notification-target-empty { padding: 18px 12px; color: var(--muted); font-size:13px; text-align: center; }
@@ -288,6 +290,51 @@
     margin-top: 18px; padding: 13px 14px; border-radius: 12px;
     background: var(--primary); color: #fff; text-align: center; font-size: 12px; font-weight: 800;
   }
+  /* 알림 발송 미리보기: 앱 알림함 목록 한 줄과 같은 모양입니다(QA 2026-10-07 #49). */
+  .notif-preview-item {
+    display: flex; align-items: center; gap: 12px; padding: 14px;
+    border: 1px solid var(--border); border-radius: 22px; background: var(--card); box-shadow: var(--shadow);
+  }
+  .notif-preview-icon {
+    width: 38px; height: 38px; flex: 0 0 auto; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: rgba(37, 99, 235, .09); color: var(--primary);
+  }
+  .notif-preview-icon svg { width: 17px; height: 17px; display: block; }
+  .notif-preview-text { flex: 1; min-width: 0; }
+  .notif-preview-meta { display: flex; align-items: baseline; gap: 4px; color: var(--primary); font-size: 11px; font-weight: 700; }
+  .notif-preview-meta span { color: var(--muted); font-size: 10px; font-weight: 500; }
+  .notif-preview-title, .notif-preview-message {
+    display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
+    font-size: 13px; line-height: 1.45;
+  }
+  .notif-preview-title { margin-top: 3px; font-weight: 700; -webkit-line-clamp: 2; }
+  .notif-preview-message { margin-top: 2px; font-weight: 500; white-space: pre-line; -webkit-line-clamp: 3; }
+  .notif-preview-more { margin-top: 4px; color: var(--primary); font-size: 12px; font-weight: 600; }
+  .notif-preview-dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--primary); }
+  .notif-preview-note { margin-top: 10px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+
+  /* 보낸 공지·알림 목록과 회수(QA 2026-10-07 #3) */
+  .sent-history-note { margin: -4px 0 10px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .sent-item {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
+  }
+  .sent-item:last-child { border-bottom: none; }
+  .sent-main { min-width: 0; }
+  .sent-title { font-size: 13px; font-weight: 800; overflow-wrap: anywhere; }
+  .sent-chip {
+    display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 99px;
+    color: var(--amber); background: var(--amber-soft); font-size: 11px; font-weight: 700; vertical-align: 1px;
+  }
+  .sent-body {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+    margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere;
+  }
+  .sent-meta { margin-top: 6px; color: var(--muted); font-size: 11px; }
+  .sent-item .btn { flex-shrink: 0; white-space: nowrap; }
+  .sent-state { padding: 22px 20px; color: var(--muted); font-size: 13px; text-align: center; line-height: 1.6; }
+  .sent-state .btn { margin-top: 10px; }
 
   /* ── 배지/버튼 ─────────────────── */
   .badge {
@@ -295,6 +342,7 @@
   }
   .badge.PENDING  { color: var(--amber); background: var(--amber-soft); }
   .badge.APPROVED { color: var(--green); background: var(--green-soft); }
+  .badge.NO_CHANGE { color: #475569; background: #F1F5F9; }
   .badge.ANSWERED { color: var(--primary); background: var(--primary-soft); }
   .badge.REJECTED { color: var(--red);   background: var(--red-soft); }
   .stars { color: var(--amber-fill); font-size:13px; letter-spacing: 1px; }
@@ -409,6 +457,8 @@
   @keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   .modal h3 { font-size:15px; font-weight: 800; }
   .modal p { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
+  /* 확인 문구의 줄바꿈(변경 전 → 변경 후, 거리 경고)을 그대로 보여줍니다. */
+  #confirmActionMessage { white-space: pre-line; overflow-wrap: anywhere; }
   .modal .warn-box {
     margin-top: 14px; font-size:13px; color: var(--red);
     background: var(--red-soft); border-radius: 10px; padding: 10px 14px; line-height: 1.6;
@@ -419,6 +469,9 @@
     font-size: 13px; font-family: inherit; line-height: 1.5;
   }
   .modal textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
+  /* 필수 입력을 비운 채 저장하면 입력칸 아래에 이유를 보여 줍니다(QA 2026-10-07 #47). */
+  .modal .field-error { margin-top: 8px; color: var(--red); font-size: 13px; font-weight: 700; }
+  .modal textarea[aria-invalid="true"] { border-color: var(--red-fill); }
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
   .act-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 16px; }
   .act-cell { background: var(--bg); border-radius: 12px; padding: 12px; text-align: center; }
@@ -431,6 +484,7 @@
     background: var(--text); color: #fff; font-size: 13px; font-weight: 600;
     padding: 12px 22px; border-radius: 99px; opacity: 0; pointer-events: none;
     transition: opacity .25s, transform .25s; z-index: 60; box-shadow: 0 8px 24px rgba(15,23,42,.3);
+    width: max-content; max-width: min(560px, calc(100vw - 32px)); text-align: center;
   }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
@@ -561,7 +615,8 @@
     <h3 id="rejectModalHeading">제보 반려</h3>
     <p id="rejectTarget"></p>
     <label class="sr-only" for="rejectReason">반려 사유</label>
-    <textarea id="rejectReason" name="reject-reason" placeholder="반려 사유를 입력하세요 (제보자에게 표시됩니다)"></textarea>
+    <textarea id="rejectReason" name="reject-reason" aria-describedby="rejectReasonError" placeholder="반려 사유를 입력하세요 (제보자에게 표시됩니다)"></textarea>
+    <p class="field-error" id="rejectReasonError" role="alert" hidden></p>
     <div class="modal-actions">
       <button class="btn btn-ghost" data-close="rejectModal">취소</button>
       <button class="btn btn-danger" id="rejectConfirm">반려하기</button>
@@ -662,7 +717,8 @@
     <p id="answerInquiryTarget"></p>
     <div id="answerInquiryOriginal" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:16px 0"></div>
     <label class="sr-only" for="answerInquiryText">문의 답변</label>
-    <textarea id="answerInquiryText" name="inquiry-answer" maxlength="2000" placeholder="사용자에게 보낼 답변을 입력하세요"></textarea>
+    <textarea id="answerInquiryText" name="inquiry-answer" maxlength="2000" aria-describedby="answerInquiryError" placeholder="사용자에게 보낼 답변을 입력하세요"></textarea>
+    <p class="field-error" id="answerInquiryError" role="alert" hidden></p>
     <div class="modal-actions">
       <button class="btn btn-ghost" data-close="answerInquiryModal">취소</button>
       <button class="btn btn-primary" id="answerInquiryConfirm">답변 저장</button>
@@ -713,6 +769,8 @@
   const API_BASE = 'https://howmuch-backend-1xnu.onrender.com';
   // 어드민 전용 비밀번호 (백엔드 ADMIN_KEY 환경변수와 대조). 앱 카카오 로그인과 무관합니다.
   const KEY_STORAGE = 'hm_admin_key';
+  // 작성 단위 발송 요청 ID를 새로고침 뒤에도 유지합니다. 로그아웃·만료 때 함께 지웁니다.
+  const SEND_DRAFT_STORAGE = 'hm_admin_send_drafts';
   const KEY_TTL_MS = 30 * 60 * 1000;
   const API_TIMEOUT_MS = 45 * 1000;
 
@@ -741,7 +799,8 @@
   let allInquiries = null;
   let communityStats = null;
   let storageUsage = null;
-  let currentTab = 'PENDING';
+  let reportTab = 'PENDING';
+  let receiptTab = 'PENDING';
   let currentView = 'dashboard';
   let userSearch = '';
   let rejectTargetId = null;
@@ -754,6 +813,14 @@
   let answerInquiryId = null;
   let resolutionReportId = null;
   let selectedNotificationUid = '';
+  // 보낸 공지(notice)·일반 알림(general) 목록입니다. null이면 아직 불러오지 않은 상태입니다(QA 2026-10-07 #3).
+  const sentHistory = { notice: null, general: null };
+  const sentHistoryGeneration = { notice: 0, general: 0 };
+  // 제보 목록은 최신 전체 목록과 대기 목록을 합쳐 보여줍니다. 각 목록이 서버 상한에 닿았는지 기억합니다.
+  let reportListCapped = false;
+  let pendingListCapped = false;
+  let receiptListCapped = false;
+  let pendingReceiptListCapped = false;
   let keyExpiryTimer = null;
   let adminSessionGeneration = 0;
   let viewLoadGeneration = 0;
@@ -774,6 +841,8 @@
 
   /* ── 유틸 ─────────────────────────── */
   const clearAdminData = () => {
+    reportTab = 'PENDING';
+    receiptTab = 'PENDING';
     allReports = [];
     allReceipts = [];
     allReviews = [];
@@ -787,6 +856,12 @@
     communityStats = null;
     storageUsage = null;
     selectedNotificationUid = '';
+    sentHistory.notice = null;
+    sentHistory.general = null;
+    reportListCapped = false;
+    pendingListCapped = false;
+    receiptListCapped = false;
+    pendingReceiptListCapped = false;
     content.replaceChildren();
     document.querySelectorAll('.modal-backdrop[open]').forEach((dialog) => dialog.close());
   };
@@ -798,6 +873,9 @@
     inFlightControllers.forEach((controller) => controller.abort());
     inFlightControllers.clear();
     sessionStorage.removeItem(KEY_STORAGE);
+    // 로그아웃·만료 뒤 입력칸에 남은 키로 클릭 한 번에 다시 로그인되지 않게 비웁니다.
+    const keyInput = $('keyInput');
+    if (keyInput) keyInput.value = '';
     clearAdminData();
     showLogin(Boolean(message), message);
   };
@@ -839,8 +917,18 @@
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
-  const listCapNotice = (items) => items.length >= 500
-    ? '<span class="cap-note">최근 500건까지 표시</span>' : '';
+  // 서버 관리자 목록 상한(admin.list.max-items 기본값)과 같아야 합니다.
+  const ADMIN_LIST_CAP = 500;
+  const listCapNotice = (items) => items.length >= ADMIN_LIST_CAP
+    ? `<span class="cap-note">최근 ${ADMIN_LIST_CAP}건까지 표시</span>` : '';
+  const reportCapNotice = (withCounts = true) => [
+    reportListCapped ? `최신 ${ADMIN_LIST_CAP}건과 그보다 오래된 대기 제보만 불러왔습니다${withCounts ? ` · 승인·수정 없음·반려·미분류 탭 건수는 최신 ${ADMIN_LIST_CAP}건 기준` : ''}` : '',
+    pendingListCapped ? `대기 제보도 최신 ${ADMIN_LIST_CAP}건까지만 불러왔습니다 · 처리 후 새로고침하면 나머지가 보입니다` : '',
+  ].filter(Boolean).map((note) => `<span class="cap-note">${note}</span>`).join('');
+  const receiptCapNotice = (withCounts = true) => [
+    receiptListCapped ? `최신 ${ADMIN_LIST_CAP}건과 그보다 오래된 대기 영수증만 불러왔습니다${withCounts ? ` · 승인·반려 탭 건수는 최신 ${ADMIN_LIST_CAP}건 기준` : ''}` : '',
+    pendingReceiptListCapped ? `대기 영수증도 최신 ${ADMIN_LIST_CAP}건까지만 불러왔습니다 · 처리 후 새로고침하면 나머지가 보입니다` : '',
+  ].filter(Boolean).map((note) => `<span class="cap-note">${note}</span>`).join('');
 
   const safeImageUrl = (value) => {
     try {
@@ -899,9 +987,28 @@
 
   const shortUidText = (uid) => uid ? String(uid).slice(0, 8) + '…' : '-';
   const shortUid = (uid) => esc(shortUidText(uid));
-  const STATUS_LABEL = { PENDING: '대기', APPROVED: '승인', REJECTED: '반려', LEGACY: '미분류' };
-  const reportStatus = (report) => ['PENDING', 'APPROVED', 'REJECTED'].includes(report.status)
-    ? report.status : 'LEGACY';
+  const STATUS_LABEL = { PENDING: '대기', APPROVED: '승인', NO_CHANGE: '수정 없음', REJECTED: '반려', LEGACY: '미분류' };
+  // QA 2026-10-07 #13: 정보 신고를 수정 없이 처리한 건은 서버 상태가 APPROVED여도 승인과 따로 셉니다.
+  const reportStatus = (report) => {
+    if (report.status === 'APPROVED' && String(report.resolution ?? '').trim().toUpperCase() === 'NO_CHANGE') return 'NO_CHANGE';
+    return ['PENDING', 'APPROVED', 'REJECTED'].includes(report.status) ? report.status : 'LEGACY';
+  };
+  // QA 2026-10-07 #14: 제보 카드에 내부 코드 대신 앱에서 고른 유형 이름과 관리자 처리 이름을 보여 줍니다.
+  // 모르는 코드는 숨기지 않고 그대로 보여 줍니다.
+  const CHANGE_TYPE_LABEL = {
+    rise: '가격 인상', drop: '가격 인하', new: '신규 메뉴', delete: '메뉴 삭제',
+    closed: '폐업됐어요', price_mismatch: '가격이 달라요', location_wrong: '위치 정보가 틀려요', other: '기타',
+  };
+  const RESOLUTION_LABEL = {
+    NEW_STORE: '신규 매장 등록', PRICE: '메뉴·가격 수정', LOCATION: '주소·위치 수정', CLOSED: '폐업 처리', NO_CHANGE: '수정 없음',
+  };
+  const codeLabel = (labels, code, normalize) => {
+    const raw = String(code ?? '').trim();
+    const key = normalize(raw);
+    return Object.prototype.hasOwnProperty.call(labels, key) ? labels[key] : raw;
+  };
+  const changeTypeLabel = (code) => codeLabel(CHANGE_TYPE_LABEL, code, (value) => value.toLowerCase());
+  const resolutionLabel = (code) => codeLabel(RESOLUTION_LABEL, code, (value) => value.toUpperCase());
   const AVATAR_COLORS = ['#2563EB','#8B5CF6','#10B981','#F59E0B','#EF4444','#0EA5E9','#EC4899'];
 
   const avatarColor = (seed) => {
@@ -921,9 +1028,11 @@
     const hidden = reduceMotion
       ? { opacity: 0, transform: 'translateX(-50%) translateY(0)' }
       : { opacity: 0, transform: 'translateX(-50%) translateY(20px)' };
+    // 긴 안내는 끝까지 읽을 수 있게 글자 수에 맞춰 더 오래 보여줍니다.
+    const duration = Math.min(9000, Math.max(2400, String(msg ?? '').length * 70));
     t._animation = t.animate(
       [hidden, { ...visible, offset: .08 }, { ...visible, offset: .9 }, hidden],
-      { duration: 2400, easing: 'ease-out', fill: 'both' },
+      { duration, easing: 'ease-out', fill: 'both' },
     );
     t._animation.onfinish = () => t.classList.remove('show');
   };
@@ -1032,10 +1141,15 @@
     if (resolve) resolve(accepted);
   }
 
-  function confirmAction(message, heading = '작업 확인') {
+  // 되돌릴 수 없는 작업(공지 회수 등)은 확인 버튼 이름과 색을 작업에 맞게 바꿉니다. 다른 확인창은 기본값으로 돌아갑니다.
+  function confirmAction(message, heading = '작업 확인', { acceptLabel = '확인', danger = false } = {}) {
     if (confirmActionResolve) finishActionConfirmation(false);
     $('confirmActionHeading').textContent = heading;
     $('confirmActionMessage').textContent = message;
+    const accept = $('confirmActionAccept');
+    accept.textContent = acceptLabel;
+    accept.classList.toggle('btn-danger', danger);
+    accept.classList.toggle('btn-primary', !danger);
     openModal('confirmActionModal');
     return new Promise((resolve) => { confirmActionResolve = resolve; });
   }
@@ -1082,10 +1196,15 @@
     const o = overview;
     const us = o.userStores || {};
     const legacyCount = Number(us.legacy ?? Math.max(0, Number(us.total ?? 0) - Number(us.pending ?? 0) - Number(us.approved ?? 0) - Number(us.rejected ?? 0)));
+    // QA 2026-10-07 #13: 서버가 수정 없음 건수를 주면 승인 건수에서 빼고 따로 보여 줍니다(이전 서버는 그대로 표시).
+    const noChangeCount = us.noChange == null || !Number.isFinite(Number(us.noChange)) ? null : Number(us.noChange);
+    const approvedText = noChangeCount === null
+      ? `승인 ${us.approved ?? 0}`
+      : `승인 ${Math.max(0, Number(us.approved ?? 0) - noChangeCount)} · 수정 없음 ${noChangeCount}`;
     const priorityCards = [
       ['검토 대기 제보', us.pending, '지금 확인할 항목', 'priority'],
       ['미분류 제보', legacyCount, '상태 확인 필요', 'neutral'],
-      ['전체 제보', us.total, `승인 ${us.approved ?? 0} · 반려 ${us.rejected ?? 0}`, 'neutral'],
+      ['전체 제보', us.total, `${approvedText} · 반려 ${us.rejected ?? 0}`, 'neutral'],
     ];
     const secondaryCards = [
       ['전체 회원', o.users],
@@ -1119,7 +1238,7 @@
       <div class="stats-priority">${priorityCards.map(cardHtml).join('')}</div>
       <div class="stats-secondary">${secondaryCards.map(([label, val]) => cardHtml([label, val, '', 'neutral compact'])).join('')}</div>
       <p class="storage-note">${esc(storageText)}</p>
-      <div class="section-title">최근 제보 <span class="chip">${allReports.length}건</span>${listCapNotice(allReports)}</div>
+      <div class="section-title">최근 제보 <span class="chip">${allReports.length}건</span>${reportCapNotice(false)}</div>
       <div class="card table-wrap">
         <table class="data-table">
           <thead><tr><th>매장명</th><th>업종</th><th>상태</th><th>제보일</th></tr></thead>
@@ -1130,7 +1249,7 @@
 
   /* ══ 뷰 2: 제보 관리 ══ */
   function reportCounts() {
-    const c = { PENDING: 0, APPROVED: 0, REJECTED: 0, LEGACY: 0 };
+    const c = { PENDING: 0, APPROVED: 0, NO_CHANGE: 0, REJECTED: 0, LEGACY: 0 };
     allReports.forEach((r) => { c[reportStatus(r)]++; });
     return c;
   }
@@ -1138,31 +1257,35 @@
   function renderReportsView() {
     if (currentView !== 'reports') return;
     const c = reportCounts();
+    // 대기 목록마저 상한에 닿으면 실제 대기 건수는 더 많을 수 있습니다.
+    const pendingCount = c.PENDING ? `${c.PENDING}${pendingListCapped ? '+' : ''}` : '';
     const pill = $('pendingPill');
-    if (c.PENDING > 0) { pill.hidden = false; pill.textContent = c.PENDING; }
+    if (c.PENDING > 0) { pill.hidden = false; pill.textContent = pendingCount; }
     else pill.hidden = true;
 
     const tabsHtml = `
       <div class="tabs">
-        <button class="tab ${currentTab==='PENDING'?'active':''}" data-status="PENDING">대기<span class="count">${c.PENDING||''}</span></button>
-        <button class="tab ${currentTab==='APPROVED'?'active':''}" data-status="APPROVED">승인<span class="count">${c.APPROVED||''}</span></button>
-        <button class="tab ${currentTab==='REJECTED'?'active':''}" data-status="REJECTED">반려<span class="count">${c.REJECTED||''}</span></button>
-        <button class="tab ${currentTab==='LEGACY'?'active':''}" data-status="LEGACY">미분류<span class="count">${c.LEGACY||''}</span></button>
-        <button class="tab ${currentTab==='ALL'?'active':''}" data-status="ALL">전체<span class="count">${allReports.length||''}</span></button>
+        <button class="tab ${reportTab==='PENDING'?'active':''}" data-status="PENDING">대기<span class="count">${pendingCount}</span></button>
+        <button class="tab ${reportTab==='APPROVED'?'active':''}" data-status="APPROVED">승인<span class="count">${c.APPROVED||''}</span></button>
+        <button class="tab ${reportTab==='NO_CHANGE'?'active':''}" data-status="NO_CHANGE">수정 없음<span class="count">${c.NO_CHANGE||''}</span></button>
+        <button class="tab ${reportTab==='REJECTED'?'active':''}" data-status="REJECTED">반려<span class="count">${c.REJECTED||''}</span></button>
+        <button class="tab ${reportTab==='LEGACY'?'active':''}" data-status="LEGACY">미분류<span class="count">${c.LEGACY||''}</span></button>
+        <button class="tab ${reportTab==='ALL'?'active':''}" data-status="ALL">전체<span class="count">${allReports.length||''}</span></button>
       </div>`;
 
-    const filtered = currentTab === 'ALL' ? allReports : allReports.filter((r) => reportStatus(r) === currentTab);
+    const filtered = reportTab === 'ALL' ? allReports : allReports.filter((r) => reportStatus(r) === reportTab);
+    const emptyTitle = reportTab === 'NO_CHANGE' ? '수정 없음으로 처리한 제보가 없습니다' : `${STATUS_LABEL[reportTab]||''} 제보가 없습니다`;
     const listHtml = filtered.length
       ? `<div class="report-list">${filtered.map(reportCard).join('')}</div>`
-      : `<div class="state-box"><div class="state-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div><h2>${STATUS_LABEL[currentTab]||''} 제보가 없습니다</h2><p>다른 탭을 확인해보세요.</p></div>`;
+      : `<div class="state-box"><div class="state-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div><h2>${emptyTitle}</h2><p>다른 탭을 확인해보세요.</p></div>`;
 
-    content.innerHTML = tabsHtml + (currentTab === 'LEGACY' && c.LEGACY
+    content.innerHTML = reportCapNotice() + tabsHtml + (reportTab === 'LEGACY' && c.LEGACY
       ? '<div class="legacy-note">상태가 없는 과거 제보입니다. 공개 여부와 원본 데이터를 확인한 뒤 처리해주세요. 자동으로 승인·반려하지 않습니다.</div>'
       : '') + listHtml;
     wireImageLinks();
 
     content.querySelectorAll('.tab').forEach((tab) => {
-      tab.onclick = () => { currentTab = tab.dataset.status; renderReportsView(); };
+      tab.onclick = () => { reportTab = tab.dataset.status; renderReportsView(); };
     });
     content.querySelectorAll('[data-approve]').forEach((btn) => {
       btn.onclick = () => doApprove(btn.dataset.approve, btn);
@@ -1189,6 +1312,24 @@
     return rows.length ? `<table class="menu-table">${rows.join('')}</table>` : '';
   }
 
+  // 서버 StoreCorrectionPolicy.priceReport와 같은 기준입니다(정보 신고가 아니고 변동 유형이 있는 제보).
+  const isPriceReport = (report) => String(report?.reportType ?? '').trim().toUpperCase() !== 'STORE_INFO'
+    && String(report?.changeType ?? '').trim() !== '';
+  // 가격 변동 제보는 제보 당시 매장 수정 판(baseRevision)이 지금 판과 같아야 승인됩니다.
+  const stalePriceReport = (report) => isPriceReport(report) && Boolean(report.currentStore)
+    && Number(report.baseRevision ?? 0) !== Number(report.currentStore.correctionRevision ?? 0);
+  const STALE_PRICE_REPORT_MESSAGE = '이 제보 뒤에 같은 매장의 다른 수정이 먼저 승인되어 그대로 승인할 수 없습니다. 현재 가격과 비교해 반려하고, 아직 반영할 변경이 있으면 반려 사유에 최신 가격으로 다시 제보해달라고 남기거나 정보 신고로 검토해주세요.';
+
+  function currentPriceLine(r) {
+    if (r.status !== 'PENDING' || !isPriceReport(r) || !r.currentStore) return '';
+    const store = r.currentStore;
+    const menu = String(r.menu1 ?? '').trim();
+    const slot = [1, 2, 3, 4].find((i) => menu && String(store['menu' + i] ?? '').trim() === menu);
+    if (!slot) return '<div class="report-meta">현재 등록 가격: 같은 이름의 메뉴 없음</div>';
+    const price = store['free' + slot] === true && Number(store['price' + slot]) === 0 ? '무료' : fmtPrice(store['price' + slot]);
+    return `<div class="report-meta">현재 등록 가격: ${esc(store['menu' + slot])} ${price}</div>`;
+  }
+
   function reportCard(r) {
     const parkingMismatch = /주차/.test(r.storeName || '') && r.industry !== '교통·주차 · 주차장';
     const images = Array.isArray(r.imageUrls) ? r.imageUrls.map(safeImageUrl).filter(Boolean) : [];
@@ -1198,8 +1339,10 @@
       r.phoneNumber ? 'Tel. ' + esc(r.phoneNumber) : null,
     ].filter(Boolean).map((f) => `<span class="flag">${f}</span>`).join('');
 
+    // QA 2026-10-07 #13: 정보 신고는 처리 창에서 수정 없음·가격·위치·폐업 중 하나를 고르므로 '승인' 대신 '검토하기'입니다.
+    const infoReport = r.reportType === 'STORE_INFO';
     const reviewActions = r.status === 'PENDING' ? `
-        <button class="btn btn-approve" data-approve="${esc(r.id)}">승인</button>
+        <button class="btn ${infoReport ? 'btn-primary' : 'btn-approve'}" data-approve="${esc(r.id)}">${infoReport ? '검토하기' : '승인'}</button>
         <button class="btn btn-reject" data-reject="${esc(r.id)}" data-name="${esc(r.storeName)}">반려</button>` : '';
     const actions = `
       <div class="report-actions">
@@ -1225,9 +1368,11 @@
           <span class="badge ${reportStatus(r)}">${STATUS_LABEL[reportStatus(r)]}</span>
         </div>
         ${menuRows(r)}
-        <div class="report-meta">종류: ${esc(r.reportType === 'STORE_INFO' ? '매장 정보 신고' : r.changeType ? '가격·메뉴 변경' : '신규 매장 제보')} · 유형: ${esc(r.changeType || '일반')} · 대상 매장 ID: ${esc(r.storeId || '미지정')}</div>
+        ${currentPriceLine(r)}
+        <div class="report-meta">종류: ${esc(r.reportType === 'STORE_INFO' ? '매장 정보 신고' : r.changeType ? '가격·메뉴 변경' : '신규 매장 제보')} · 유형: ${esc(changeTypeLabel(r.changeType) || '일반')} · 대상 매장 ID: ${esc(r.storeId || '미지정')}</div>
         ${r.description ? `<p style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(r.description)}</p>` : ''}
-        ${r.resolution ? `<div class="report-meta">확정 처리: ${esc(r.resolution)} · 검토 사유: ${esc(r.reviewReason || '')}</div>` : ''}
+        ${r.resolution ? `<div class="report-meta">확정 처리: ${esc(resolutionLabel(r.resolution))} · 검토 사유: ${esc(r.reviewReason || '')}</div>` : ''}
+        ${r.status === 'PENDING' && stalePriceReport(r) ? `<div class="legacy-note">${esc(STALE_PRICE_REPORT_MESSAGE)}</div>` : ''}
         ${flags ? `<div class="report-flags">${flags}</div>` : ''}
         ${parkingMismatch ? `<div class="legacy-note">매장명에 주차장이 포함되어 있어 업종 확인이 필요합니다. <button class="btn btn-light" data-fix-parking="${esc(r.id)}">주차장 업종으로 수정</button></div>` : ''}
         ${images.length ? `<div class="report-images">${images.map((u) => `<img src="${esc(u)}" data-open-image="${esc(u)}" width="74" height="74" loading="lazy" alt="제보 이미지">`).join('')}</div>` : ''}
@@ -1242,14 +1387,36 @@
     return c;
   }
 
+  // OCR이 실패했거나 실행되지 않은 영수증을 '금액 불일치'로 보이게 해 반려를 유도하지 않습니다.
+  const OCR_UNAVAILABLE_LABELS = new Map([
+    ['OCR_NOT_CONFIGURED', 'OCR 키 미설정 · 관리자 확인 필요'],
+    ['OCR_PROVIDER_ERROR', 'OCR 실패(인식 서비스 오류) · 관리자 확인 필요'],
+    ['EMPTY_IMAGE', 'OCR 미실행(이미지 없음) · 관리자 확인 필요'],
+  ]);
+
+  function receiptOcrLabel(r) {
+    const status = String(r.ocrStatus ?? '').trim();
+    if (OCR_UNAVAILABLE_LABELS.has(status)) return OCR_UNAVAILABLE_LABELS.get(status);
+    if (!status && r.ocrProviderAvailable == null && r.ocrScore == null) return 'OCR 미실행 · 관리자 확인 필요';
+    if (r.ocrProviderAvailable === false) return 'OCR 결과 없음 · 관리자 확인 필요';
+    if (r.ocrDetectedTextLength != null && Number(r.ocrDetectedTextLength) === 0) {
+      return 'OCR이 글자를 읽지 못함 · 관리자 확인 필요';
+    }
+    const score = Number(r.ocrScore ?? 0);
+    const detectedPrice = Number(r.ocrDetectedPrice);
+    const priceLabel = r.ocrPriceMatch ? '금액 일치'
+      : r.ocrDetectedPrice == null ? '금액 불일치'
+      : Number.isSafeInteger(detectedPrice) && detectedPrice > 0 ? `금액 불일치(인식 ${detectedPrice.toLocaleString('ko-KR')}원)`
+      : '금액 인식 실패';
+    const menuLabel = r.ocrMenuMatch === false ? ' · 메뉴 확인 필요' : (r.ocrMenuMatch === true ? ' · 메뉴 일치' : '');
+    return `OCR 점수 ${score}/100 · ${priceLabel}${menuLabel} · ${r.ocrLabeledPrice ? '합계 항목 확인' : '합계 항목 확인 필요'} · ${r.ocrStoreMatch ? '매장명 일치' : '매장명 확인 필요'} · ${r.ocrReceiptDatePlausible ? `영수증 날짜 ${r.ocrDetectedDate}` : '영수증 날짜 확인 필요'}`;
+  }
+
   function receiptCard(r) {
     const processed = r.status === 'APPROVED' || r.status === 'REJECTED';
     const deleted = r.imageCleanupStatus === 'DELETED';
     const images = !deleted && Array.isArray(r.imageUrls) ? r.imageUrls.map(safeImageUrl).filter(Boolean) : [];
-    const score = Number(r.ocrScore ?? 0);
-    const ocrLabel = r.ocrStatus === 'OCR_NOT_CONFIGURED'
-      ? 'OCR 키 미설정 · 관리자 확인 필요'
-      : `OCR 점수 ${score}/100 · ${r.ocrPriceMatch ? '금액 일치' : '금액 불일치'} · ${r.ocrLabeledPrice ? '합계 항목 확인' : '합계 항목 확인 필요'} · ${r.ocrStoreMatch ? '매장명 일치' : '매장명 확인 필요'} · ${r.ocrReceiptDatePlausible ? `영수증 날짜 ${r.ocrDetectedDate}` : '영수증 날짜 확인 필요'}`;
+    const ocrLabel = receiptOcrLabel(r);
     const actions = r.status === 'PENDING' ? `
       <button class="btn btn-approve" data-approve-receipt="${esc(r.id)}">승인 후 방문 기록 생성</button>
       <button class="btn btn-reject" data-reject-receipt="${esc(r.id)}" data-name="${esc(r.storeName)}">반려</button>` : '';
@@ -1274,22 +1441,23 @@
   function renderReceiptsView() {
     if (currentView !== 'receipts') return;
     const c = receiptCounts();
+    const pendingCount = c.PENDING ? `${c.PENDING}${pendingReceiptListCapped ? '+' : ''}` : '';
     const pill = $('pendingReceiptPill');
-    if (c.PENDING > 0) { pill.hidden = false; pill.textContent = c.PENDING; }
+    if (c.PENDING > 0) { pill.hidden = false; pill.textContent = pendingCount; }
     else pill.hidden = true;
     const tabsHtml = `<div class="tabs">
-      <button class="tab ${currentTab==='PENDING'?'active':''}" data-receipt-status="PENDING">대기<span class="count">${c.PENDING||''}</span></button>
-      <button class="tab ${currentTab==='APPROVED'?'active':''}" data-receipt-status="APPROVED">승인<span class="count">${c.APPROVED||''}</span></button>
-      <button class="tab ${currentTab==='REJECTED'?'active':''}" data-receipt-status="REJECTED">반려<span class="count">${c.REJECTED||''}</span></button>
-      <button class="tab ${currentTab==='ALL'?'active':''}" data-receipt-status="ALL">전체<span class="count">${allReceipts.length||''}</span></button>
+      <button class="tab ${receiptTab==='PENDING'?'active':''}" data-receipt-status="PENDING">대기<span class="count">${pendingCount}</span></button>
+      <button class="tab ${receiptTab==='APPROVED'?'active':''}" data-receipt-status="APPROVED">승인<span class="count">${c.APPROVED||''}</span></button>
+      <button class="tab ${receiptTab==='REJECTED'?'active':''}" data-receipt-status="REJECTED">반려<span class="count">${c.REJECTED||''}</span></button>
+      <button class="tab ${receiptTab==='ALL'?'active':''}" data-receipt-status="ALL">전체<span class="count">${allReceipts.length||''}</span></button>
     </div>`;
-    const filtered = currentTab === 'ALL' ? allReceipts : allReceipts.filter((r) => r.status === currentTab);
-    content.innerHTML = listCapNotice(allReceipts) + tabsHtml + (filtered.length
+    const filtered = receiptTab === 'ALL' ? allReceipts : allReceipts.filter((r) => r.status === receiptTab);
+    content.innerHTML = receiptCapNotice() + tabsHtml + (filtered.length
       ? `<div class="report-list">${filtered.map(receiptCard).join('')}</div>`
       : `<div class="state-box"><div class="state-ico">✓</div><h2>영수증 인증이 없습니다</h2><p>다른 상태 탭을 확인해보세요.</p></div>`);
     wireImageLinks();
     content.querySelectorAll('[data-receipt-status]').forEach((tab) => {
-      tab.onclick = () => { currentTab = tab.dataset.receiptStatus; renderReceiptsView(); };
+      tab.onclick = () => { receiptTab = tab.dataset.receiptStatus; renderReceiptsView(); };
     });
     content.querySelectorAll('[data-approve-receipt]').forEach((btn) => {
       btn.onclick = () => doApproveReceipt(btn.dataset.approveReceipt, btn);
@@ -1308,7 +1476,7 @@
       const preview = contentText.length > 60 ? contentText.slice(0, 60) + '…' : contentText;
       return `<tr>
         <td><b>${esc(r.storeName) || '-'}</b><div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(r.menu) || ''}</div></td>
-        <td>${esc(r.authorName) || shortUid(r.authorUid)}</td>
+        <td>${esc(r.authorName) || '-'}<div class="uid-cell" title="${esc(r.authorUid || '')}">${shortUid(r.authorUid)}</div></td>
         <td><span class="stars">${stars}</span></td>
         <td style="max-width:320px"><span title="${esc(contentText)}">${esc(preview) || '-'}</span></td>
         <td style="white-space:nowrap">${fmtDate(r.createdAt)}</td>
@@ -1419,6 +1587,18 @@
   }
 
   /* ══ 뷰 5: 댓글 관리 ══ */
+  // QA 2026-10-07 #48: 리뷰 관리처럼 작성자 닉네임과 게시글(제보) 매장명·메뉴를 보여 주고, ID는 보조 정보로 둡니다.
+  function commentPostCell(c) {
+    if (!c.postStoreName) {
+      return `<span class="uid-cell" title="${esc(c.postId || '')}">${shortUid(c.postId)}</span><div style="font-size:11px;color:var(--muted);margin-top:2px">게시글 정보 없음</div>`;
+    }
+    const menu = String(c.postMenu ?? '').trim();
+    const hasPrice = String(c.postPrice ?? '').trim() !== '';
+    const price = c.postFree === true && Number(c.postPrice) === 0 ? '무료' : hasPrice ? fmtPrice(c.postPrice) : '';
+    const detail = [esc(menu), price].filter(Boolean).join(' ');
+    return `<b title="${esc(c.postId || '')}">${esc(c.postStoreName)}</b>${detail ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${detail}</div>` : ''}`;
+  }
+
   function renderCommentsView() {
     if (currentView !== 'comments') return;
     const rows = (allComments || []).map((c) => {
@@ -1426,13 +1606,16 @@
       const preview = contentText.length > 60 ? contentText.slice(0, 60) + '…' : contentText;
       const kind = c.isReply ? '<span class="badge" style="color:var(--violet);background:var(--violet-soft)">답글</span>'
                              : '<span class="badge" style="color:var(--primary);background:var(--primary-soft)">댓글</span>';
+      const replyCount = c.isReply ? 0 : (allComments || []).filter((item) => item.parentId === c.id).length;
+      const summary = [c.isReply ? '답글' : '댓글', c.postStoreName ? `${c.postStoreName} 게시글` : '', preview]
+        .filter(Boolean).join(' · ') + (replyCount ? ` (답글 ${replyCount}개 포함)` : '');
       return `<tr>
         <td>${kind}</td>
         <td style="max-width:340px"><span title="${esc(contentText)}">${esc(preview) || '-'}</span></td>
-        <td class="uid-cell">${shortUid(c.userId)}</td>
-        <td class="uid-cell">${shortUid(c.postId)}</td>
+        <td>${esc(c.authorName) || '-'}<div class="uid-cell" title="${esc(c.userId || '')}">${shortUid(c.userId)}</div></td>
+        <td>${commentPostCell(c)}</td>
         <td style="white-space:nowrap">${fmtDate(c.createdAt)}</td>
-        <td><button class="btn btn-danger btn-sm" data-delcomment="${esc(c.id)}" data-summary="${esc(preview)}">삭제</button></td>
+        <td><button class="btn btn-danger btn-sm" data-delcomment="${esc(c.id)}" data-summary="${esc(summary)}">삭제</button></td>
       </tr>`;
     }).join('');
 
@@ -1527,7 +1710,7 @@
         <div class="card notice-compose-card">
           <div class="notice-guide">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-            <span>공지사항은 <b>전체 회원의 웹 접속 팝업과 알림함</b>에 표시됩니다. 기기 푸시는 발송하지 않으며, 등록 후에는 회수할 수 없습니다.</span>
+            <span>공지사항은 <b>전체 회원의 웹 접속 팝업과 알림함</b>에 표시됩니다. 기기 푸시는 발송하지 않으며, 등록한 공지는 아래 목록에서 회수할 수 있습니다.</span>
           </div>
           <div class="notification-form">
             <div>
@@ -1555,11 +1738,212 @@
             </div>
           </div>
         </div>
-      </div>`;
+      </div>
+      <div class="section-title">등록한 공지 <span class="chip" id="noticeHistoryCount" hidden></span></div>
+      <p class="sent-history-note">회수하면 받은 회원의 알림함과 웹 접속 팝업에서 지워지며 되돌릴 수 없습니다. '이전 방식 발송'은 공지 기능이 생기기 전에 알림 발송으로 보내 회원 앱에 공지사항으로 보이는 알림입니다.</p>
+      <div id="noticeHistory"></div>`;
 
     $('noticeTitle').oninput = updateNoticePreview;
     $('noticeBody').oninput = updateNoticePreview;
     $('noticePublish').onclick = doPublishNotice;
+    if (sentHistory.notice && sentHistory.notice.status !== 'error') renderSentHistory('notice');
+    else loadSentHistory('notice');
+  }
+
+  /* ── 보낸 공지·알림 목록과 회수 (QA 2026-10-07 #3) ── */
+  // 공지와 일반 알림은 회원마다 알림함 문서로 복제되므로, 서버가 한 번의 발송을 한 줄로 묶어 줍니다.
+  const SENT_HISTORY = {
+    notice: {
+      path: '/api/admin/notices', container: 'noticeHistory', count: 'noticeHistoryCount',
+      empty: '등록한 공지가 없습니다', noun: '공지',
+      recallNote: '받은 회원의 알림함과 웹 접속 팝업에서 지워지며 되돌릴 수 없습니다.',
+    },
+    general: {
+      path: '/api/admin/notifications', container: 'notificationHistory', count: 'notificationHistoryCount',
+      empty: '보낸 일반 알림이 없습니다', noun: '알림',
+      recallNote: '받은 회원의 알림함에서 지워지며 되돌릴 수 없습니다. 이미 기기에 도착한 푸시는 회수되지 않습니다.',
+    },
+  };
+
+  function sentRecipientsText(item) {
+    const recipients = Number(item.recipients || 0);
+    if (recipients === 1) {
+      const name = String(item.targetName || '').trim() || '회원 1명';
+      return `받은 회원: ${name} (${shortUidText(item.targetUid)}) · ${Number(item.readCount) > 0 ? '읽음' : '안 읽음'}`;
+    }
+    return `받은 회원 ${recipients.toLocaleString('ko-KR')}명 · 읽음 ${Number(item.readCount || 0).toLocaleString('ko-KR')}명`;
+  }
+
+  function renderSentHistory(kind) {
+    const config = SENT_HISTORY[kind];
+    const container = $(config.container);
+    if (!container) return;
+    const state = sentHistory[kind];
+    const count = $(config.count);
+    if (count) {
+      count.hidden = state?.status !== 'ready';
+      count.textContent = state?.status === 'ready' ? `${state.items.length}건` : '';
+    }
+    if (!state || state.status === 'loading') {
+      container.innerHTML = '<div class="card sent-state">목록을 불러오는 중…</div>';
+      return;
+    }
+    if (state.status === 'error') {
+      container.innerHTML = `<div class="card sent-state">목록을 불러오지 못했습니다. ${esc(state.message)}<br><button class="btn btn-ghost btn-sm" type="button" data-retry-sent>다시 시도</button></div>`;
+      const retry = container.querySelector('[data-retry-sent]');
+      if (retry) retry.onclick = () => loadSentHistory(kind);
+      return;
+    }
+    if (!state.items.length) {
+      container.innerHTML = `<div class="card sent-state">${config.empty}</div>`;
+      return;
+    }
+    container.innerHTML = (state.truncated ? '<span class="cap-note">최근 알림 5,000건 안에서 찾은 목록입니다</span>' : '')
+      + `<div class="card">${state.items.map((item) => `
+        <div class="sent-item">
+          <div class="sent-main">
+            <div class="sent-title">${esc(item.title) || '(제목 없음)'}${item.type === 'admin' ? '<span class="sent-chip">이전 방식 발송</span>' : ''}</div>
+            <div class="sent-body">${esc(item.body)}</div>
+            <div class="sent-meta">${esc(sentRecipientsText(item))} · ${fmtDate(item.createdAt)}</div>
+          </div>
+          <button class="btn btn-danger btn-sm" type="button" data-recall="${esc(item.id)}" aria-label="${esc(`${item.title || '제목 없는'} ${config.noun} 회수`)}">회수</button>
+        </div>`).join('')}</div>`;
+    container.querySelectorAll('[data-recall]').forEach((button) => {
+      button.onclick = () => recallSentMessage(kind, button.dataset.recall, button);
+    });
+  }
+
+  // 목록 불러오기는 화면 표시를 기다리게 하지 않고, 실패해도 다른 작업 안내를 덮지 않게 목록 칸 안에서만 알립니다.
+  async function loadSentHistory(kind) {
+    const generation = ++sentHistoryGeneration[kind];
+    const session = adminSessionGeneration;
+    const isCurrent = () => generation === sentHistoryGeneration[kind] && session === adminSessionGeneration;
+    sentHistory[kind] = { status: 'loading', items: [] };
+    renderSentHistory(kind);
+    try {
+      const result = await api(SENT_HISTORY[kind].path);
+      if (!isCurrent()) return;
+      sentHistory[kind] = {
+        status: 'ready',
+        items: Array.isArray(result?.items) ? result.items.filter((item) => item && typeof item === 'object' && item.id) : [],
+        truncated: result?.truncated === true,
+      };
+    } catch (e) {
+      if (!isCurrent() || e.code === 'STALE_REQUEST') return;
+      if (e.code === 401) { invalidateAdminSession('관리자 인증을 다시 확인해주세요.'); return; }
+      sentHistory[kind] = {
+        status: 'error',
+        items: [],
+        message: e.code === 404 || e.code === 405
+          ? '서버를 새 버전으로 배포한 뒤 사용할 수 있습니다.'
+          : (e.message || '잠시 후 다시 시도해주세요.'),
+      };
+    }
+    renderSentHistory(kind);
+  }
+
+  async function recallSentMessage(kind, id, button) {
+    const config = SENT_HISTORY[kind];
+    const item = sentHistory[kind]?.items?.find((entry) => entry.id === id);
+    if (!item) return;
+    const message = [
+      `「${item.title || '(제목 없음)'}」`,
+      sentRecipientsText(item),
+      `보낸 시각: ${fmtDate(item.createdAt)}`,
+      config.recallNote,
+    ].join('\n');
+    if (!await confirmAction(message, `${config.noun} 회수 확인`, { acceptLabel: '회수', danger: true })) return;
+    button.disabled = true;
+    const removeItem = () => {
+      const state = sentHistory[kind];
+      if (state?.items) state.items = state.items.filter((entry) => entry.id !== id);
+      renderSentHistory(kind);
+    };
+    try {
+      const result = await api(`${config.path}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      removeItem();
+      const deleted = Number(result?.deleted ?? item.recipients ?? 0);
+      toast(`${config.noun} 회수 완료 — 회원 ${deleted.toLocaleString('ko-KR')}명의 알림함에서 삭제됨`);
+      if (kind === 'general' && communityStats && Number.isFinite(Number(communityStats.notifications))) {
+        communityStats.notifications = Math.max(0, Number(communityStats.notifications) - deleted);
+        const stat = $('notifSentStat');
+        if (stat) stat.textContent = communityStats.notifications.toLocaleString('ko-KR');
+      }
+    } catch (e) {
+      if (e.code === 404) { removeItem(); toast(e.message || '이미 회수된 항목입니다'); return; }
+      if (button.isConnected) button.disabled = false;
+      handleError(e);
+    }
+  }
+
+  /* ── 발송 요청 ID ─────────────────── */
+  // 서버는 회원별 알림 문서 ID를 (requestId, 회원)으로 고정해, 같은 ID의 재전송은 이미 받은 회원을 건너뜁니다.
+  // 서버 검증 형식(영문·숫자·-·_ 8~64자)을 지켜야 합니다.
+  const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
+
+  function newRequestId() {
+    const cryptoApi = globalThis.crypto;
+    if (typeof cryptoApi?.randomUUID === 'function') return cryptoApi.randomUUID();
+    if (typeof cryptoApi?.getRandomValues === 'function') {
+      const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+      return 'req-' + Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+    }
+    return `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14).padEnd(12, '0')}`;
+  }
+
+  function readSendDrafts() {
+    try {
+      const drafts = JSON.parse(sessionStorage.getItem(SEND_DRAFT_STORAGE) || '{}');
+      return drafts && typeof drafts === 'object' && !Array.isArray(drafts) ? drafts : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  // 대상·제목·본문·유형이 같은 재전송은 새로고침 뒤에도 같은 ID를 씁니다. 내용이 바뀌면 새 ID를 만듭니다.
+  function draftRequestId(kind, payload) {
+    const fingerprint = JSON.stringify(payload);
+    const drafts = readSendDrafts();
+    const draft = drafts[kind];
+    if (draft?.fingerprint === fingerprint && REQUEST_ID_PATTERN.test(String(draft.requestId))) return draft.requestId;
+    const requestId = newRequestId();
+    drafts[kind] = { fingerprint, requestId };
+    sessionStorage.setItem(SEND_DRAFT_STORAGE, JSON.stringify(drafts));
+    return requestId;
+  }
+
+  // 서버가 처리했다고 확인된 작성분만 닫아, 다음 발송은 새 ID로 시작합니다.
+  function finishDraft(kind, requestId) {
+    const drafts = readSendDrafts();
+    if (drafts[kind]?.requestId !== requestId) return;
+    delete drafts[kind];
+    sessionStorage.setItem(SEND_DRAFT_STORAGE, JSON.stringify(drafts));
+  }
+
+  // 응답의 skipped는 같은 요청 ID로 이미 받아서 건너뛴 회원 수입니다.
+  function sendResultMessage(res, kind) {
+    const sent = Number(res?.sent ?? 0);
+    const skipped = Number(res?.skipped ?? 0);
+    if (kind === 'notice') {
+      if (skipped > 0 && sent === 0) return '이미 모두 등록된 공지라 다시 등록하지 않았어요';
+      if (skipped > 0) return `이미 받은 ${skipped}명은 건너뛰고 새로 ${sent}명의 알림함에 반영했어요`;
+      return `공지 등록 완료 — ${sent}명의 알림함에 반영됨`;
+    }
+    if (skipped > 0 && sent === 0) return '이미 모두 발송된 요청이라 다시 보내지 않았어요';
+    if (skipped > 0) return `이미 받은 ${skipped}명은 건너뛰고 새로 ${sent}명에게 보냈어요`;
+    return `일반 알림 발송 완료 — ${sent}명에게 전송됨`;
+  }
+
+  const NOTIFICATION_UNCONFIRMED_MESSAGE = '서버 응답을 받지 못해 발송 결과를 확인하지 못했어요. 같은 내용으로 다시 보내면 이미 받은 회원은 건너뛰어 중복 발송되지 않아요. 결과가 궁금하면 내용을 바꾸지 말고 다시 보내 확인해주세요.';
+  const NOTICE_UNCONFIRMED_MESSAGE = '서버 응답을 받지 못해 공지 등록 결과를 확인하지 못했어요. 같은 내용으로 다시 등록하면 이미 받은 회원은 건너뛰어 중복되지 않아요. 결과가 궁금하면 내용을 바꾸지 말고 다시 등록해 확인해주세요.';
+
+  // 시간 초과나 연결 끊김은 서버가 이미 발송했을 수 있어, 같은 요청 ID로만 다시 보내도록 안내합니다.
+  function handleSendError(error, unconfirmedMessage) {
+    if (error?.code === 408 || (error?.name === 'TypeError' && !error.code)) {
+      toast(unconfirmedMessage);
+      return;
+    }
+    handleError(error);
   }
 
   async function doPublishNotice() {
@@ -1571,22 +1955,26 @@
       '공지사항 등록 확인',
     )) return;
 
+    const requestId = draftRequestId('notice', { title, body });
     const button = $('noticePublish');
     button.disabled = true;
     button.textContent = '등록 중…';
     try {
       const res = await api('/api/admin/notices', {
         method: 'POST',
-        body: JSON.stringify({ title, body }),
+        body: JSON.stringify({ title, body, requestId }),
       });
-      toast(`공지 등록 완료 — ${res.sent}명의 알림함에 반영됨`);
+      finishDraft('notice', requestId);
+      toast(sendResultMessage(res, 'notice'));
       if (button.isConnected) {
         $('noticeTitle').value = '';
         $('noticeBody').value = '';
         updateNoticePreview();
       }
+      // 방금 등록한 공지가 목록에 보이도록 다시 불러옵니다.
+      loadSentHistory('notice');
     } catch (e) {
-      handleError(e);
+      handleSendError(e, NOTICE_UNCONFIRMED_MESSAGE);
     } finally {
       button.disabled = false;
       button.textContent = '공지 등록';
@@ -1629,6 +2017,12 @@
     $('notifSelectedName').textContent = notificationUserName(user);
     $('notifSelectedMeta').textContent = notificationUserMeta(user);
     $('notifSelectedTarget').hidden = false;
+  }
+
+  function closeNotificationTargetResults() {
+    const results = $('notifTargetResults');
+    if (results) results.hidden = true;
+    $('notifTargetSearch')?.setAttribute('aria-expanded', 'false');
   }
 
   function renderNotificationTargetResults() {
@@ -1676,9 +2070,10 @@
       <div class="stats cols3">
         <div class="stat-card c-violet"><div class="glow"></div><div class="label">댓글·답글</div><div class="value">${Number(s.comments ?? 0).toLocaleString('ko-KR')}</div></div>
         <div class="stat-card c-red"><div class="glow"></div><div class="label">좋아요</div><div class="value">${Number(s.feedLikes ?? 0).toLocaleString('ko-KR')}</div></div>
-        <div class="stat-card c-blue"><div class="glow"></div><div class="label">발송된 알림</div><div class="value">${Number(s.notifications ?? 0).toLocaleString('ko-KR')}</div></div>
+        <div class="stat-card c-blue"><div class="glow"></div><div class="label">발송된 알림</div><div class="value" id="notifSentStat">${Number(s.notifications ?? 0).toLocaleString('ko-KR')}</div></div>
       </div>
       <div class="section-title">일반 알림 보내기</div>
+      <div class="notice-layout">
       <div class="card notification-compose-card">
         <div class="notification-form">
           <div>
@@ -1702,18 +2097,36 @@
             </div>
           </div>
           <div>
-            <label for="notifTitle" class="field-label">제목</label>
+            <div class="field-meta"><label for="notifTitle" class="field-label">제목</label><span class="field-count" id="notifTitleCount">0 / 100</span></div>
             <input id="notifTitle" name="notification-title" class="notification-input" type="text" maxlength="100" placeholder="일반 알림 제목" />
           </div>
           <div>
-            <label for="notifBody" class="field-label">내용</label>
+            <div class="field-meta"><label for="notifBody" class="field-label">내용</label><span class="field-count" id="notifBodyCount">0 / 500</span></div>
             <textarea id="notifBody" name="notification-body" class="notification-input notification-body" maxlength="500" placeholder="알림 내용"></textarea>
           </div>
           <div class="form-actions">
             <button class="btn btn-primary" id="notifSend">발송하기</button>
           </div>
         </div>
-      </div>`;
+      </div>
+      <div class="notice-preview-wrap" aria-label="일반 알림 미리보기">
+        <div class="notice-preview-label">회원 알림함 미리보기</div>
+        <div class="notif-preview-item">
+          <span class="notif-preview-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+          <div class="notif-preview-text">
+            <div class="notif-preview-meta">일반 알림<span>방금 전</span></div>
+            <div class="notif-preview-title" id="notifPreviewTitle">알림 제목이 여기에 표시됩니다</div>
+            <div class="notif-preview-message" id="notifPreviewBody">회원에게 보낼 알림 내용을 입력하세요.</div>
+            <div class="notif-preview-more">전체 내용 보기</div>
+          </div>
+          <span class="notif-preview-dot" aria-hidden="true"></span>
+        </div>
+        <p class="notif-preview-note">알림함 목록에는 제목 2줄, 내용 3줄까지 보입니다. 푸시를 켠 회원의 기기에는 같은 제목과 내용으로 푸시가 갑니다.</p>
+      </div>
+      </div>
+      <div class="section-title">보낸 알림 <span class="chip" id="notificationHistoryCount" hidden></span></div>
+      <p class="sent-history-note">회수하면 받은 회원의 알림함에서 지워지며 되돌릴 수 없습니다. 이미 기기에 도착한 푸시는 회수되지 않습니다.</p>
+      <div id="notificationHistory"></div>`;
 
     selectedNotificationUid = '';
     const allTab = $('notifAll'), oneTab = $('notifOne');
@@ -1747,6 +2160,12 @@
         searchInput.setAttribute('aria-expanded', 'false');
       }
     };
+    // 목록 안의 회원 버튼에 포커스가 있을 때도 Escape로 닫고 검색칸으로 돌아갑니다.
+    $('notifTargetResults').onkeydown = (event) => {
+      if (event.key !== 'Escape') return;
+      closeNotificationTargetResults();
+      searchInput.focus();
+    };
     $('notifTargetClear').onclick = () => {
       clearNotificationTarget();
       searchInput.value = '';
@@ -1754,6 +2173,21 @@
       renderNotificationTargetResults();
     };
     $('notifSend').onclick = doSendNotification;
+    $('notifTitle').oninput = updateNotificationPreview;
+    $('notifBody').oninput = updateNotificationPreview;
+    if (sentHistory.general && sentHistory.general.status !== 'error') renderSentHistory('general');
+    else loadSentHistory('general');
+  }
+
+  // QA 2026-10-07 #49: 공지사항 화면처럼 글자 수와 회원 알림함에서 보일 모양을 함께 보여 줍니다.
+  function updateNotificationPreview() {
+    const title = $('notifTitle');
+    const body = $('notifBody');
+    if (!title || !body) return;
+    $('notifTitleCount').textContent = `${title.value.length} / 100`;
+    $('notifBodyCount').textContent = `${body.value.length} / 500`;
+    $('notifPreviewTitle').textContent = title.value.trim() || '알림 제목이 여기에 표시됩니다';
+    $('notifPreviewBody').textContent = body.value.trim() || '회원에게 보낼 알림 내용을 입력하세요.';
   }
 
   async function doSendNotification() {
@@ -1764,32 +2198,53 @@
     if (!title || !body) { toast('제목과 내용을 입력해주세요'); return; }
     if (targeted && !targetUid) { toast('검색 결과에서 대상 회원을 선택해주세요'); return; }
     const targetUser = targetUid ? findNotificationUser(targetUid) : null;
-    const confirmation = targetUser
-      ? `${notificationUserName(targetUser)} (${notificationUserMeta(targetUser)}) 회원에게 알림을 보낼까요?`
-      : '전체 회원에게 알림을 보낼까요?';
-    if (!await confirmAction(confirmation, '알림 발송 확인')) return;
+    // QA 2026-10-07 #4: 확인창 첫 줄에 받는 회원을 따로 적어, 목록에서 잘못 고른 회원을 발송 전에 알아볼 수 있게 합니다.
+    const recipient = !targetUid ? '전체 회원'
+      : targetUser ? `${notificationUserName(targetUser)}\n${notificationUserMeta(targetUser)}`
+      : `회원 ID ${shortUidText(targetUid)}`;
+    const confirmation = [
+      `받는 회원: ${recipient}`,
+      `제목: ${title}`,
+      targetUid ? '이 회원에게만 알림을 보낼까요?' : '전체 회원에게 알림을 보낼까요?',
+    ].join('\n');
+    if (!await confirmAction(confirmation, targetUid ? '특정 회원 알림 발송 확인' : '전체 회원 알림 발송 확인',
+      { acceptLabel: '발송하기' })) return;
+    const payload = {
+      audience: targetUid ? 'USER' : 'ALL',
+      title,
+      body,
+      type: 'general',
+      ...(targetUid ? { targetUid } : {}),
+    };
+    const requestId = draftRequestId('notification', payload);
     const button = $('notifSend');
     button.disabled = true;
     try {
       const res = await api('/api/admin/notifications', {
         method: 'POST',
-        body: JSON.stringify({
-          audience: targetUid ? 'USER' : 'ALL',
-          title,
-          body,
-          type: 'general',
-          ...(targetUid ? { targetUid } : {}),
-        }),
+        body: JSON.stringify({ ...payload, requestId }),
       });
-      toast(`일반 알림 발송 완료 — ${res.sent}명에게 전송됨`);
+      finishDraft('notification', requestId);
+      const sentMessage = sendResultMessage(res, 'notification');
+      toast(sentMessage);
       if (button.isConnected) {
         $('notifTitle').value = ''; $('notifBody').value = '';
+        updateNotificationPreview();
       }
       selectedNotificationUid = '';
-      communityStats = await api('/api/admin/community/stats');
+      // 방금 보낸 알림이 보낸 알림 목록에 보이도록 다시 불러옵니다.
+      loadSentHistory('general');
+      try {
+        communityStats = await api('/api/admin/community/stats');
+      } catch (refreshError) {
+        // 발송은 끝났으므로 통계 재조회 실패가 성공 안내를 덮어 재발송을 부르지 않게 합니다.
+        if (refreshError.code === 'STALE_REQUEST') return;
+        if (refreshError.code === 401) { handleError(refreshError); return; }
+        toast(`${sentMessage} · 발송 통계는 새로고침으로 확인해주세요`);
+      }
       renderNotificationsView();
     } catch (e) {
-      handleError(e);
+      handleSendError(e, NOTIFICATION_UNCONFIRMED_MESSAGE);
     } finally {
       button.disabled = false;
     }
@@ -1826,6 +2281,13 @@
       toast('승인 완료');
     } catch (e) {
       btn.disabled = false;
+      // 서버의 '다시 검토' 문구 대신, 같은 매장에 먼저 승인된 수정이 있어 승인할 수 없다는 실제 원인을 알려줍니다.
+      const message = String(e.message || '');
+      if (e.code === 409 && isPriceReport(report)
+          && (/제보 후 매장 정보가 변경/.test(message) || (stalePriceReport(report) && !/이미 처리/.test(message)))) {
+        toast(STALE_PRICE_REPORT_MESSAGE);
+        return;
+      }
       handleError(e);
     }
   }
@@ -1835,6 +2297,7 @@
     rejectTargetId = id;
     $('rejectTarget').textContent = `「${name || id}」 제보를 반려합니다.`;
     $('rejectReason').value = '';
+    clearFieldError('rejectReason', 'rejectReasonError');
     openModal('rejectModal');
   }
 
@@ -1843,31 +2306,56 @@
     rejectTargetId = id;
     $('rejectTarget').textContent = `「${name || id}」 영수증 인증을 반려합니다.`;
     $('rejectReason').value = '';
+    clearFieldError('rejectReason', 'rejectReasonError');
     openModal('rejectModal');
+  }
+
+  // QA 2026-10-07 #47: 필수 입력을 비운 채 저장하면 포커스만 옮기지 않고 입력칸 아래에 이유를 보여 줍니다.
+  function showFieldError(inputId, errorId, message) {
+    const error = $(errorId);
+    error.textContent = message;
+    error.hidden = false;
+    $(inputId).setAttribute('aria-invalid', 'true');
+    $(inputId).focus();
+  }
+
+  function clearFieldError(inputId, errorId) {
+    const error = $(errorId);
+    error.hidden = true;
+    error.textContent = '';
+    $(inputId).removeAttribute('aria-invalid');
   }
 
   async function doReject() {
     const reason = $('rejectReason').value.trim();
-    if (!reason) { $('rejectReason').focus(); return; }
+    if (!reason) {
+      showFieldError('rejectReason', 'rejectReasonError',
+        rejectTargetType === 'receipt' ? '반려 사유를 입력해주세요.' : '반려 사유를 입력해주세요. 제보자에게 표시됩니다.');
+      return;
+    }
     $('rejectConfirm').disabled = true;
     const targetId = rejectTargetId;
     const targetType = rejectTargetType;
+    const collection = targetType === 'receipt' ? allReceipts : allReports;
+    const r = collection.find((x) => x.id === targetId);
+    const receiptVersion = r ? Number(r.submissionVersion ?? (r.resubmissionCount != null ? Number(r.resubmissionCount) + 1 : 1)) : null;
+    const rejectPayload = targetType === 'receipt' && r
+      ? { reason, ...(Number.isFinite(receiptVersion) ? { submissionVersion: receiptVersion } : {}), ...(r.createdAt ? { createdAt: r.createdAt } : {}) }
+      : { reason };
     try {
       const endpoint = targetType === 'receipt'
         ? `/api/admin/receipts/${encodeURIComponent(targetId)}/reject`
         : `/api/admin/reports/${encodeURIComponent(targetId)}/reject`;
       await api(endpoint, {
         method: 'POST',
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify(rejectPayload),
       });
-      const collection = targetType === 'receipt' ? allReceipts : allReports;
-      const r = collection.find((x) => x.id === targetId);
       if (r) { r.status = 'REJECTED'; r.rejectReason = reason; }
       if (targetType === 'receipt') {
         // Never keep stale URLs after the server's post-review deletion policy.
         if (r) { r.imageUrls = []; r.imageCleanupStatus = 'SYNC_PENDING'; }
         receiptsLoaded = false;
-        try { allReceipts = await api('/api/admin/receipts?status=ALL'); receiptsLoaded = true; }
+        try { applyReceiptLists(await fetchReceiptLists()); }
         catch (refreshError) { toast('반려 완료 · 최신 원본 정리 상태는 새로고침으로 확인해주세요'); }
       }
       if (targetType === 'report') overview = null;
@@ -1886,12 +2374,22 @@
     if (!await confirmAction('영수증을 승인하고 방문 기록을 생성할까요?', '영수증 승인')) return;
     btn.disabled = true;
     try {
-      const result = await api(`/api/admin/receipts/${id}/approve`, { method: 'POST' });
       const receipt = allReceipts.find((x) => x.id === id);
+      const receiptVersion = receipt ? Number(receipt.submissionVersion ?? (receipt.resubmissionCount != null ? Number(receipt.resubmissionCount) + 1 : 1)) : null;
+      const approveBody = receipt
+        ? JSON.stringify({
+            ...(Number.isFinite(receiptVersion) ? { submissionVersion: receiptVersion } : {}),
+            ...(receipt.createdAt ? { createdAt: receipt.createdAt } : {}),
+          })
+        : undefined;
+      const result = await api(`/api/admin/receipts/${id}/approve`, {
+        method: 'POST',
+        ...(approveBody ? { body: approveBody } : {}),
+      });
       if (receipt) { receipt.status = 'APPROVED'; receipt.visitId = result.visitId; }
       if (receipt) { receipt.imageUrls = []; receipt.imageCleanupStatus = 'SYNC_PENDING'; }
       receiptsLoaded = false;
-      try { allReceipts = await api('/api/admin/receipts?status=ALL'); receiptsLoaded = true; }
+      try { applyReceiptLists(await fetchReceiptLists()); }
       catch (refreshError) { toast('승인 완료 · 최신 원본 정리 상태는 새로고침으로 확인해주세요'); }
       overview = null;
       renderReceiptsView();
@@ -1910,39 +2408,68 @@
     $('answerInquiryTarget').textContent = `「${inquiry.title || id}」 문의에 답변합니다.`;
     $('answerInquiryOriginal').innerHTML = inquiryOriginal(inquiry);
     $('answerInquiryText').value = inquiry.answer || '';
+    clearFieldError('answerInquiryText', 'answerInquiryError');
     openModal('answerInquiryModal');
     wireImageLinks();
   }
 
   function inquiryOriginal(inquiry) {
     const images = Array.isArray(inquiry.imageUrls) ? inquiry.imageUrls.map(safeImageUrl).filter(Boolean) : [];
-    return `<h4>문의 원문</h4><p>${esc(inquiry.content || '(내용 없음)')}</p>${images.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">첨부 원본 열기<img src="${esc(u)}" width="74" height="74" alt="문의 첨부 사진"></a>`).join('')}`;
+    return `<h3>문의 원문</h3><p>${esc(inquiry.content || '(내용 없음)')}</p>${images.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">첨부 원본 열기<img src="${esc(u)}" width="74" height="74" alt="문의 첨부 사진"></a>`).join('')}`;
+  }
+
+  // 국내 매장 좌표 범위입니다. 위도·경도를 바꿔 넣거나 해외 좌표를 넣는 실수를 확정 전에 막습니다.
+  const KOREA_BOUNDS = { minLatitude: 33, maxLatitude: 39, minLongitude: 124, maxLongitude: 132 };
+  // 위치 정정은 되돌리기 어려우므로 현재 좌표에서 이만큼 넘게 옮기면 확인 문구에서 다시 경고합니다.
+  const LOCATION_SHIFT_WARNING_KM = 5;
+  const inKoreaBounds = (latitude, longitude) => Number.isFinite(latitude) && Number.isFinite(longitude)
+    && latitude >= KOREA_BOUNDS.minLatitude && latitude <= KOREA_BOUNDS.maxLatitude
+    && longitude >= KOREA_BOUNDS.minLongitude && longitude <= KOREA_BOUNDS.maxLongitude;
+
+  // 두 좌표 사이의 지표면 거리(km, 하버사인 공식)입니다. 현재 좌표가 없거나 국내 범위 밖이면 null입니다.
+  function locationShiftKm(before, after) {
+    const from = [Number(before?.latitude), Number(before?.longitude)];
+    const to = [Number(after?.latitude), Number(after?.longitude)];
+    if (!inKoreaBounds(...from) || !inKoreaBounds(...to)) return null;
+    const rad = (degree) => degree * Math.PI / 180;
+    const dLat = rad(to[0] - from[0]);
+    const dLng = rad(to[1] - from[1]);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(from[0])) * Math.cos(rad(to[0])) * Math.sin(dLng / 2) ** 2;
+    return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
   function openReportResolution(report) {
     resolutionReportId = report.id;
     $('reportResolutionReason').value = '';
     $('reportResolutionError').textContent = '';
-    $('reportResolutionOriginal').textContent = `대상: ${report.storeName}\n주소: ${report.currentStore?.address || report.address}\n유형: ${report.changeType || '기타'}\n신고 설명: ${report.description || '(내용 없음)'}`;
+    $('reportResolutionOriginal').textContent = `대상: ${report.storeName}\n주소: ${report.currentStore?.address || report.address}\n유형: ${changeTypeLabel(report.changeType) || '기타'}\n신고 설명: ${report.description || '(내용 없음)'}`;
     $('reportResolutionKind').value = ({price_mismatch:'PRICE',location_wrong:'LOCATION',closed:'CLOSED'})[report.changeType] || 'NO_CHANGE';
     renderResolutionFields();
     openModal('reportResolutionModal');
   }
 
   function renderResolutionFields() {
+    const kind = $('reportResolutionKind').value;
+    // QA 2026-10-07 #13: 수정 없음은 승인이 아니므로 확정 버튼도 처리 종류에 맞춰 부릅니다.
+    $('reportResolutionConfirm').textContent = kind === 'NO_CHANGE' ? '수정 없음으로 처리' : '변경 확인 후 승인';
     const r = allReports.find((report) => report.id === resolutionReportId);
     if (!r) return;
     const before = r.currentStore || {};
-    const kind = $('reportResolutionKind').value;
     const fields = $('reportResolutionFields');
+    // 앱의 '가격이 달라요' 신고는 고른 메뉴를 menu1에 담습니다. 이름이 같은 현재 메뉴 칸을 기본으로 고르고, 없으면 1번 칸입니다.
+    const reportedMenu = String(r.menu1 ?? '').trim();
+    const defaultSlot = [1, 2, 3, 4].find((i) => reportedMenu && String(before['menu' + i] ?? '').trim() === reportedMenu) || 1;
+    const beforeHtml = (slot) => `변경 전: ${esc(before['menu' + slot] || '')} ${fmtPrice(before['price' + slot])} (아래에서 수정할 메뉴 슬롯을 확인하세요)`;
     fields.innerHTML = kind === 'PRICE'
-      ? `<p>변경 전: ${esc(before.menu1 || '')} ${fmtPrice(before.price1)} (아래에서 수정할 메뉴 슬롯을 확인하세요)</p><label for="resolutionMenuSlot">메뉴 슬롯</label><select id="resolutionMenuSlot">${[1,2,3,4].map((i) => `<option value="${i}">${i}: ${esc(before['menu'+i] || '(빈 메뉴)')} · ${fmtPrice(before['price'+i])}</option>`).join('')}</select><label for="resolutionMenu">확정 메뉴 (필수)</label><input id="resolutionMenu" maxlength="100" value="${esc(r.menu1 || before.menu1 || '')}"><label for="resolutionPrice">확정 가격 (필수)</label><input id="resolutionPrice" inputmode="numeric" value="${esc(r.price1 || before.price1 || '')}"><label><input id="resolutionFree" type="checkbox" ${r.free1 === true ? 'checked' : ''}> 명시적으로 무료인 메뉴·서비스</label>`
+      ? `<p id="resolutionBefore">${beforeHtml(defaultSlot)}</p><label for="resolutionMenuSlot">메뉴 슬롯</label><select id="resolutionMenuSlot">${[1,2,3,4].map((i) => `<option value="${i}"${i === defaultSlot ? ' selected' : ''}>${i}: ${esc(before['menu'+i] || '(빈 메뉴)')} · ${fmtPrice(before['price'+i])}</option>`).join('')}</select><label for="resolutionMenu">확정 메뉴 (필수)</label><input id="resolutionMenu" maxlength="100" value="${esc(r.menu1 || before['menu' + defaultSlot] || '')}"><label for="resolutionPrice">확정 가격 (필수)</label><input id="resolutionPrice" inputmode="numeric" value="${esc(r.price1 || before['price' + defaultSlot] || '')}"><label><input id="resolutionFree" type="checkbox" ${r.free1 === true ? 'checked' : ''}> 명시적으로 무료인 메뉴·서비스</label>`
       : kind === 'LOCATION'
       ? `<p>변경 전 주소: ${esc(before.address || '')}</p><label for="resolutionAddress">확정 주소 (필수)</label><input id="resolutionAddress" maxlength="300" value="${esc(r.address || before.address || '')}"><label for="resolutionLatitude">위도 (필수)</label><input id="resolutionLatitude" inputmode="decimal" value="${esc(r.latitude ?? before.latitude ?? '')}"><label for="resolutionLongitude">경도 (필수)</label><input id="resolutionLongitude" inputmode="decimal" value="${esc(r.longitude ?? before.longitude ?? '')}">`
       : `<p>${kind === 'CLOSED' ? '폐업으로 표시하며 검색·추천·방문 인증에서 제외합니다. 원본 자료는 보존합니다.' : '매장 정보는 변경하지 않습니다. 수정하지 않는 이유를 남겨주세요.'}</p>`;
     if (kind === 'PRICE') {
+      $('resolutionMenuSlot').value = String(defaultSlot);
       $('resolutionMenuSlot').onchange = () => {
         const slot = $('resolutionMenuSlot').value;
+        $('resolutionBefore').innerHTML = beforeHtml(slot);
         $('resolutionMenu').value = before['menu'+slot] || '';
         $('resolutionPrice').value = before['price'+slot] || '';
         $('resolutionFree').checked = before['free'+slot] === true;
@@ -1966,10 +2493,20 @@
         $('reportResolutionError').textContent = '메뉴와 확정 가격을 확인해주세요. 무료를 선택한 메뉴만 0원으로 승인할 수 있습니다.'; $('resolutionPrice').focus(); return;
       }
     } else if (resolution === 'LOCATION') {
-      after = {address:$('resolutionAddress').value.trim(),latitude:Number($('resolutionLatitude').value),longitude:Number($('resolutionLongitude').value)};
-      if (!after.address || !Number.isFinite(after.latitude) || !Number.isFinite(after.longitude) || Math.abs(after.latitude)>90 || Math.abs(after.longitude)>180 || after.latitude===0 || after.longitude===0) { $('reportResolutionError').textContent='주소와 유효한 좌표를 확인해주세요.'; $('resolutionAddress').focus(); return; }
+      const latitudeText = $('resolutionLatitude').value.trim();
+      const longitudeText = $('resolutionLongitude').value.trim();
+      after = {address:$('resolutionAddress').value.trim(),latitude:latitudeText ? Number(latitudeText) : NaN,longitude:longitudeText ? Number(longitudeText) : NaN};
+      if (!after.address || !Number.isFinite(after.latitude) || !Number.isFinite(after.longitude)) { $('reportResolutionError').textContent='주소와 유효한 좌표를 확인해주세요.'; $('resolutionAddress').focus(); return; }
+      if (!inKoreaBounds(after.latitude, after.longitude)) {
+        $('reportResolutionError').textContent = `좌표가 국내 범위(위도 ${KOREA_BOUNDS.minLatitude}~${KOREA_BOUNDS.maxLatitude}, 경도 ${KOREA_BOUNDS.minLongitude}~${KOREA_BOUNDS.maxLongitude})를 벗어났습니다. 위도와 경도를 바꿔 넣지 않았는지 확인해주세요.`;
+        $('resolutionLatitude').focus(); return;
+      }
     } else if (resolution === 'CLOSED') after = {isClosed:true};
-    if (!await confirmAction(resolutionSummary(r.storeName, resolution, before, after, reviewReason), '매장 정보 반영 확인')) return;
+    const shiftKm = resolution === 'LOCATION' ? locationShiftKm(before, after) : null;
+    const farMove = shiftKm !== null && shiftKm >= LOCATION_SHIFT_WARNING_KM;
+    const confirmHeading = farMove ? '먼 위치로 옮기는지 확인'
+      : resolution === 'NO_CHANGE' ? '수정 없음 처리 확인' : '매장 정보 반영 확인';
+    if (!await confirmAction(resolutionSummary(r.storeName, resolution, before, after, reviewReason), confirmHeading)) return;
     const button = $('reportResolutionConfirm');
     button.disabled = true;
     try {
@@ -1979,7 +2516,7 @@
       overview = null;
       reportsLoaded = false;
       await loadReports();
-      toast('검토 내용 반영 완료');
+      toast(resolution === 'NO_CHANGE' ? '수정 없음으로 처리 완료' : '검토 내용 반영 완료');
     } catch (error) { $('reportResolutionError').textContent = error.message || '처리하지 못했습니다. 최신 정보를 다시 조회해주세요.'; handleError(error); }
     finally { button.disabled = false; }
   }
@@ -1992,17 +2529,25 @@
       change = `메뉴 ${slot}: ${before['menu'+slot] || '(빈 메뉴)'} ${priceText(before['price'+slot], before['free'+slot])}\n→ ${after.menu} ${priceText(after.price, after.free)}`;
     } else if (kind === 'LOCATION') {
       change = `주소: ${before.address || '(미등록)'}\n→ ${after.address}\n확정 좌표: ${after.latitude}, ${after.longitude}`;
+      const shiftKm = locationShiftKm(before, after);
+      if (shiftKm !== null && shiftKm >= LOCATION_SHIFT_WARNING_KM) {
+        change += `\n주의: 현재 좌표에서 약 ${shiftKm.toFixed(1)}km 떨어진 곳입니다. 주소와 좌표가 같은 매장을 가리키는지 다시 확인해주세요.`;
+      }
     } else if (kind === 'CLOSED') {
       change = '영업 상태: 폐업으로 변경\n검색·추천·방문 인증에서 제외합니다. 원본은 보존합니다.';
     } else {
       change = '매장 정보 수정 없음';
     }
-    return `「${storeName}」\n${change}\n검토 사유: ${reason}\n위 내용을 반영할까요?`;
+    const question = kind === 'NO_CHANGE' ? '매장 정보를 바꾸지 않고 수정 없음으로 처리할까요?' : '위 내용을 반영할까요?';
+    return `「${storeName}」\n${change}\n검토 사유: ${reason}\n${question}`;
   }
 
   async function doAnswerInquiry() {
     const answer = $('answerInquiryText').value.trim();
-    if (!answer) { $('answerInquiryText').focus(); return; }
+    if (!answer) {
+      showFieldError('answerInquiryText', 'answerInquiryError', '답변 내용을 입력해주세요.');
+      return;
+    }
     if (!answerInquiryId) return;
 
     $('answerInquiryConfirm').disabled = true;
@@ -2092,7 +2637,9 @@
       communityStats = null;
       if (deleteTargetUid === targetId) closeModal('deleteUserModal');
       renderUsersView();
-      toast(`탈퇴 완료 — 제보 ${res.reports ?? 0}·리뷰 ${res.reviews ?? 0}·방문 ${res.visits ?? 0}·찜 ${res.favorites ?? 0} 삭제`);
+      toast(res?.state === 'PENDING'
+        ? '강제 탈퇴 접수 완료 — 세션 차단 후 데이터를 정리하고 있습니다'
+        : `탈퇴 완료 — 제보 ${res.reports ?? 0}·리뷰 ${res.reviews ?? 0}·방문 ${res.visits ?? 0}·찜 ${res.favorites ?? 0} 삭제`);
     } catch (e) {
       handleError(e);
     } finally {
@@ -2121,12 +2668,22 @@
     const targetId = deleteCommentId;
     $('deleteCommentConfirm').disabled = true;
     try {
-      await api(`/api/admin/comments/${encodeURIComponent(targetId)}`, { method: 'DELETE' });
-      allComments = (allComments || []).filter((c) => c.id !== targetId);
+      const result = await api(`/api/admin/comments/${encodeURIComponent(targetId)}`, { method: 'DELETE' });
+      // QA 2026-10-07 #57: 서버가 부모 댓글과 함께 지운 답글도 목록에서 바로 뺍니다.
+      // 이전 서버 응답에는 deletedIds가 없어 parentId로도 함께 찾습니다.
+      const deletedIds = Array.isArray(result?.deletedIds) ? result.deletedIds : null;
+      const removed = new Set(deletedIds || []);
+      removed.add(targetId);
+      const current = allComments || [];
+      const isRemoved = (c) => removed.has(c.id) || c.parentId === targetId;
+      const removedReplies = deletedIds
+        ? deletedIds.filter((id) => id !== targetId).length
+        : current.filter((c) => c.id !== targetId && isRemoved(c)).length;
+      allComments = current.filter((c) => !isRemoved(c));
       communityStats = null;
       if (deleteCommentId === targetId) closeModal('deleteCommentModal');
       renderCommentsView();
-      toast('댓글 삭제 완료');
+      toast(removedReplies ? `댓글 삭제 완료 · 답글 ${removedReplies}개도 함께 삭제됨` : '댓글 삭제 완료');
     } catch (e) {
       handleError(e);
     } finally {
@@ -2195,21 +2752,58 @@
     return () => generation === viewLoadGeneration && session === adminSessionGeneration;
   }
 
+  // 전체 목록은 최신 500건(ADMIN_LIST_CAP)에서 잘리므로 대기 목록을 따로 받아, 오래된 대기 제보도 처리할 수 있게 합칩니다.
+  function fetchReportLists() {
+    return Promise.all([
+      api('/api/admin/reports?status=ALL'),
+      api('/api/admin/reports?status=PENDING'),
+    ]);
+  }
+
+  function applyReportLists([all, pending]) {
+    const latest = Array.isArray(all) ? all : [];
+    const waiting = Array.isArray(pending) ? pending : [];
+    const latestIds = new Set(latest.map((report) => report?.id));
+    // 두 목록 모두 최신순이므로 전체 목록에 없는 대기 제보는 그보다 오래된 항목이라 뒤에 붙입니다.
+    allReports = [...latest, ...waiting.filter((report) => !latestIds.has(report?.id))];
+    reportListCapped = latest.length >= ADMIN_LIST_CAP;
+    pendingListCapped = waiting.length >= ADMIN_LIST_CAP;
+    reportsLoaded = true;
+  }
+
+  function fetchReceiptLists() {
+    return Promise.all([
+      api('/api/admin/receipts?status=ALL'),
+      api('/api/admin/receipts?status=PENDING'),
+    ]);
+  }
+
+  function applyReceiptLists([all, pending]) {
+    const latest = Array.isArray(all) ? all : [];
+    const waiting = Array.isArray(pending) ? pending : [];
+    const latestIds = new Set(latest.map((receipt) => receipt?.id));
+    allReceipts = [...latest, ...waiting.filter((receipt) => !latestIds.has(receipt?.id))];
+    receiptListCapped = latest.length >= ADMIN_LIST_CAP;
+    pendingReceiptListCapped = waiting.length >= ADMIN_LIST_CAP;
+    receiptsLoaded = true;
+  }
+
   async function loadDashboard() {
     const isCurrent = beginViewLoad();
     renderState('loading');
     try {
       const overviewRequest = overview ?? api('/api/admin/overview');
-      const reportsRequest = reportsLoaded
-        ? Promise.resolve(allReports)
-        : api('/api/admin/reports?status=ALL');
+      const reportsRequest = reportsLoaded ? Promise.resolve(null) : fetchReportLists();
       const result = await Promise.all([
         overviewRequest,
         reportsRequest,
         api('/api/admin/storage/report-images/usage').catch(() => null),
       ]);
       if (!isCurrent()) return;
-      [overview, allReports, storageUsage] = result;
+      const [nextOverview, reportLists, nextStorageUsage] = result;
+      overview = nextOverview;
+      storageUsage = nextStorageUsage;
+      if (reportLists) applyReportLists(reportLists);
       reportsLoaded = true;
       renderDashboard();
     } catch (e) { if (isCurrent()) handleLoadError(e); }
@@ -2219,10 +2813,9 @@
     const isCurrent = beginViewLoad();
     renderState('loading');
     try {
-      const result = await api('/api/admin/reports?status=ALL');
+      const result = await fetchReportLists();
       if (!isCurrent()) return;
-      allReports = result;
-      reportsLoaded = true;
+      applyReportLists(result);
       renderReportsView();
     } catch (e) { if (isCurrent()) handleLoadError(e); }
   }
@@ -2231,10 +2824,9 @@
     const isCurrent = beginViewLoad();
     renderState('loading');
     try {
-      const result = await api('/api/admin/receipts?status=ALL');
+      const result = await fetchReceiptLists();
       if (!isCurrent()) return;
-      allReceipts = result;
-      receiptsLoaded = true;
+      applyReceiptLists(result);
       renderReceiptsView();
     } catch (e) { if (isCurrent()) handleLoadError(e); }
   }
@@ -2317,8 +2909,8 @@
     else if (currentView === 'reviews') { reviewsLoaded = false; await loadReviews(); }
     else if (currentView === 'comments') await loadComments();
     else if (currentView === 'inquiries') await loadInquiries();
-    else if (currentView === 'notices') renderNoticesView();
-    else if (currentView === 'notifications') await loadCommunityStats();
+    else if (currentView === 'notices') { sentHistory.notice = null; renderNoticesView(); }
+    else if (currentView === 'notifications') { sentHistory.general = null; await loadCommunityStats(); }
     else if (currentView === 'users') await loadUsers();
   }
 
@@ -2363,8 +2955,11 @@
 
   /* ── 이벤트 바인딩 ─────────────────── */
   $('loginBtn').onclick = () => {
-    const v = $('keyInput').value.trim();
+    const keyInput = $('keyInput');
+    const v = keyInput.value.trim();
     if (!v) return;
+    // 키는 세션 저장소에만 두고 숨겨진 입력칸에는 남기지 않습니다.
+    keyInput.value = '';
     adminSessionGeneration += 1;
     const savedAt = Date.now();
     sessionStorage.setItem(KEY_STORAGE, JSON.stringify({ key: v, savedAt }));
@@ -2373,6 +2968,7 @@
   };
   $('keyInput').onkeydown = (e) => { if (e.key === 'Enter') $('loginBtn').click(); };
   $('logoutBtn').onclick = () => {
+    sessionStorage.removeItem(SEND_DRAFT_STORAGE);
     invalidateAdminSession();
   };
   $('refreshBtn').onclick = refresh;
@@ -2391,6 +2987,8 @@
     $('navMore').setAttribute('aria-label', atEnd ? '관리자 메뉴 처음으로' : '관리자 메뉴 더보기');
   });
   $('rejectConfirm').onclick = doReject;
+  $('rejectReason').oninput = () => clearFieldError('rejectReason', 'rejectReasonError');
+  $('answerInquiryText').oninput = () => clearFieldError('answerInquiryText', 'answerInquiryError');
   $('deleteReportConfirm').onclick = doDeleteReport;
   $('deleteUserConfirm').onclick = doDeleteUser;
   $('deleteReviewConfirm').onclick = doDeleteReview;
@@ -2415,6 +3013,13 @@
       if (m.id === 'confirmActionModal') finishActionConfirmation(false);
       else closeModal(m.id);
     };
+  });
+  // QA 2026-10-07 #4: 회원 검색 목록 밖을 누르면 목록을 닫습니다. 클릭이 끝난 뒤 닫아 누른 대상이 바뀌지 않게 합니다.
+  document.addEventListener('click', (event) => {
+    const results = document.getElementById('notifTargetResults');
+    if (!results || results.hidden) return;
+    if (event.target?.closest?.('#notifTargetPicker, #notifOne')) return;
+    closeNotificationTargetResults();
   });
 
   boot();

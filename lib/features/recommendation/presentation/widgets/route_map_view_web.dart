@@ -18,6 +18,9 @@ external void _initHowMuchRouteMap(
   JSNumber userLongitude,
 );
 
+@JS('disposeHowMuchRouteMap')
+external void _disposeHowMuchRouteMap(JSString viewId);
+
 bool _routeMapJsInjected = false;
 final Set<String> _registeredRouteMapViews = <String>{};
 
@@ -32,6 +35,17 @@ Widget buildRouteMapView({
     userLongitude: userLongitude,
   );
 }
+
+/// What the map draws. An unchanged route is not rebuilt on parent rebuilds.
+String _routeMapContentKey(
+  List<RouteMapPoint> points,
+  double? userLatitude,
+  double? userLongitude,
+) => jsonEncode([
+  for (final point in points) point.toJson(),
+  userLatitude,
+  userLongitude,
+]);
 
 class _RouteMapWebView extends StatefulWidget {
   final List<RouteMapPoint> points;
@@ -51,10 +65,16 @@ class _RouteMapWebView extends StatefulWidget {
 class _RouteMapWebViewState extends State<_RouteMapWebView> {
   late final String _viewId =
       'howmuch-route-map-${DateTime.now().microsecondsSinceEpoch}';
+  late String _routeKey;
 
   @override
   void initState() {
     super.initState();
+    _routeKey = _routeMapContentKey(
+      widget.points,
+      widget.userLatitude,
+      widget.userLongitude,
+    );
     _injectRouteMapJs();
     _registerViewFactory();
     WidgetsBinding.instance.addPostFrameCallback((_) => _initMap());
@@ -74,7 +94,11 @@ class _RouteMapWebViewState extends State<_RouteMapWebView> {
   }
 
   void _initMap() {
-    if (!mounted || widget.points.isEmpty) return;
+    if (!mounted) return;
+    if (widget.points.isEmpty) {
+      _disposeHowMuchRouteMap(_viewId.toJS);
+      return;
+    }
     final json = jsonEncode(
       widget.points.map((point) => point.toJson()).toList(),
     );
@@ -89,7 +113,23 @@ class _RouteMapWebViewState extends State<_RouteMapWebView> {
   @override
   void didUpdateWidget(covariant _RouteMapWebView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Parent rebuilds pass new lists with the same route. Creating another
+    // Kakao map for them would stack maps in the same element.
+    final routeKey = _routeMapContentKey(
+      widget.points,
+      widget.userLatitude,
+      widget.userLongitude,
+    );
+    if (routeKey == _routeKey) return;
+    _routeKey = routeKey;
     WidgetsBinding.instance.addPostFrameCallback((_) => _initMap());
+  }
+
+  @override
+  void dispose() {
+    // Drop the map and stop pending SDK retries for this view.
+    _disposeHowMuchRouteMap(_viewId.toJS);
+    super.dispose();
   }
 
   @override
@@ -104,8 +144,28 @@ void _injectRouteMapJs() {
   _eval(
     '''
     window.howMuchRouteMaps = window.howMuchRouteMaps || {};
-    window.initHowMuchRouteMap = function(viewId, pointsJson, userLat, userLng, attempt) {
+    window.howMuchRouteMapGenerations = window.howMuchRouteMapGenerations || {};
+    window.disposeHowMuchRouteMap = function(viewId) {
+      window.howMuchRouteMapGenerations[viewId] = (window.howMuchRouteMapGenerations[viewId] || 0) + 1;
+      delete window.howMuchRouteMaps[viewId];
+      var target = document.getElementById(viewId);
+      if (target) target.innerHTML = '';
+    };
+    window.initHowMuchRouteMap = function(viewId, pointsJson, userLat, userLng, attempt, generation) {
       attempt = attempt || 0;
+      if (generation === undefined) {
+        generation = (window.howMuchRouteMapGenerations[viewId] || 0) + 1;
+        window.howMuchRouteMapGenerations[viewId] = generation;
+      }
+      // A newer route or a disposed view stops older retries.
+      function isCurrent() {
+        return window.howMuchRouteMapGenerations[viewId] === generation;
+      }
+      function retry() {
+        setTimeout(function() {
+          if (isCurrent()) window.initHowMuchRouteMap(viewId, pointsJson, userLat, userLng, attempt + 1, generation);
+        }, 200);
+      }
       function showMapError(message) {
         var target = document.getElementById(viewId);
         if (!target) return;
@@ -116,22 +176,23 @@ void _injectRouteMapJs() {
           showMapError('지도를 불러오지 못했어요. 네트워크와 지도 설정을 확인해주세요.');
           return;
         }
-        setTimeout(function() {
-          window.initHowMuchRouteMap(viewId, pointsJson, userLat, userLng, attempt + 1);
-        }, 200);
+        retry();
         return;
       }
 
       kakao.maps.load(function() {
+        if (!isCurrent()) return;
         var container = document.getElementById(viewId);
         if (!container) {
           if (attempt >= 25) return;
-          setTimeout(function() {
-            window.initHowMuchRouteMap(viewId, pointsJson, userLat, userLng, attempt + 1);
-          }, 200);
+          retry();
           return;
         }
         try {
+        // A changed route replaces the previous map instead of adding a
+        // second one to the same element.
+        delete window.howMuchRouteMaps[viewId];
+        container.innerHTML = '';
         var points = JSON.parse(pointsJson);
         var first = points.length > 0 ? points[0] : {latitude: userLat, longitude: userLng};
         var map = new kakao.maps.Map(container, {

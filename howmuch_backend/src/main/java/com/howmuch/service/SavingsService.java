@@ -3,7 +3,6 @@ package com.howmuch.service;
 import com.howmuch.dto.SavingsHistoryResponse;
 import com.howmuch.dto.SavingsStatsResponse;
 import com.howmuch.dto.SavingsStatsResponse.ChartItemDto;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -22,7 +21,6 @@ import java.util.Map;
  * 절약 서비스 레이어.
  * visits 컬렉션을 기반으로 사용자의 절약 내역 및 절약 통계 조회 비즈니스 로직을 처리합니다.
  */
-@Slf4j
 @Service
 public class SavingsService {
 
@@ -104,7 +102,7 @@ public class SavingsService {
             throw new IllegalArgumentException("지원하지 않는 절약 통계 기간입니다.");
         }
 
-        List<SavingsHistoryResponse> history = getSavingsHistory(firebaseUid);
+        List<SavingsHistoryResponse> history = firebaseService.getSavingsStatsHistory(firebaseUid);
 
         LocalDate now = LocalDate.now(clock);
         DateRange range = periodRange(targetPeriod, now);
@@ -240,8 +238,8 @@ public class SavingsService {
 
     private LocalDate itemDate(SavingsHistoryResponse item) {
         if (item == null) return null;
-        LocalDate date = parseDate(item.getVisitedAt());
-        return date == null ? parseDate(item.getDate()) : date;
+        LocalDate date = parseDate(item.getDate());
+        return date == null ? parseDate(item.getVisitedAt()) : date;
     }
 
     private long savedAmount(SavingsHistoryResponse item) {

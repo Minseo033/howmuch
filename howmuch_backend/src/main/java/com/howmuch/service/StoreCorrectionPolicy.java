@@ -52,17 +52,28 @@ public final class StoreCorrectionPolicy {
             case "CLOSED" -> {
                 if (!Boolean.TRUE.equals(after.get("isClosed"))) throw new IllegalArgumentException("폐업 여부를 확인해주세요.");
                 requireBefore(approval, List.of("isClosed"));
+                if (Boolean.TRUE.equals(current.get("isClosed"))) {
+                    throw new IllegalArgumentException("이미 폐업으로 표시된 매장입니다. 바뀐 내용이 없으면 '변경 없음'으로 처리해주세요.");
+                }
                 patch.put("isClosed", true);
             }
             case "LOCATION" -> {
                 String address = text(after.get("address"));
                 Double lat = number(after.get("latitude"));
                 Double lng = number(after.get("longitude"));
-                if (address.isBlank() || address.length() > 300 || lat == null || lng == null
-                        || Math.abs(lat) > 90 || Math.abs(lng) > 180 || lat == 0 || lng == 0) {
+                if (address.isBlank() || address.length() > 300 || lat == null || lng == null) {
                     throw new IllegalArgumentException("수정 주소와 올바른 좌표가 필요합니다.");
                 }
+                if (!insideKorea(lat, lng)) {
+                    // 위도·경도를 바꿔 넣는 실수가 가장 흔하다. 확정 뒤에는 되돌릴 방법이 없으므로 서버에서 막는다.
+                    throw new IllegalArgumentException("국내 좌표(위도 33~39, 경도 124~132)만 확정할 수 있습니다. 위도와 경도가 바뀌지 않았는지 확인해주세요.");
+                }
                 requireBefore(approval, List.of("address", "latitude", "longitude"));
+                if (address.equals(text(current.get("address")))
+                        && sameCoordinate(current.get("latitude"), lat)
+                        && sameCoordinate(current.get("longitude"), lng)) {
+                    throw new IllegalArgumentException("현재 위치 정보와 같습니다. 바뀐 내용이 없으면 '변경 없음'으로 처리해주세요.");
+                }
                 patch.put("address", address); patch.put("latitude", lat); patch.put("longitude", lng);
             }
             case "PRICE" -> {
@@ -86,6 +97,13 @@ public final class StoreCorrectionPolicy {
                             () -> new IllegalArgumentException("제보 가격은 하나의 정확한 금액으로 입력해주세요."));
                     if ((free && value.minimum() != 0) || (!free && value.minimum() <= 0)) {
                         throw new IllegalArgumentException("무료라고 명시한 메뉴만 0원을 승인할 수 있습니다.");
+                    }
+                    if (info && menu.equals(text(current.get("menu" + slot)))
+                            && free == Boolean.TRUE.equals(current.get("free" + slot))
+                            && WonPrice.parse(current.get("price" + slot)).filter(WonPrice.Value::exact)
+                                    .map(existing -> existing.minimum() == value.minimum()).orElse(false)) {
+                        // 같은 값을 승인하면 수정 횟수만 오르고, 같은 가격이 이력에 쌓이며, 가격 알림까지 나간다.
+                        throw new IllegalArgumentException("현재 메뉴·가격과 같습니다. 바뀐 내용이 없으면 '변경 없음'으로 처리해주세요.");
                     }
                     if (!info && List.of("rise", "drop").contains(text(report.get("changeType")))) {
                         var previous = WonPrice.parse(current.get("price" + slot)).filter(WonPrice.Value::exact)
@@ -140,6 +158,14 @@ public final class StoreCorrectionPolicy {
     private static boolean reviewableField(String field) {
         return List.of("storeId", "storeName", "address", "latitude", "longitude", "isClosed", "correctionRevision").contains(field)
                 || field.matches("(?:menu|price|free)[1-4]");
+    }
+    /** 대한민국 영역(마라도~고성, 백령도~독도)을 넉넉히 감싸는 범위. */
+    static boolean insideKorea(double latitude, double longitude) {
+        return latitude >= 33.0 && latitude <= 39.0 && longitude >= 124.0 && longitude <= 132.0;
+    }
+    private static boolean sameCoordinate(Object current, double next) {
+        Double value = number(current);
+        return value != null && Math.abs(value - next) < 1e-7;
     }
     private static boolean sameValue(Object first, Object second) {
         if (first == null && (second == null || "".equals(second) || Boolean.FALSE.equals(second))) return true;

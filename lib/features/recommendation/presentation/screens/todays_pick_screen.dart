@@ -1,20 +1,56 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/shared/widgets/choice_semantics.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_failure.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_weather.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_price.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/store/store_catalog_loader.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_radius.dart';
 import 'package:howmuch/features/recommendation/presentation/widgets/recommendation_radius_button.dart';
+
+/// Real stores for the local today's pick when the server is unavailable.
+///
+/// The in-memory lists are only filled after a search or a map visit, so a
+/// direct visit (common on web) also tries the nationwide catalog. A late
+/// catalog result is kept for the next retry instead of being discarded.
+@visibleForTesting
+Future<List<Store>> loadTodaysPickFallbackCandidates({
+  StoreCatalogLoader catalogLoader = loadStoreCatalog,
+  Duration catalogTimeout = const Duration(seconds: 8),
+}) async {
+  final catalog = HomeMapScreen.globalSearchCatalog;
+  if (catalog.isNotEmpty) return catalog;
+  final mapStores = HomeMapScreen.globalAllStores
+      .where((store) => store.hasValidCoordinates)
+      .toList(growable: false);
+  if (mapStores.isNotEmpty) return mapStores;
+
+  final pending = catalogLoader();
+  unawaited(
+    pending.then((stores) {
+      if (stores.isNotEmpty) HomeMapScreen.setSearchCatalog(stores);
+    }, onError: (Object _) {}),
+  );
+  try {
+    return await pending.timeout(catalogTimeout);
+  } catch (_) {
+    return const [];
+  }
+}
 
 AiMapRecommendationResult buildTodaysPickMapResult(
   Iterable<TodaysPickItem> items,
@@ -45,6 +81,9 @@ AiMapRecommendationResult buildTodaysPickMapResult(
         )
         .toList(growable: false),
     queryText: stores.map((store) => store.storeName).join(' '),
+    // Today's pick is chosen by weather and distance, so the map must not
+    // call it an AI recommendation (QA #23).
+    origin: MapResultOrigin.todaysPick,
   );
 }
 
@@ -88,20 +127,88 @@ class TodaysPickItem {
   });
 }
 
+typedef _PickContext = ({
+  double lat,
+  double lng,
+  int radiusMeters,
+  DateTime day,
+  bool usesMapPosition,
+});
+
 class TodaysPickScreen extends ConsumerStatefulWidget {
-  const TodaysPickScreen({super.key});
+  const TodaysPickScreen({super.key, this.fallbackCatalogLoader, this.clock});
+
+  /// Overrides the nationwide catalog download used by the local fallback.
+  final StoreCatalogLoader? fallbackCatalogLoader;
+
+  @visibleForTesting
+  final DateTime Function()? clock;
 
   @override
   ConsumerState<TodaysPickScreen> createState() => _TodaysPickScreenState();
 }
 
 class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
-  String _selectedFilter = '날씨 기반';
+  String _selectedFilter = '추천 순';
   bool _isLoading = true;
-  String? _errorMessage;
+  RecommendationFailure? _failure;
+  String? _failureServerMessage;
   Map<String, dynamic>? _pickData;
   int _loadGeneration = 0;
   int _loadedRadiusMeters = defaultRecommendationRadiusMeters;
+  _PickContext? _pickContext;
+  Timer? _weatherPollTimer;
+  bool _weatherPollingExhausted = false;
+
+  DateTime get _today {
+    final now = (widget.clock ?? DateTime.now)();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  _PickContext _context(
+    double lat,
+    double lng,
+    int radiusMeters, {
+    required bool usesMapPosition,
+  }) => (
+    lat: lat,
+    lng: lng,
+    radiusMeters: radiusMeters,
+    day: _today,
+    usesMapPosition: usesMapPosition,
+  );
+
+  bool _isCurrent(int generation, _PickContext context) {
+    if (!mounted ||
+        generation != _loadGeneration ||
+        context.day != _today ||
+        ref.read(recommendationRadiusProvider) != context.radiusMeters) {
+      return false;
+    }
+    final position = HomeMapScreen.globalUserPosition;
+    return position == null
+        ? !context.usesMapPosition
+        : position.latitude == context.lat && position.longitude == context.lng;
+  }
+
+  bool _acceptLoadContext(int generation, _PickContext context) {
+    if (_isCurrent(generation, context)) return true;
+    // Radius changes already have their own listener. Only restart a still-
+    // active load whose position/day changed while location/network was pending.
+    if (mounted &&
+        generation == _loadGeneration &&
+        ref.read(recommendationRadiusProvider) == context.radiusMeters) {
+      unawaited(_loadTodaysPick());
+    }
+    return false;
+  }
+
+  @override
+  void dispose() {
+    _loadGeneration++;
+    _weatherPollTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -109,11 +216,39 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
     _loadTodaysPick();
   }
 
-  Future<void> _loadTodaysPick() async {
+  Future<void> _loadTodaysPick({bool forceRefresh = false}) async {
     final generation = ++_loadGeneration;
+    _weatherPollTimer?.cancel();
+    final service = ref.read(todaysPickServiceProvider);
+    final knownPosition = HomeMapScreen.globalUserPosition;
+    final knownRadius = ref.read(recommendationRadiusProvider);
+    final knownContext = knownPosition == null
+        ? null
+        : _context(
+            knownPosition.latitude,
+            knownPosition.longitude,
+            knownRadius,
+            usesMapPosition: true,
+          );
+    final cached = knownContext == null
+        ? null
+        : service.getCachedTodaysPick(
+            lat: knownContext.lat,
+            lng: knownContext.lng,
+            radiusMeters: knownContext.radiusMeters,
+          );
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _pickData = cached == null
+          ? null
+          : _pickContext == knownContext
+          ? _pickData ?? cached
+          : cached;
+      _pickContext = cached == null ? null : knownContext;
+      _loadedRadiusMeters = knownRadius;
+      _weatherPollingExhausted = false;
+      _isLoading = cached == null;
+      _failure = null;
+      _failureServerMessage = null;
     });
 
     try {
@@ -121,10 +256,10 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
       if (!mounted || generation != _loadGeneration) return;
       final radiusMeters = ref.read(recommendationRadiusProvider);
       _loadedRadiusMeters = radiusMeters;
-      final service = ref.read(todaysPickServiceProvider);
       // 지도에서 이미 확보한 위치가 있으면 그대로 사용, 없으면 geolocator로 조회
       double? lat;
       double? lng;
+      final usesMapPosition = HomeMapScreen.globalUserPosition != null;
       if (HomeMapScreen.globalUserPosition != null) {
         lat = HomeMapScreen.globalUserPosition!.latitude;
         lng = HomeMapScreen.globalUserPosition!.longitude;
@@ -142,23 +277,51 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
       }
       if (lat == null || lng == null) {
         if (!mounted || generation != _loadGeneration) return;
+        _showFailure(RecommendationFailure.location);
+        return;
+      }
+      final context = _context(
+        lat,
+        lng,
+        radiusMeters,
+        usesMapPosition: usesMapPosition,
+      );
+      if (!_acceptLoadContext(generation, context)) return;
+      final fresh = service.getCachedTodaysPick(
+        lat: lat,
+        lng: lng,
+        radiusMeters: radiusMeters,
+      );
+      if (fresh != null) {
         setState(() {
-          _errorMessage = '주변 추천을 보려면 위치 권한을 허용해주세요.';
+          if (_pickContext != context || _pickData == null) _pickData = fresh;
+          _pickContext = context;
           _isLoading = false;
         });
-        return;
       }
       final data = await service.getTodaysPick(
         lat: lat,
         lng: lng,
         radiusMeters: radiusMeters,
+        forceRefresh: forceRefresh,
       );
-      if (!mounted || generation != _loadGeneration) return;
+      if (!_acceptLoadContext(generation, context)) return;
       if (data['error'] == true) {
+        final failure = recommendationFailureOf(data);
+        if (_pickData != null && _pickContext == context) {
+          _showFailure(failure, serverMessage: data['message']?.toString());
+          return;
+        }
+        final candidates = await loadTodaysPickFallbackCandidates(
+          catalogLoader: widget.fallbackCatalogLoader ?? loadStoreCatalog,
+          // After a 20s timeout only a quick (cached) catalog is worth waiting for.
+          catalogTimeout: failure == RecommendationFailure.timeout
+              ? const Duration(seconds: 3)
+              : const Duration(seconds: 8),
+        );
+        if (!_acceptLoadContext(generation, context)) return;
         final fallback = buildLocalTodaysPickData(
-          stores: HomeMapScreen.globalSearchCatalog.isNotEmpty
-              ? HomeMapScreen.globalSearchCatalog
-              : HomeMapScreen.globalAllStores,
+          stores: candidates,
           lat: lat,
           lng: lng,
           maxDistanceMeters: radiusMeters.toDouble(),
@@ -166,27 +329,135 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         if ((fallback['picks'] as List).isNotEmpty) {
           setState(() {
             _pickData = fallback;
+            _pickContext = context;
             _isLoading = false;
           });
           return;
         }
-        setState(() {
-          _errorMessage = '오늘의 픽을 불러오지 못했어요.';
-          _isLoading = false;
-        });
+        _showFailure(failure, serverMessage: data['message']?.toString());
         return;
       }
       setState(() {
         _pickData = data;
+        _pickContext = context;
         _isLoading = false;
       });
+      _updateWeatherInBackground(service, generation, context, data);
     } catch (e) {
       if (!mounted || generation != _loadGeneration) return;
-      setState(() {
-        _errorMessage = '네트워크 오류가 발생했습니다.';
-        _isLoading = false;
-      });
+      _showFailure(RecommendationFailure.unknown);
     }
+  }
+
+  void _updateWeatherInBackground(
+    TodaysPickService service,
+    int generation,
+    _PickContext context,
+    Map<String, dynamic> data, {
+    int attempts = 0,
+  }) {
+    if (!_isCurrent(generation, context)) return;
+    if (data['weatherRefreshing'] == true) {
+      if (attempts >= 4) {
+        setState(() => _weatherPollingExhausted = true);
+        return;
+      }
+      _weatherPollTimer = Timer(const Duration(seconds: 2), () async {
+        if (!_isCurrent(generation, context)) return;
+        Map<String, dynamic> refreshed;
+        try {
+          refreshed = await service.getTodaysPick(
+            lat: context.lat,
+            lng: context.lng,
+            radiusMeters: context.radiusMeters,
+            forceRefresh: true,
+          );
+        } catch (_) {
+          refreshed = {'error': true};
+        }
+        if (!_isCurrent(generation, context)) return;
+        if (refreshed['error'] != true) {
+          setState(() => _pickData = refreshed);
+        }
+        _updateWeatherInBackground(
+          service,
+          generation,
+          context,
+          refreshed['error'] == true ? data : refreshed,
+          attempts: attempts + 1,
+        );
+      });
+    } else if (data['weatherAvailable'] == false) {
+      // The optional device request cannot delay cards or change their basis.
+      unawaited(() async {
+        try {
+          final weather = await service.getDeviceWeather(
+            lat: context.lat,
+            lng: context.lng,
+          );
+          if (weather == null || !_isCurrent(generation, context)) return;
+          setState(
+            () => _pickData = {
+              ..._pickData!,
+              ...weather,
+              'recommendationBasis': data['recommendationBasis'] ?? 'nearby',
+            },
+          );
+        } catch (_) {
+          // Weather is optional. Keep the usable primary recommendation.
+        }
+      }());
+    }
+  }
+
+  bool get _weatherBased =>
+      _pickData?['recommendationBasis'] == 'weather' ||
+      (_pickData?['recommendationBasis'] == null &&
+          _pickData?['weatherAvailable'] != false &&
+          _pickData?['fallback'] != true &&
+          _asDouble(_pickData?['temp'])?.isFinite == true);
+
+  void _showFailure(RecommendationFailure failure, {String? serverMessage}) {
+    final displayedContext = _pickContext;
+    if (_pickData != null &&
+        displayedContext != null &&
+        _isCurrent(_loadGeneration, displayedContext)) {
+      final copy = recommendationFailureCopy(
+        failure,
+        route: false,
+        serverMessage: serverMessage,
+      );
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          HowmuchSnackBar(content: Text('${copy.title}. 아래로 당겨 다시 시도해주세요.')),
+        );
+      return;
+    }
+    setState(() {
+      _failure = failure;
+      _failureServerMessage = serverMessage;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _openLocationSettings() async {
+    // Browsers do not expose an app settings page; Geolocator throws there.
+    final opened =
+        !kIsWeb && await openLocationSettingsForStatus(serviceDisabled: false);
+    if (opened || !mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        HowmuchSnackBar(
+          content: Text(
+            kIsWeb
+                ? '브라우저 주소창의 사이트 설정에서 위치 권한을 허용해주세요.'
+                : '기기 설정에서 얼마고의 위치 권한을 직접 허용해주세요.',
+          ),
+        ),
+      );
   }
 
   List<TodaysPickItem> _buildItems() {
@@ -197,7 +468,8 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         .map((pick) => Map<String, dynamic>.from(pick))
         .where((pick) {
           final distance = _asDouble(pick['distanceMeters']);
-          return distance != null &&
+          return Store.fromJson(pick).isClosed != true &&
+              distance != null &&
               distance.isFinite &&
               distance >= 0 &&
               distance <= _loadedRadiusMeters;
@@ -221,6 +493,8 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
       final temperature = _asDouble(temp);
       final tip = backendReason != null && backendReason.isNotEmpty
           ? backendReason
+          : !_weatherBased
+          ? '거리와 가격으로 추천했어요'
           : (weather == '비' ||
                     weather == '비/눈' ||
                     weather == '눈' ||
@@ -249,10 +523,18 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
           recommendationMenuPrice(p),
           free: recommendationMenuFree(p),
         ),
-        badgeText: store.isUserReported ? '사용자 제보' : '착한가격업소',
-        badgeColor: const Color(0xFF2563EB),
-        badgeBg: const Color(0xFFEFF4FF),
-        tags: const ['날씨 기반'],
+        badgeText: store.isUserReported
+            ? '사용자 제보'
+            : store.isGovernmentCertified
+            ? '착한가격업소'
+            : '출처 확인 필요',
+        badgeColor: store.isUserReported || store.isGovernmentCertified
+            ? const Color(0xFF2563EB)
+            : const Color(0xFF64748B),
+        badgeBg: store.isUserReported || store.isGovernmentCertified
+            ? const Color(0xFFEFF4FF)
+            : const Color(0xFFF1F5F9),
+        tags: [_weatherBased ? '날씨 기반' : '주변 추천'],
         theme: backendTheme,
         reason: backendReason,
         store: store,
@@ -291,10 +573,25 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
 
     final weather = _pickData?['weather'] ?? '알 수 없음';
     final temp = _pickData?['temp'];
+    final temperature = _asDouble(temp);
+    final weatherAvailable =
+        _pickData?['weatherAvailable'] != false &&
+        temperature != null &&
+        temperature.isFinite;
+    final weatherRefreshing =
+        _pickData?['weatherRefreshing'] == true && !_weatherPollingExhausted;
     final forecastTime = formatForecastTime(_pickData?['fcstTime']);
     final now = DateTime.now();
     final dateStr =
         '${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}';
+    final failure = _failure;
+    final failureCopy = failure == null
+        ? null
+        : recommendationFailureCopy(
+            failure,
+            route: false,
+            serverMessage: _failureServerMessage,
+          );
 
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFF4F6FA),
@@ -344,7 +641,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                             ],
                           ),
                         )
-                      : _errorMessage != null
+                      : failureCopy != null
                       ? Center(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -358,16 +655,19 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                     color: Color(0xFFE5E7EB),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(
-                                    Icons.error_outline_rounded,
-                                    color: Color(0xFF64748B),
+                                  child: Icon(
+                                    failure == RecommendationFailure.location
+                                        ? Icons.location_off_outlined
+                                        : Icons.error_outline_rounded,
+                                    color: const Color(0xFF64748B),
                                     size: 30,
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                const Text(
-                                  '오늘의 픽을 불러오지 못했어요',
-                                  style: TextStyle(
+                                Text(
+                                  failureCopy.title,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
                                     fontFamily: 'Noto Sans KR',
                                     fontFamilyFallback: ['Noto Sans KR'],
                                     fontWeight: FontWeight.bold,
@@ -377,7 +677,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  _errorMessage!,
+                                  failureCopy.message,
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
                                     fontFamily: 'Noto Sans KR',
@@ -390,13 +690,12 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    if (_errorMessage?.contains('위치') ==
-                                        true) ...[
+                                    if (failure ==
+                                        RecommendationFailure.location) ...[
                                       SizedBox(
                                         height: 40,
                                         child: OutlinedButton(
-                                          onPressed: () =>
-                                              Geolocator.openAppSettings(),
+                                          onPressed: _openLocationSettings,
                                           style: OutlinedButton.styleFrom(
                                             foregroundColor: const Color(
                                               0xFF2563EB,
@@ -424,7 +723,8 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                       width: 120,
                                       height: 40,
                                       child: FilledButton(
-                                        onPressed: _loadTodaysPick,
+                                        onPressed: () =>
+                                            _loadTodaysPick(forceRefresh: true),
                                         style: FilledButton.styleFrom(
                                           backgroundColor: const Color(
                                             0xFF2563EB,
@@ -450,322 +750,421 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                             ),
                           ),
                         )
-                      : SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(
-                            parent: BouncingScrollPhysics(),
-                          ),
-                          padding: EdgeInsets.only(
-                            top: 16,
-                            bottom: safePadding.bottom + 20,
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(20),
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        Color(0xFF2563EB),
-                                        Color(0xFF2563EB),
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
+                      : RefreshIndicator(
+                          onRefresh: () => _loadTodaysPick(forceRefresh: true),
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(
+                              parent: BouncingScrollPhysics(),
+                            ),
+                            padding: EdgeInsets.only(
+                              top: 16,
+                              bottom: safePadding.bottom + 20,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFF2563EB),
+                                          Color(0xFF2563EB),
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(22),
                                     ),
-                                    borderRadius: BorderRadius.circular(22),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Expanded(
-                                            child: Column(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    dateStr,
+                                                    style: TextStyle(
+                                                      fontFamily:
+                                                          'Noto Sans KR',
+                                                      fontFamilyFallback:
+                                                          const [
+                                                            'Noto Sans KR',
+                                                          ],
+                                                      color: Colors.white
+                                                          .withValues(
+                                                            alpha: 0.9,
+                                                          ),
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    !weatherAvailable
+                                                        ? weatherRefreshing
+                                                              ? '날씨 정보를 확인하고 있어요'
+                                                              : '날씨 정보를 확인하지 못했어요'
+                                                        : weather == '비' ||
+                                                              weather ==
+                                                                  '비/눈' ||
+                                                              weather == '눈' ||
+                                                              weather == '소나기'
+                                                        ? '비가 오는 날이네요 ☔️'
+                                                        : (temperature >= 28
+                                                              ? '더운 날이네요 🌡️'
+                                                              : '오늘의 날씨예요'),
+                                                    style: const TextStyle(
+                                                      fontFamily:
+                                                          'Noto Sans KR',
+                                                      fontFamilyFallback: [
+                                                        'Noto Sans KR',
+                                                      ],
+                                                      color: Colors.white,
+                                                      fontSize: 18,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Column(
                                               crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
+                                                  CrossAxisAlignment.end,
                                               children: [
                                                 Text(
-                                                  dateStr,
+                                                  weatherAvailable
+                                                      ? '${temperature.round()}°'
+                                                      : '정보 없음',
                                                   style: TextStyle(
                                                     fontFamily: 'Noto Sans KR',
-                                                    fontFamilyFallback: const [
-                                                      'Noto Sans KR',
-                                                    ],
-                                                    color: Colors.white
-                                                        .withValues(alpha: 0.9),
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  weather == '비' ||
-                                                          weather == '비/눈' ||
-                                                          weather == '눈' ||
-                                                          weather == '소나기'
-                                                      ? '비가 오는 날이네요 ☔️'
-                                                      : (temp != null &&
-                                                                temp >= 28
-                                                            ? '더운 날이네요 🌡️'
-                                                            : '오늘의 날씨예요'),
-                                                  style: const TextStyle(
-                                                    fontFamily: 'Noto Sans KR',
-                                                    fontFamilyFallback: [
-                                                      'Noto Sans KR',
-                                                    ],
                                                     color: Colors.white,
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: weatherAvailable
+                                                        ? 32
+                                                        : 12,
+                                                    fontWeight: weatherAvailable
+                                                        ? FontWeight.w300
+                                                        : FontWeight.w600,
+                                                    height: 1.0,
                                                   ),
                                                   maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
                                                 ),
+                                                if (weatherAvailable &&
+                                                    forecastTime
+                                                        .isNotEmpty) ...[
+                                                  const SizedBox(height: 3),
+                                                  Text(
+                                                    forecastTime,
+                                                    style: TextStyle(
+                                                      fontFamily:
+                                                          'Noto Sans KR',
+                                                      color: Colors.white
+                                                          .withValues(
+                                                            alpha: 0.9,
+                                                          ),
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ],
                                               ],
                                             ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
                                           ),
-                                          const SizedBox(width: 8),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.end,
-                                            children: [
-                                              Text(
-                                                temp != null ? '$temp°' : '-°',
-                                                style: const TextStyle(
-                                                  fontFamily: 'Noto Sans KR',
-                                                  color: Colors.white,
-                                                  fontSize: 32,
-                                                  fontWeight: FontWeight.w300,
-                                                  height: 1.0,
-                                                ),
-                                              ),
-                                              if (forecastTime.isNotEmpty) ...[
-                                                const SizedBox(height: 3),
-                                                Text(
-                                                  forecastTime,
-                                                  style: TextStyle(
-                                                    fontFamily: 'Noto Sans KR',
-                                                    color: Colors.white
-                                                        .withValues(alpha: 0.9),
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.2,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            !_weatherBased || !weatherAvailable
+                                                ? '✨ 거리와 가격으로 추천했어요'
+                                                : weather == '비' ||
+                                                      weather == '비/눈' ||
+                                                      weather == '눈' ||
+                                                      weather == '소나기'
+                                                ? '🍜 따뜻한 국물 메뉴를 추천해요'
+                                                : (temperature >= 28
+                                                      ? '🧊 시원한 메뉴를 추천해요'
+                                                      : '✨ 오늘의 추천 메뉴'),
+                                            style: const TextStyle(
+                                              fontFamily: 'Noto Sans KR',
+                                              fontFamilyFallback: [
+                                                'Noto Sans KR',
                                               ],
-                                            ],
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
-                                        ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      _buildFilterChip(
+                                        _weatherBased ? '날씨 기반' : '주변 추천',
+                                        const Color(0xFF2563EB),
+                                        filter: '추천 순',
                                       ),
-                                      const SizedBox(height: 16),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 8,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.2,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          weather == '비' ||
-                                                  weather == '비/눈' ||
-                                                  weather == '눈' ||
-                                                  weather == '소나기'
-                                              ? '🍜 따뜻한 국물 메뉴를 추천해요'
-                                              : (temp != null && temp >= 28
-                                                    ? '🧊 시원한 메뉴를 추천해요'
-                                                    : '✨ 오늘의 추천 메뉴'),
-                                          style: const TextStyle(
-                                            fontFamily: 'Noto Sans KR',
-                                            fontFamilyFallback: [
-                                              'Noto Sans KR',
-                                            ],
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
+                                      const SizedBox(width: 6),
+                                      _buildFilterChip(
+                                        '가까운 거리',
+                                        const Color(0xFF10B981),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      _buildFilterChip(
+                                        '저렴한 가격',
+                                        const Color(0xFFF97316),
                                       ),
                                     ],
                                   ),
-                                ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    _buildFilterChip(
-                                      '날씨 기반',
-                                      const Color(0xFF2563EB),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    _buildFilterChip(
-                                      '가까운 거리',
-                                      const Color(0xFF10B981),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    _buildFilterChip(
-                                      '저렴한 가격',
-                                      const Color(0xFFF97316),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                if (filteredItems.isEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 40,
-                                    ),
-                                    child: Center(
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Container(
-                                            width: 60,
-                                            height: 60,
-                                            decoration: const BoxDecoration(
-                                              color: Color(0xFFE5E7EB),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Icon(
-                                              Icons.lightbulb_outline_rounded,
-                                              color: Color(0xFF64748B),
-                                              size: 28,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          const Text(
-                                            '오늘 추천할 매장이 없어요',
-                                            style: TextStyle(
-                                              fontFamily: 'Noto Sans KR',
-                                              fontFamilyFallback: [
-                                                'Noto Sans KR',
-                                              ],
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF0F172A),
-                                              fontSize: 15,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          const Text(
-                                            '선택하신 필터에 부합하는 매장이 없거나 주변 착한가격업소 데이터가 충분하지 않아요.',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              fontFamily: 'Noto Sans KR',
-                                              fontFamilyFallback: [
-                                                'Noto Sans KR',
-                                              ],
-                                              color: Color(0xFF64748B),
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
+                                  const SizedBox(height: 16),
+                                  if (filteredItems.isEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 40,
                                       ),
-                                    ),
-                                  )
-                                else
-                                  ...filteredItems.asMap().entries.map((entry) {
-                                    int idx = entry.key;
-                                    var item = entry.value;
-
-                                    Color indexBg;
-                                    Color indexText;
-                                    if (idx == 0) {
-                                      indexBg = const Color(0xFFEFF4FF);
-                                      indexText = const Color(0xFF2563EB);
-                                    } else if (idx == 1) {
-                                      indexBg = const Color(0xFFFFF3EA);
-                                      indexText = const Color(0xFFF97316);
-                                    } else {
-                                      indexBg = const Color(0xFFEFF4FF);
-                                      indexText = const Color(0xFF10B981);
-                                    }
-
-                                    return Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 12,
-                                      ),
-                                      child: _buildPickCard(
-                                        index: (idx + 1).toString(),
-                                        indexBgColor: indexBg,
-                                        indexTextColor: indexText,
-                                        badgeText: item.badgeText,
-                                        badgeColor: item.badgeColor,
-                                        badgeBg: item.badgeBg,
-                                        distance: item.distance,
-                                        storeName: item.storeName,
-                                        menuName: item.menuName,
-                                        price: item.price,
-                                        tipText: item.tipText,
-                                        theme: item.theme,
-                                        onTap: item.store == null
-                                            ? null
-                                            : () => context.push(
-                                                AppRoutes.storeDetail,
-                                                extra: item.store,
+                                      child: Center(
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Container(
+                                              width: 60,
+                                              height: 60,
+                                              decoration: const BoxDecoration(
+                                                color: Color(0xFFE5E7EB),
+                                                shape: BoxShape.circle,
                                               ),
+                                              child: const Icon(
+                                                Icons.lightbulb_outline_rounded,
+                                                color: Color(0xFF64748B),
+                                                size: 28,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 16),
+                                            const Text(
+                                              '오늘 추천할 매장이 없어요',
+                                              style: TextStyle(
+                                                fontFamily: 'Noto Sans KR',
+                                                fontFamilyFallback: [
+                                                  'Noto Sans KR',
+                                                ],
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF0F172A),
+                                                fontSize: 15,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            const Text(
+                                              '선택하신 필터에 부합하는 매장이 없거나 주변 착한가격업소 데이터가 충분하지 않아요.',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                fontFamily: 'Noto Sans KR',
+                                                fontFamilyFallback: [
+                                                  'Noto Sans KR',
+                                                ],
+                                                color: Color(0xFF64748B),
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    );
-                                  }),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Semantics(
-                                        button: true,
-                                        label: '지도에서 보기',
-                                        child: Material(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                          child: InkWell(
+                                    )
+                                  else
+                                    ...filteredItems.asMap().entries.map((
+                                      entry,
+                                    ) {
+                                      int idx = entry.key;
+                                      var item = entry.value;
+
+                                      Color indexBg;
+                                      Color indexText;
+                                      if (idx == 0) {
+                                        indexBg = const Color(0xFFEFF4FF);
+                                        indexText = const Color(0xFF2563EB);
+                                      } else if (idx == 1) {
+                                        indexBg = const Color(0xFFFFF3EA);
+                                        indexText = const Color(0xFFF97316);
+                                      } else {
+                                        indexBg = const Color(0xFFEFF4FF);
+                                        indexText = const Color(0xFF10B981);
+                                      }
+
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 12,
+                                        ),
+                                        child: _buildPickCard(
+                                          index: (idx + 1).toString(),
+                                          indexBgColor: indexBg,
+                                          indexTextColor: indexText,
+                                          badgeText: item.badgeText,
+                                          badgeColor: item.badgeColor,
+                                          badgeBg: item.badgeBg,
+                                          distance: item.distance,
+                                          storeName: item.storeName,
+                                          menuName: item.menuName,
+                                          price: item.price,
+                                          tipText: item.tipText,
+                                          theme: item.theme,
+                                          onTap: item.store == null
+                                              ? null
+                                              : () => context.push(
+                                                  AppRoutes.storeDetail,
+                                                  extra: item.store,
+                                                ),
+                                        ),
+                                      );
+                                    }),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Semantics(
+                                          button: true,
+                                          label: '지도에서 보기',
+                                          child: Material(
+                                            color: Colors.white,
                                             borderRadius: BorderRadius.circular(
                                               16,
                                             ),
-                                            onTap: () {
-                                              final result =
-                                                  buildTodaysPickMapResult(
-                                                    filteredItems,
-                                                  );
-                                              if (result.stores.isEmpty) {
-                                                ScaffoldMessenger.of(context)
-                                                  ..clearSnackBars()
-                                                  ..showSnackBar(
-                                                    HowmuchSnackBar(
-                                                      content: Text(
-                                                        '지도에 표시할 매장 위치 정보가 없어요.',
+                                            child: InkWell(
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                              onTap: () {
+                                                final result =
+                                                    buildTodaysPickMapResult(
+                                                      filteredItems,
+                                                    );
+                                                if (result.stores.isEmpty) {
+                                                  ScaffoldMessenger.of(context)
+                                                    ..clearSnackBars()
+                                                    ..showSnackBar(
+                                                      HowmuchSnackBar(
+                                                        content: Text(
+                                                          '지도에 표시할 매장 위치 정보가 없어요.',
+                                                        ),
                                                       ),
+                                                    );
+                                                  return;
+                                                }
+                                                context.go(
+                                                  AppRoutes.home,
+                                                  extra: result,
+                                                );
+                                              },
+                                              child: Container(
+                                                height: 48,
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(22),
+                                                  border: Border.all(
+                                                    color: const Color(
+                                                      0xFFE5E7EB,
                                                     ),
-                                                  );
-                                                return;
-                                              }
-                                              context.go(
-                                                AppRoutes.home,
-                                                extra: result,
-                                              );
-                                            },
+                                                  ),
+                                                ),
+                                                alignment: Alignment.center,
+                                                // Named by the label above; the
+                                                // text read it a second time.
+                                                child: const ExcludeSemantics(
+                                                  child: Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.map_outlined,
+                                                        color: Color(
+                                                          0xFF0F172A,
+                                                        ),
+                                                        size: 16,
+                                                      ),
+                                                      SizedBox(width: 8),
+                                                      Text(
+                                                        '지도에서 보기',
+                                                        style: TextStyle(
+                                                          fontFamily:
+                                                              'Noto Sans KR',
+                                                          fontFamilyFallback: [
+                                                            'Noto Sans KR',
+                                                          ],
+                                                          color: Color(
+                                                            0xFF0F172A,
+                                                          ),
+                                                          fontSize: 13,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        // Read as a button, not as text.
+                                        child: Semantics(
+                                          container: true,
+                                          button: true,
+                                          child: GestureDetector(
+                                            onTap: () => context.push(
+                                              AppRoutes.optimalRoute,
+                                            ),
                                             child: Container(
                                               height: 48,
                                               decoration: BoxDecoration(
+                                                color: const Color(0xFF2563EB),
                                                 borderRadius:
-                                                    BorderRadius.circular(22),
-                                                border: Border.all(
-                                                  color: const Color(
-                                                    0xFFE5E7EB,
+                                                    BorderRadius.circular(16),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: const Color(
+                                                      0xFF2563EB,
+                                                    ).withValues(alpha: 0.3),
+                                                    blurRadius: 8,
+                                                    offset: const Offset(0, 6),
                                                   ),
-                                                ),
+                                                ],
                                               ),
                                               alignment: Alignment.center,
                                               child: const Row(
@@ -773,20 +1172,20 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                                     MainAxisAlignment.center,
                                                 children: [
                                                   Icon(
-                                                    Icons.map_outlined,
-                                                    color: Color(0xFF0F172A),
+                                                    Icons.route,
+                                                    color: Colors.white,
                                                     size: 16,
                                                   ),
                                                   SizedBox(width: 8),
                                                   Text(
-                                                    '지도에서 보기',
+                                                    '이 루트로 보기',
                                                     style: TextStyle(
                                                       fontFamily:
                                                           'Noto Sans KR',
                                                       fontFamilyFallback: [
                                                         'Noto Sans KR',
                                                       ],
-                                                      color: Color(0xFF0F172A),
+                                                      color: Colors.white,
                                                       fontSize: 13,
                                                       fontWeight:
                                                           FontWeight.bold,
@@ -798,61 +1197,10 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                           ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: GestureDetector(
-                                        onTap: () => context.push(
-                                          AppRoutes.optimalRoute,
-                                        ),
-                                        child: Container(
-                                          height: 48,
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF2563EB),
-                                            borderRadius: BorderRadius.circular(
-                                              16,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: const Color(
-                                                  0xFF2563EB,
-                                                ).withValues(alpha: 0.3),
-                                                blurRadius: 8,
-                                                offset: const Offset(0, 6),
-                                              ),
-                                            ],
-                                          ),
-                                          alignment: Alignment.center,
-                                          child: const Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.route,
-                                                color: Colors.white,
-                                                size: 16,
-                                              ),
-                                              SizedBox(width: 8),
-                                              Text(
-                                                '이 루트로 보기',
-                                                style: TextStyle(
-                                                  fontFamily: 'Noto Sans KR',
-                                                  fontFamilyFallback: [
-                                                    'Noto Sans KR',
-                                                  ],
-                                                  color: Colors.white,
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -865,43 +1213,52 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
     );
   }
 
-  Widget _buildFilterChip(String text, Color baseColor) {
-    bool isSelected = _selectedFilter == text;
+  Widget _buildFilterChip(String text, Color baseColor, {String? filter}) {
+    final value = filter ?? text;
+    bool isSelected = _selectedFilter == value;
 
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedFilter = text;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? baseColor.withValues(alpha: 0.15) : Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          border: isSelected
-              ? Border.all(color: baseColor)
-              : Border.all(color: const Color(0xFFE5E7EB)),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.circle,
-              color: isSelected ? baseColor : const Color(0xFFCBD5E1),
-              size: 6,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              text,
-              style: TextStyle(
-                fontFamily: 'Noto Sans KR',
-                fontFamilyFallback: const ['Noto Sans KR'],
-                color: isSelected ? baseColor : const Color(0xFF374151),
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+    // One of the three is always picked; it showed only in the colors
+    // (same issue as QA 10/7 #52).
+    return ChoiceSemantics(
+      selected: isSelected,
+      singleChoice: true,
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedFilter = value;
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? baseColor.withValues(alpha: 0.15)
+                : Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            border: isSelected
+                ? Border.all(color: baseColor)
+                : Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.circle,
+                color: isSelected ? baseColor : const Color(0xFFCBD5E1),
+                size: 6,
               ),
-            ),
-          ],
+              const SizedBox(width: 4),
+              Text(
+                text,
+                style: TextStyle(
+                  fontFamily: 'Noto Sans KR',
+                  fontFamilyFallback: const ['Noto Sans KR'],
+                  color: isSelected ? baseColor : const Color(0xFF374151),
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -922,215 +1279,220 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
     String? theme,
     VoidCallback? onTap,
   }) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-        ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: indexBgColor,
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'PICK',
-                        style: TextStyle(
-                          fontFamily: 'Noto Sans KR',
-                          fontFamilyFallback: ['Noto Sans KR'],
-                          color: Color(0xFF64748B),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+    // A card that opens the store is read as a button (QA 10/7 #54).
+    return Semantics(
+      container: true,
+      button: onTap != null,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: indexBgColor,
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'PICK',
+                          style: TextStyle(
+                            fontFamily: 'Noto Sans KR',
+                            fontFamilyFallback: ['Noto Sans KR'],
+                            color: Color(0xFF64748B),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      Text(
-                        index,
-                        style: TextStyle(
-                          fontFamily: 'Noto Sans KR',
-                          fontFamilyFallback: const ['Noto Sans KR'],
-                          color: indexTextColor,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                        Text(
+                          index,
+                          style: TextStyle(
+                            fontFamily: 'Noto Sans KR',
+                            fontFamilyFallback: const ['Noto Sans KR'],
+                            color: indexTextColor,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: badgeBg,
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 6,
-                                      height: 6,
-                                      decoration: BoxDecoration(
-                                        color: badgeColor,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      badgeText,
-                                      style: TextStyle(
-                                        fontFamily: 'Noto Sans KR',
-                                        fontFamilyFallback: const [
-                                          'Noto Sans KR',
-                                        ],
-                                        color: badgeColor,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // 백엔드 테마 칩 (이열치열/비 오면 파전 등)
-                              if (theme != null && theme.isNotEmpty) ...[
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFFFF3EA),
+                                    color: badgeBg,
                                     borderRadius: BorderRadius.circular(30),
                                   ),
-                                  child: Text(
-                                    theme,
-                                    style: const TextStyle(
-                                      fontFamily: 'Noto Sans KR',
-                                      fontFamilyFallback: ['Noto Sans KR'],
-                                      color: Color(0xFFF97316),
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: BoxDecoration(
+                                          color: badgeColor,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        badgeText,
+                                        style: TextStyle(
+                                          fontFamily: 'Noto Sans KR',
+                                          fontFamilyFallback: const [
+                                            'Noto Sans KR',
+                                          ],
+                                          color: badgeColor,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
+                                // 백엔드 테마 칩 (이열치열/비 오면 파전 등)
+                                if (theme != null && theme.isNotEmpty) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFF3EA),
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    child: Text(
+                                      theme,
+                                      style: const TextStyle(
+                                        fontFamily: 'Noto Sans KR',
+                                        fontFamilyFallback: ['Noto Sans KR'],
+                                        color: Color(0xFFF97316),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          distance,
-                          style: const TextStyle(
-                            fontFamily: 'Noto Sans KR',
-                            fontFamilyFallback: ['Noto Sans KR'],
-                            color: Color(0xFF64748B),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      storeName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: 'Noto Sans KR',
-                        fontFamilyFallback: ['Noto Sans KR'],
-                        color: Color(0xFF0F172A),
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            menuName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          const SizedBox(width: 8),
+                          Text(
+                            distance,
                             style: const TextStyle(
                               fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
                               color: Color(0xFF64748B),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          price,
-                          style: const TextStyle(
-                            fontFamily: 'Noto Sans KR',
-                            fontFamilyFallback: ['Noto Sans KR'],
-                            color: Color(0xFF0F172A),
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF4F6FA),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              tipText,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontFamily: 'Noto Sans KR',
-                                fontFamilyFallback: ['Noto Sans KR'],
-                                color: Color(0xFF374151),
-                                fontSize: 11,
-                              ),
+                              fontSize: 11,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        storeName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Noto Sans KR',
+                          fontFamilyFallback: ['Noto Sans KR'],
+                          color: Color(0xFF0F172A),
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              menuName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'Noto Sans KR',
+                                fontFamilyFallback: ['Noto Sans KR'],
+                                color: Color(0xFF64748B),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            price,
+                            style: const TextStyle(
+                              fontFamily: 'Noto Sans KR',
+                              fontFamilyFallback: ['Noto Sans KR'],
+                              color: Color(0xFF0F172A),
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF4F6FA),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                tipText,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: 'Noto Sans KR',
+                                  fontFamilyFallback: ['Noto Sans KR'],
+                                  color: Color(0xFF374151),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

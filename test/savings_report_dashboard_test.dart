@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/savings/presentation/screens/savings_goal_setting_screen.dart';
 import 'package:howmuch/features/savings/presentation/screens/savings_report_dashboard_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -96,6 +100,162 @@ void main() {
       expect(find.text('5'), findsOneWidget);
     }, () => MockClient(_dashboardResponseWithFavoritesFailure));
   });
+
+  testWidgets(
+    'loads only the selected period and renders it while metadata is pending',
+    (tester) async {
+      final favoriteResponse = Completer<http.Response>();
+      final requestedStats = <String>[];
+      final requestedPaths = <String>[];
+
+      await http.runWithClient(
+        () async {
+          await tester.pumpWidget(
+            const MaterialApp(home: SavingsReportDashboardScreen()),
+          );
+          // Let the four initial requests reach the mock. Favorites remains
+          // pending to prove that metadata cannot hold the selected statistics.
+          for (var i = 0; i < 20; i++) {
+            await tester.pump(const Duration(milliseconds: 10));
+            if (requestedPaths.length >= 4) break;
+          }
+          expect(requestedPaths, hasLength(4));
+          expect(requestedStats, ['this_month']);
+          expect(find.text('이번 달 절약 금액'), findsOneWidget);
+          expect(find.text('12,000'), findsOneWidget);
+
+          await tester.tap(find.text('지난 달'));
+          for (var i = 0; i < 20; i++) {
+            await tester.pump(const Duration(milliseconds: 10));
+            if (requestedStats.contains('last_month')) break;
+          }
+          expect(requestedStats, ['this_month', 'last_month']);
+          expect(find.text('지난 달 절약 금액'), findsOneWidget);
+
+          await tester.tap(find.text('올해'));
+          for (var i = 0; i < 20; i++) {
+            await tester.pump(const Duration(milliseconds: 10));
+            if (requestedStats.contains('this_year')) break;
+          }
+          expect(requestedStats, ['this_month', 'last_month', 'this_year']);
+          favoriteResponse.complete(_jsonResponse([1, 2]));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        },
+        () => MockClient((request) async {
+          requestedPaths.add(request.url.path);
+          if (request.url.path.endsWith('/api/savings/stats')) {
+            final period = request.url.queryParameters['period']!;
+            requestedStats.add(period);
+            return _statsResponse();
+          }
+          if (request.url.path.endsWith('/api/favorites')) {
+            return favoriteResponse.future;
+          }
+          return _auxiliaryResponse(request);
+        }),
+      );
+    },
+  );
+
+  testWidgets('a saved goal is reflected when returning to the report', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var savedGoal = 50000;
+    var goalReads = 0;
+    final router = GoRouter(
+      initialLocation: AppRoutes.savingsReportDashboard,
+      routes: [
+        GoRoute(
+          path: AppRoutes.savingsReportDashboard,
+          builder: (_, _) => const SavingsReportDashboardScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.savingsGoalSetting,
+          builder: (_, _) => const SavingsGoalSettingScreen(),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await http.runWithClient(
+      () async {
+        await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+        await tester.pumpAndSettle();
+        expect(find.text('목표 대비 24% 달성'), findsOneWidget);
+
+        await tester.tap(find.text('목표 설정'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), '24000');
+        await tester.tap(find.text('목표 저장하기'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SavingsReportDashboardScreen), findsOneWidget);
+        expect(find.text('목표 대비 50% 달성'), findsOneWidget);
+        expect(find.text('목표 대비 24% 달성'), findsNothing);
+        // Initial report, goal screen, and the refresh after saving.
+        expect(goalReads, 3);
+      },
+      () => MockClient((request) async {
+        if (request.url.path.endsWith('/api/savings/goal')) {
+          if (request.method == 'POST') {
+            savedGoal = (jsonDecode(request.body) as Map)['goalAmount'] as int;
+            return _jsonResponse({'goalAmount': savedGoal});
+          }
+          goalReads++;
+          return _jsonResponse({'goalAmount': savedGoal});
+        }
+        if (request.url.path.endsWith('/api/savings/stats')) {
+          return _statsResponse();
+        }
+        return _auxiliaryResponse(request);
+      }),
+    );
+  });
+
+  testWidgets(
+    'a visit mutation during loading replaces the invalidated statistics',
+    (tester) async {
+      final oldStats = Completer<http.Response>();
+      var statsReads = 0;
+      await http.runWithClient(
+        () async {
+          await tester.pumpWidget(
+            const MaterialApp(home: SavingsReportDashboardScreen()),
+          );
+          await tester.pump();
+          await ApiClient.delete(
+            ApiClient.uri('/api/visits/visit-1'),
+            headers: ApiClient.authHeaders(auth: true),
+          );
+          oldStats.complete(_statsResponse());
+          await tester.pumpAndSettle();
+          expect(statsReads, 2);
+          expect(find.text('24,000'), findsOneWidget);
+          expect(find.text('12,000'), findsNothing);
+          expect(find.byType(CircularProgressIndicator), findsNothing);
+        },
+        () => MockClient((request) async {
+          if (request.method == 'DELETE') {
+            return _jsonResponse({'success': true});
+          }
+          if (request.url.path.endsWith('/api/savings/stats')) {
+            if (++statsReads == 1) return oldStats.future;
+            return _jsonResponse({
+              'totalSavedAmount': 24000,
+              'totalVisits': 2,
+              'chartItems': [],
+            });
+          }
+          return _auxiliaryResponse(request);
+        }),
+      );
+    },
+  );
 
   for (final size in [const Size(320, 568), const Size(430, 844)]) {
     testWidgets('yearly monthly chart stays inside the card at $size', (

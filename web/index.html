@@ -26,14 +26,15 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="얼마고?">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-howmuch.png">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="icon" type="image/png" sizes="64x64" href="favicon-howmuch.png">
 
   <title>얼마고?</title>
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://dapi.kakao.com" crossorigin>
+  <link rel="preconnect" href="https://howmuch-backend-1xnu.onrender.com" crossorigin>
   <link rel="preload" href="assets/assets/fonts/NotoSansKR-Variable.ttf" as="fetch" type="font/ttf" crossorigin>
   <style>
     @font-face {
@@ -125,6 +126,8 @@
     window.kakaoMarkerRequestGenerations = {};
     window.nextKakaoMarkerRequestGeneration = 0;
     window.kakaoMapCallbacks = {};
+    window.kakaoMarkerClusterers = {};
+    window.kakaoClusterMarkers = {};
 
     // Callbacks belong to a mounted platform view, never to the whole page.
     function emitKakaoMapEvent(containerId, event, value, storeId) {
@@ -174,6 +177,7 @@
     }
 
     function notifyKakaoMapIdle(containerId, lifecycle) {
+      if (!isUsableKakaoMap(window.kakaoMapObjects[containerId])) return;
       var callbacks = window.kakaoMapCallbacks[containerId];
       if (!callbacks || typeof callbacks.onIdle !== 'function') return;
       var bounds = getKakaoMapBounds(containerId);
@@ -200,11 +204,28 @@
         lifecycle.listeners.push({ map: map, type: type, handler: handler });
       }
       var boundsTimer = null;
+      function syncOverlaysOnViewChange() {
+        var isDetail = typeof map.getLevel === 'function' && map.getLevel() < 4;
+        if (isDetail) {
+          window.kakaoClusterHidden[containerId] = {};
+        }
+        syncKakaoStoreOverlays(
+          containerId,
+          window.kakaoClusterHidden[containerId] || {}
+        );
+      }
+      listen('zoom_changed', syncOverlaysOnViewChange);
       listen('idle', function() {
+        syncOverlaysOnViewChange();
         cancelKakaoMapTask(lifecycle, boundsTimer);
         boundsTimer = scheduleKakaoMapTask(lifecycle, function() {
           if (isActiveKakaoMap(containerId, map, generation)) {
             notifyKakaoMapIdle(containerId, lifecycle);
+          } else if (isCurrentKakaoMapInstance(containerId, map, generation)) {
+            // The user left right after moving the map. Ask Flutter for the
+            // new viewport's stores once the map is visible again.
+            lifecycle.idlePending = true;
+            watchKakaoMapVisibility(containerId, lifecycle);
           }
         }, 600);
       });
@@ -215,21 +236,147 @@
       listen('dragstart', moveStarted);
       listen('zoom_start', moveStarted);
       listen('click', function() {
+        // Kakao emits a map click after a cluster click on mobile Safari.
+        // Consume that second event so it cannot immediately close the card
+        // selected by the cluster handler.
+        if (Date.now() < (lifecycle.ignoreMapClickUntil || 0)) {
+          lifecycle.ignoreMapClickUntil = 0;
+          return;
+        }
         window.highlightKakaoMapMarker(containerId, -1);
         emitKakaoMapEvent(containerId, 'onMarkerClick', -1);
       });
     }
 
     function isActiveKakaoMap(containerId, map, generation) {
+      return isCurrentKakaoMapInstance(containerId, map, generation) && isUsableKakaoMap(map);
+    }
+
+    // The same map object and lifecycle generation, whether or not it is visible.
+    function isCurrentKakaoMapInstance(containerId, map, generation) {
       var lifecycle = window.kakaoMapLifecycles[containerId];
-      return lifecycle && lifecycle.generation === generation &&
-        window.kakaoMapObjects[containerId] === map && isUsableKakaoMap(map);
+      return !!lifecycle && lifecycle.generation === generation &&
+        window.kakaoMapObjects[containerId] === map;
     }
 
     function isUsableKakaoMap(map) {
-      if (!map) return false;
+      if (!map || map._howmuchActive === false) return false;
       var node = typeof map.getNode === 'function' ? map.getNode() : null;
       return !node || (node.isConnected !== false && node.offsetWidth > 0 && node.offsetHeight > 0);
+    }
+
+    // Flutter keeps visited tab platform views mounted. Pause their work
+    // explicitly as well as checking DOM dimensions while offstage.
+    function setKakaoMapActive(containerId, active) {
+      var map = window.kakaoMapObjects[containerId];
+      if (!map) return;
+      map._howmuchActive = active === true;
+      var lifecycle = window.kakaoMapLifecycles[containerId];
+      if (!active && lifecycle) {
+        cancelKakaoMapTask(lifecycle, lifecycle.visibilityTimer);
+        lifecycle.visibilityTimer = null;
+        lifecycle.hidden = true;
+      } else if (active && !flushKakaoMapVisibleWork(containerId) &&
+          lifecycle && hasPendingKakaoMapWork(lifecycle)) {
+        watchKakaoMapVisibility(containerId, lifecycle);
+      }
+    }
+
+    // The complete catalog is loaded once, so every mode can zoom nationwide.
+    function applyKakaoMapZoomLimit(map, lifecycle) {
+      if (!map) return;
+      var maxLevel = 14;
+      if (typeof map.setMaxLevel === 'function') map.setMaxLevel(maxLevel);
+      // Leaving a zoomed-out search: return inside the supported span.
+      if (typeof map.getLevel === 'function' && typeof map.setLevel === 'function' &&
+          map.getLevel() > maxLevel) {
+        map.setLevel(maxLevel);
+      }
+    }
+
+    // Search fits keep the top search bar and the bottom cards clear. Short
+    // maps scale that padding down so it never exceeds the map itself.
+    function kakaoMapFitPadding(map) {
+      var node = map && typeof map.getNode === 'function' ? map.getNode() : null;
+      var width = node && node.offsetWidth > 0 ? node.offsetWidth : 360;
+      var height = node && node.offsetHeight > 0 ? node.offsetHeight : 640;
+      var top = 150, bottom = 260, side = 40;
+      var verticalScale = Math.min(1, (height * 0.7) / (top + bottom));
+      var sideScale = Math.min(1, (width * 0.5) / (side * 2));
+      return [
+        Math.round(top * verticalScale),
+        Math.round(side * sideScale),
+        Math.round(bottom * verticalScale),
+        Math.round(side * sideScale)
+      ];
+    }
+
+    function hasPendingKakaoMapWork(lifecycle) {
+      return !!(lifecycle.pendingMarkerRender || lifecycle.pendingNavigation ||
+        lifecycle.zoomLimitPending || lifecycle.idlePending);
+    }
+
+    // A covered Flutter route keeps its platform view at zero size or detached.
+    // That is a wait, not a failure: marker, zoom-limit and viewport work that
+    // arrives meanwhile is kept here and runs once the same map is visible.
+    function flushKakaoMapVisibleWork(containerId) {
+      var lifecycle = window.kakaoMapLifecycles[containerId];
+      var map = window.kakaoMapObjects[containerId];
+      if (!lifecycle || !isUsableKakaoMap(map)) return false;
+      lifecycle.hidden = false;
+      cancelKakaoMapTask(lifecycle, lifecycle.visibilityTimer);
+      lifecycle.visibilityTimer = null;
+      if (!hasPendingKakaoMapWork(lifecycle)) return false;
+      lifecycle.zoomLimitPending = false;
+      lifecycle.idlePending = false;
+      applyKakaoMapZoomLimit(map, lifecycle);
+      var renderMarkers = lifecycle.pendingMarkerRender;
+      var navigate = lifecycle.pendingNavigation;
+      lifecycle.pendingMarkerRender = null;
+      lifecycle.pendingNavigation = null;
+      lifecycle.pendingNavigationKind = null;
+      if (renderMarkers) renderMarkers();
+      if (navigate) navigate(map);
+      var generation = lifecycle.generation;
+      scheduleKakaoMapTask(lifecycle, function() {
+        if (!isActiveKakaoMap(containerId, map, generation)) return;
+        // Flutter could not read bounds while the map was hidden. Ask again
+        // even if the viewport itself did not change.
+        lifecycle.lastIdleBounds = null;
+        notifyKakaoMapIdle(containerId, lifecycle);
+      }, 150);
+      return true;
+    }
+
+    function watchKakaoMapVisibility(containerId, lifecycle) {
+      lifecycle.hidden = true;
+      var map = window.kakaoMapObjects[containerId];
+      // A retained tab resumes explicitly; do not poll it while paused.
+      if (map && map._howmuchActive === false) return;
+      if (lifecycle.visibilityTimer) return;
+      // ResizeObserver reports most show transitions. This slow check covers
+      // embeddings that reattach the view without a resize notification.
+      function check() {
+        lifecycle.visibilityTimer = null;
+        if (window.kakaoMapLifecycles[containerId] !== lifecycle || !hasPendingKakaoMapWork(lifecycle)) return;
+        if (flushKakaoMapVisibleWork(containerId)) return;
+        lifecycle.visibilityTimer = scheduleKakaoMapTask(lifecycle, check, 250);
+      }
+      lifecycle.visibilityTimer = scheduleKakaoMapTask(lifecycle, check, 250);
+    }
+
+    // Only the newest viewport intent survives a hidden period.
+    function runKakaoMapNavigation(containerId, lifecycle, kind, navigate) {
+      var map = window.kakaoMapObjects[containerId];
+      if (isUsableKakaoMap(map)) {
+        lifecycle.pendingNavigation = null;
+        lifecycle.pendingNavigationKind = null;
+        navigate(map);
+        return;
+      }
+      lifecycle.pendingNavigation = navigate;
+      lifecycle.pendingNavigationKind = kind;
+      if (map) watchKakaoMapVisibility(containerId, lifecycle);
     }
 
     function observeKakaoMapSize(containerId, map, container, lifecycle, generation) {
@@ -238,23 +385,34 @@
       lifecycle.height = container.offsetHeight;
       if (typeof ResizeObserver === 'undefined') return;
       lifecycle.resizeObserver = new ResizeObserver(function() {
-        if (!isActiveKakaoMap(containerId, map, generation)) return;
+        if (!isCurrentKakaoMapInstance(containerId, map, generation)) return;
+        if (!isUsableKakaoMap(map)) {
+          lifecycle.hidden = true;
+          return;
+        }
+        var wasHidden = lifecycle.hidden === true;
+        lifecycle.hidden = false;
         var width = container.offsetWidth;
         var height = container.offsetHeight;
-        if (width === lifecycle.width && height === lifecycle.height) return;
+        if (width === lifecycle.width && height === lifecycle.height) {
+          if (wasHidden) flushKakaoMapVisibleWork(containerId);
+          return;
+        }
         cancelKakaoMapTask(lifecycle, lifecycle.resizeTimer);
         lifecycle.resizeTimer = scheduleKakaoMapTask(lifecycle, function() {
           lifecycle.resizeTimer = null;
           if (!isActiveKakaoMap(containerId, map, generation)) return;
-          if (container.offsetWidth === lifecycle.width && container.offsetHeight === lifecycle.height) return;
-          lifecycle.width = container.offsetWidth;
-          lifecycle.height = container.offsetHeight;
-          // Kakao relayout can shift the viewport. Resize is not a navigation.
-          var center = typeof map.getCenter === 'function' ? map.getCenter() : null;
-          var level = typeof map.getLevel === 'function' ? map.getLevel() : null;
-          map.relayout();
-          if (center) map.setCenter(center);
-          if (level !== null && typeof map.setLevel === 'function') map.setLevel(level);
+          if (container.offsetWidth !== lifecycle.width || container.offsetHeight !== lifecycle.height) {
+            lifecycle.width = container.offsetWidth;
+            lifecycle.height = container.offsetHeight;
+            // Kakao relayout can shift the viewport. Resize is not a navigation.
+            var center = typeof map.getCenter === 'function' ? map.getCenter() : null;
+            var level = typeof map.getLevel === 'function' ? map.getLevel() : null;
+            map.relayout();
+            if (center) map.setCenter(center);
+            if (level !== null && typeof map.setLevel === 'function') map.setLevel(level);
+          }
+          flushKakaoMapVisibleWork(containerId);
         }, 100);
       });
       lifecycle.resizeObserver.observe(container);
@@ -262,11 +420,43 @@
 
     function clearKakaoMapOverlays(containerId) {
       var overlays = window.customOverlays && window.customOverlays[containerId];
-      if (!overlays) return;
-      for (var i = 0; i < overlays.length; i++) {
-        overlays[i].setMap(null);
+      if (overlays) {
+        for (var i = 0; i < overlays.length; i++) {
+          if (overlays[i]) overlays[i].setMap(null);
+        }
+        overlays.length = 0;
       }
-      overlays.length = 0;
+      clearKakaoMarkerCluster(containerId);
+    }
+
+    function clearKakaoMarkerCluster(containerId) {
+      var clusterer = window.kakaoMarkerClusterers[containerId];
+      if (clusterer) {
+        if (clusterer._howmuchClusteredHandler) {
+          kakao.maps.event.removeListener(
+            clusterer,
+            'clustered',
+            clusterer._howmuchClusteredHandler
+          );
+        }
+        if (clusterer._howmuchClickHandler) {
+          kakao.maps.event.removeListener(
+            clusterer,
+            'clusterclick',
+            clusterer._howmuchClickHandler
+          );
+        }
+        if (typeof clusterer.clear === 'function') clusterer.clear();
+      }
+      var markers = window.kakaoClusterMarkers[containerId] || [];
+      for (var i = 0; i < markers.length; i++) {
+        if (markers[i] && typeof markers[i].setMap === 'function') {
+          markers[i].setMap(null);
+        }
+      }
+      delete window.kakaoMarkerClusterers[containerId];
+      delete window.kakaoClusterMarkers[containerId];
+      delete window.kakaoClusterHidden[containerId];
     }
 
     // Flutter disposes the platform view independently from this page. Release
@@ -291,8 +481,12 @@
       delete window.kakaoMapLoadAttempts[containerId];
       delete window.customOverlays[containerId];
       delete window.highlightedKakaoMarkerIndices[containerId];
+      delete window.kakaoMarkerClusterers[containerId];
+      delete window.kakaoClusterMarkers[containerId];
       delete window[containerId];
       delete window.kakaoMapCallbacks[containerId];
+      delete window.kakaoMarkerLatitudeIndices[containerId];
+      delete window.kakaoVisibleOverlayIndices[containerId];
     }
 
     function notifyKakaoMapError(containerId, message) {
@@ -305,7 +499,7 @@
       var map = window.kakaoMapObjects[containerId];
       var center = map && typeof map.getCenter === 'function' ? map.getCenter() : null;
       var level = map && typeof map.getLevel === 'function' ? map.getLevel() : 3;
-      var maxLevel = getKakaoMapLifecycle(containerId).searchMode ? 14 : 10;
+      var maxLevel = 14;
       disposeKakaoMap(containerId);
       window.kakaoMapCallbacks[containerId] = callbacks;
       var lifecycle = getKakaoMapLifecycle(containerId);
@@ -320,7 +514,8 @@
       if (restored && typeof restored.setLevel === 'function') restored.setLevel(level);
     }
 
-    function initKakaoMap(containerId, lat, lng) {
+    // level: where a previous home screen left the map (optional).
+    function initKakaoMap(containerId, lat, lng, level) {
       var lifecycle = getKakaoMapLifecycle(containerId);
       lifecycle.generation++;
       clearKakaoMapTimers(lifecycle);
@@ -329,6 +524,10 @@
       lifecycle.lastIdleAt = 0;
       lifecycle.suppressMarkerClicks = false;
       lifecycle.suppressTimer = null;
+      lifecycle.ignoreMapClickUntil = 0;
+      // Timers were cleared above; stale IDs would block new watchers.
+      lifecycle.visibilityTimer = null;
+      lifecycle.resizeTimer = null;
       var generation = lifecycle.generation;
 
       if (typeof kakao === 'undefined' || !kakao.maps) {
@@ -339,7 +538,7 @@
           return;
         }
         scheduleKakaoMapTask(lifecycle, function() {
-          if (lifecycle.generation === generation) initKakaoMap(containerId, lat, lng);
+          if (lifecycle.generation === generation) initKakaoMap(containerId, lat, lng, level);
         }, 200);
         return;
       }
@@ -351,14 +550,15 @@
      kakao.maps.load(function() {
        cancelKakaoMapTask(lifecycle, loadCheckTimer);
        if (lifecycle.generation !== generation) return;
+        var containerWaitAttempts = 0;
         var sizeWaitAttempts = 0;
 
         function renderMapWhenReady() {
           if (lifecycle.generation !== generation) return;
           var container = window[containerId] || document.getElementById(containerId);
           if (!container) {
-            sizeWaitAttempts++;
-            if (sizeWaitAttempts <= 30) {
+            containerWaitAttempts++;
+            if (containerWaitAttempts <= 30) {
               scheduleKakaoMapTask(lifecycle, renderMapWhenReady, 50);
               return;
             }
@@ -366,14 +566,13 @@
             return;
           }
           if (container.isConnected === false || container.offsetWidth === 0 || container.offsetHeight === 0) {
+            // The user can leave home before the first render. A covered or
+            // detached view is waiting, not failing: keep checking (more slowly
+            // after 1.5 seconds) until it is visible. Dispose cancels this timer.
             sizeWaitAttempts++;
-            if (sizeWaitAttempts <= 30) {
-              scheduleKakaoMapTask(lifecycle, renderMapWhenReady, 50);
-              return;
-            }
-           notifyKakaoMapError(containerId, "지도 화면 크기가 올바르지 않아요.");
-           return;
-         }
+            scheduleKakaoMapTask(lifecycle, renderMapWhenReady, sizeWaitAttempts <= 30 ? 50 : 250);
+            return;
+          }
 
           var existingMap = window.kakaoMapObjects && window.kakaoMapObjects[containerId];
           var isSameContainer = false;
@@ -384,9 +583,10 @@
 
           if (isSameContainer) {
             observeKakaoMapSize(containerId, existingMap, container, lifecycle, generation);
-            if (typeof existingMap.setMaxLevel === 'function') existingMap.setMaxLevel(lifecycle.searchMode ? 14 : 10);
+            applyKakaoMapZoomLimit(existingMap, lifecycle);
             bindKakaoMapEvents(containerId, existingMap, lifecycle, generation);
             emitKakaoMapEvent(containerId, 'onReady');
+            flushKakaoMapVisibleWork(containerId);
             scheduleKakaoMapTask(lifecycle, function() {
               if (isActiveKakaoMap(containerId, existingMap, generation)) {
                 notifyKakaoMapIdle(containerId, lifecycle);
@@ -402,13 +602,14 @@
 
           var options = {
           center: new kakao.maps.LatLng(lat, lng),
-          level: lifecycle.recoveryLevel || 3
+          level: lifecycle.recoveryLevel ||
+            (Number.isInteger(level) && level >= 1 && level <= 14 ? level : 3)
         };
         var map;
         try {
           map = new kakao.maps.Map(container, options);
-          // Keep the viewport within the bounds endpoint's supported query span.
-          map.setMaxLevel(lifecycle.searchMode ? 14 : 10);
+          // Apply the same nationwide zoom limit on new and reused maps.
+          applyKakaoMapZoomLimit(map, lifecycle);
         } catch (_) {
           notifyKakaoMapError(containerId, '지도 화면을 준비하지 못했어요. 지도만 다시 불러와 주세요.');
           return;
@@ -423,6 +624,7 @@
         bindKakaoMapEvents(containerId, map, lifecycle, generation);
         
         emitKakaoMapEvent(containerId, 'onReady');
+        flushKakaoMapVisibleWork(containerId);
         scheduleKakaoMapTask(lifecycle, function() {
           if (!isActiveKakaoMap(containerId, map, generation)) return;
           notifyKakaoMapIdle(containerId, lifecycle);
@@ -440,18 +642,322 @@
     window.customOverlays = {};
     window.markerDataCache = {};
     window.highlightedKakaoMarkerIndices = {};
+    window.kakaoClusterHidden = {};
+    window.kakaoMarkerLatitudeIndices = {};
+    window.kakaoVisibleOverlayIndices = {};
+
+    function kakaoClusterCountText(size) {
+      if (size >= 10000) {
+        var tenThousands = size / 10000;
+        return tenThousands.toFixed(1).replace('.0', '') + '만';
+      }
+      if (size < 1000) return String(size);
+      var thousands = size / 1000;
+      return (thousands >= 10 ? Math.round(thousands) : thousands.toFixed(1).replace('.0', '')) + '천';
+    }
+
+    function kakaoMarkerClusterStyles() {
+      function style(size, background, color, halo, fontSize) {
+        return {
+          width: size + 'px',
+          height: size + 'px',
+          background: background,
+          border: '4px solid ' + halo,
+          borderRadius: '999px',
+          boxShadow: '0 0 0 1px rgba(37,99,235,0.30), 0 3px 10px rgba(15,23,42,0.16)',
+          boxSizing: 'border-box',
+          color: color,
+          cursor: 'pointer',
+          fontSize: fontSize + 'px',
+          fontWeight: '800',
+          letterSpacing: '-0.2px',
+          lineHeight: (size - 8) + 'px',
+          textAlign: 'center',
+          transform: 'translateZ(0)'
+        };
+      }
+      // A quiet count badge keeps the map readable and lets store labels lead.
+      return [
+        style(44, 'rgba(255,255,255,0.97)', '#2563EB', 'rgba(37,99,235,0.11)', 12),
+        style(46, '#F8FAFF', '#1D4ED8', 'rgba(37,99,235,0.13)', 12),
+        style(48, '#EFF6FF', '#1E40AF', 'rgba(37,99,235,0.15)', 13),
+        style(50, '#E8F0FF', '#172554', 'rgba(37,99,235,0.17)', 13)
+      ];
+    }
+
+    // Build once per catalog, then inspect only its visible latitude band.
+    // All stores still participate in the SDK clusterer; this indexes labels.
+    function buildStoreLatitudeIndex(items) {
+      return items.map(function(_, index) { return index; }).sort(function(a, b) {
+        return items[a].lat - items[b].lat;
+      });
+    }
+
+    function storeIndicesInViewport(items, indices, map) {
+      if (!map || typeof map.getBounds !== 'function') return indices;
+      var bounds = map.getBounds();
+      if (!bounds) return indices;
+      var sw = bounds.getSouthWest();
+      var ne = bounds.getNorthEast();
+      var minLat = sw.getLat(), maxLat = ne.getLat();
+      var minLng = sw.getLng(), maxLng = ne.getLng();
+      var low = 0, high = indices.length;
+      while (low < high) {
+        var middle = (low + high) >>> 1;
+        if (items[indices[middle]].lat < minLat) low = middle + 1;
+        else high = middle;
+      }
+      var visible = [];
+      for (var i = low; i < indices.length; i++) {
+        var index = indices[i], item = items[index];
+        if (item.lat > maxLat) break;
+        if (item.lng >= minLng && item.lng <= maxLng) visible.push(index);
+      }
+      return visible;
+    }
+
+    function createKakaoStoreOverlay(containerId, index, map) {
+      var markerData = window.markerDataCache[containerId] || [];
+      var item = markerData[index];
+      if (!item) return null;
+      var overlays = window.customOverlays[containerId] || [];
+      if (overlays[index]) return overlays[index];
+
+      var wrapper = document.createElement('div');
+      wrapper.id = containerId + '-marker-wrapper-' + index;
+      wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;transition:transform 0.2s ease;';
+
+      var bubble = document.createElement('div');
+      bubble.className = 'kakao-map-marker';
+      bubble.setAttribute('role', 'button');
+      bubble.setAttribute('tabindex', '0');
+      bubble.setAttribute('aria-label', item.title + ', ' + item.menu + ', ' + item.price);
+      var bgColor = item.source === 'USER' ? '#F97316' : '#2563EB';
+      bubble.style.cssText = [
+        'cursor:pointer', 'background:' + bgColor, 'color:#fff',
+        'border-radius:20px', 'padding:5px 10px', 'font-size:12px',
+        'font-weight:700', 'box-shadow:0 2px 8px rgba(0,0,0,0.25)',
+        'white-space:nowrap', 'display:flex', 'flex-direction:column',
+        'align-items:center', 'gap:1px', 'line-height:1.3',
+        'border:1.5px solid rgba(255,255,255,0.3)',
+        'transition:background 0.2s ease'
+      ].join(';');
+
+      var nameEl = document.createElement('span');
+      nameEl.style.cssText = 'font-size:11px;font-weight:800;letter-spacing:-0.3px;';
+      nameEl.innerText = item.title;
+      var priceEl = document.createElement('span');
+      priceEl.style.cssText = 'font-size:10px;font-weight:500;opacity:0.88;';
+      priceEl.innerText = item.menu + '  ' + item.price;
+      var tail = document.createElement('div');
+      tail.style.cssText = [
+        'width:0', 'height:0', 'border-left:5px solid transparent',
+        'border-right:5px solid transparent', 'border-top:6px solid ' + bgColor,
+        'margin-top:-1px', 'transition:border-top-color 0.2s ease'
+      ].join(';');
+
+      bubble.appendChild(nameEl);
+      bubble.appendChild(priceEl);
+      bubble.onclick = function(event) {
+        if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+        var lifecycle = window.kakaoMapLifecycles[containerId];
+        if (!lifecycle || lifecycle.suppressMarkerClicks || !isUsableKakaoMap(map)) return;
+        window.onMarkerClickWeb(containerId, index);
+      };
+      bubble.onkeydown = function(event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          bubble.onclick(event);
+        }
+      };
+      wrapper.appendChild(bubble);
+      wrapper.appendChild(tail);
+
+      var overlay = new kakao.maps.CustomOverlay({
+        position: new kakao.maps.LatLng(item.lat, item.lng),
+        content: wrapper,
+        yAnchor: 1.0,
+        zIndex: index === window.highlightedKakaoMarkerIndices[containerId] ? 10 : 3
+      });
+      overlay._howmuchWrapper = wrapper;
+      overlay._howmuchBaseColor = bgColor;
+      overlays[index] = overlay;
+      window.customOverlays[containerId] = overlays;
+      return overlay;
+    }
+
+    function syncKakaoStoreOverlays(containerId, hidden) {
+      var map = window.kakaoMapObjects[containerId];
+      if (!isUsableKakaoMap(map)) return;
+      var markerData = window.markerDataCache[containerId] || [];
+      var overlays = window.customOverlays[containerId] || [];
+      var selectedIndex = window.highlightedKakaoMarkerIndices[containerId];
+      hidden = hidden || {};
+      window.kakaoClusterHidden[containerId] = hidden;
+      var indices = window.kakaoMarkerLatitudeIndices[containerId] || [];
+      var candidates = storeIndicesInViewport(markerData, indices, map);
+      var visible = {};
+      for (var i = 0; i < candidates.length; i++) {
+        var index = candidates[i];
+        if (!hidden[index]) visible[index] = true;
+      }
+      if (selectedIndex >= 0 && markerData[selectedIndex]) visible[selectedIndex] = true;
+      var previous = window.kakaoVisibleOverlayIndices[containerId] || {};
+      Object.keys(previous).forEach(function(index) {
+        var overlay = overlays[index];
+        if (!visible[index] && overlay && overlay._howmuchMap) {
+          overlay.setMap(null);
+          overlay._howmuchMap = null;
+        }
+      });
+      Object.keys(visible).forEach(function(index) {
+        var overlay = overlays[index] || createKakaoStoreOverlay(containerId, Number(index), map);
+        if (overlay && overlay._howmuchMap !== map) {
+          overlay.setMap(map);
+          overlay._howmuchMap = map;
+        }
+      });
+      window.kakaoVisibleOverlayIndices[containerId] = visible;
+      // Keep a small reuse cache without retaining every DOM label ever panned past.
+      var cached = Object.keys(overlays), remaining = cached.length;
+      var keep = Math.max(512, Object.keys(visible).length);
+      for (var j = 0; j < cached.length && remaining > keep; j++) {
+        if (!visible[cached[j]]) { delete overlays[cached[j]]; remaining--; }
+      }
+      applyKakaoMapMarkerHighlight(containerId, selectedIndex);
+    }
+
+    function rebuildKakaoMarkerCluster(containerId) {
+      clearKakaoMarkerCluster(containerId);
+      var map = window.kakaoMapObjects[containerId];
+      var markerData = window.markerDataCache[containerId] || [];
+      if (!isUsableKakaoMap(map)) return;
+      if (markerData.length < 2 || typeof kakao === 'undefined' || !kakao.maps ||
+          typeof kakao.maps.Marker !== 'function' ||
+          typeof kakao.maps.MarkerClusterer !== 'function') {
+        syncKakaoStoreOverlays(containerId, {});
+        return;
+      }
+
+      var transparentMarkerImage = (typeof kakao.maps.MarkerImage === 'function' && typeof kakao.maps.Size === 'function')
+        ? new kakao.maps.MarkerImage(
+            'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+            new kakao.maps.Size(1, 1)
+          )
+        : null;
+
+      var markers = [];
+      for (var i = 0; i < markerData.length; i++) {
+        var item = markerData[i];
+        var markerOptions = {
+          position: new kakao.maps.LatLng(item.lat, item.lng),
+          clickable: false
+        };
+        if (transparentMarkerImage) markerOptions.image = transparentMarkerImage;
+        var marker = new kakao.maps.Marker(markerOptions);
+        marker._howmuchIndex = i;
+        markers.push(marker);
+      }
+      if (markers.length < 2) return;
+
+      var clusterer = new kakao.maps.MarkerClusterer({
+        map: map,
+        averageCenter: true,
+        minLevel: 4,
+        minClusterSize: 2,
+        gridSize: 72,
+        disableClickZoom: true,
+        calculator: [10, 30, 100],
+        styles: kakaoMarkerClusterStyles(),
+        texts: kakaoClusterCountText
+      });
+
+      var clusteredHandler = function(clusters) {
+        var hidden = {};
+        clusters = clusters || [];
+        for (var i = 0; i < clusters.length; i++) {
+          var members = clusters[i].getMarkers();
+          if (members.length < 2) continue;
+          for (var j = 0; j < members.length; j++) {
+            hidden[members[j]._howmuchIndex] = true;
+          }
+        }
+        syncKakaoStoreOverlays(containerId, hidden);
+      };
+      var clickHandler = function(cluster) {
+        if (!cluster || typeof cluster.getCenter !== 'function') return;
+        var lifecycle = window.kakaoMapLifecycles[containerId];
+        if (lifecycle) lifecycle.ignoreMapClickUntil = Date.now() + 1000;
+        var members = typeof cluster.getMarkers === 'function' ? cluster.getMarkers() : [];
+        var center = cluster.getCenter();
+        var selectedMember = null;
+        var selectedDistance = Number.POSITIVE_INFINITY;
+        for (var i = 0; i < members.length; i++) {
+          var position = typeof members[i].getPosition === 'function'
+            ? members[i].getPosition()
+            : null;
+          if (!position || !Number.isInteger(members[i]._howmuchIndex)) continue;
+          var dLat = position.getLat() - center.getLat();
+          var dLng = position.getLng() - center.getLng();
+          var distance = dLat * dLat + dLng * dLng;
+          if (distance < selectedDistance) {
+            selectedDistance = distance;
+            selectedMember = members[i];
+          }
+        }
+        var level = typeof map.getLevel === 'function' ? map.getLevel() : 4;
+        var nextLevel = Math.max(1, level - 2);
+        map.setLevel(nextLevel, {
+          anchor: center,
+          animate: { duration: 300 }
+        });
+        if (nextLevel < 4) {
+          window.kakaoClusterHidden[containerId] = {};
+        }
+        // Expanding a cluster is also a store choice. Select the member
+        // nearest the cluster center so Flutter opens its card immediately.
+        if (selectedMember) {
+          window.onMarkerClickWeb(containerId, selectedMember._howmuchIndex);
+        }
+        setTimeout(function() {
+          var isDetail = typeof map.getLevel === 'function' && map.getLevel() < 4;
+          if (isDetail) window.kakaoClusterHidden[containerId] = {};
+          syncKakaoStoreOverlays(
+            containerId,
+            window.kakaoClusterHidden[containerId] || {}
+          );
+          if (selectedMember) {
+            window.highlightKakaoMapMarker(containerId, selectedMember._howmuchIndex);
+          }
+        }, 350);
+      };
+      clusterer._howmuchClusteredHandler = clusteredHandler;
+      clusterer._howmuchClickHandler = clickHandler;
+      kakao.maps.event.addListener(clusterer, 'clustered', clusteredHandler);
+      kakao.maps.event.addListener(clusterer, 'clusterclick', clickHandler);
+      window.kakaoMarkerClusterers[containerId] = clusterer;
+      window.kakaoClusterMarkers[containerId] = markers;
+      clusterer.addMarkers(markers);
+      if (typeof map.getLevel === 'function' && map.getLevel() < 4) {
+        syncKakaoStoreOverlays(containerId, {});
+      }
+    }
 
     function applyKakaoMapMarkerHighlight(containerId, selectedIndex) {
       var overlays = window.customOverlays[containerId] || [];
       var markerData = window.markerDataCache[containerId] || [];
-      for (var i = 0; i < overlays.length; i++) {
+      var indices = Object.keys(overlays);
+      for (var n = 0; n < indices.length; n++) {
+        var i = Number(indices[n]);
         var overlay = overlays[i];
         if (!overlay) continue;
+        var isSelected = i === selectedIndex;
+        if (overlay._howmuchSelected === isSelected) continue;
+        overlay._howmuchSelected = isSelected;
         var item = markerData[i] || {};
         var wrapper = overlay._howmuchWrapper;
         var bubble = wrapper && wrapper.children ? wrapper.children[0] : null;
         var tail = wrapper && wrapper.children ? wrapper.children[1] : null;
-        var isSelected = i === selectedIndex;
         var baseColor = overlay._howmuchBaseColor ||
           (item.source === 'USER' ? '#F97316' : '#2563EB');
         var color = isSelected ? '#C2410C' : baseColor;
@@ -469,7 +975,10 @@
       var index = Number(selectedIndex);
       var normalizedIndex = Number.isInteger(index) && index >= 0 ? index : -1;
       window.highlightedKakaoMarkerIndices[containerId] = normalizedIndex;
-      applyKakaoMapMarkerHighlight(containerId, normalizedIndex);
+      syncKakaoStoreOverlays(
+        containerId,
+        window.kakaoClusterHidden[containerId] || {}
+      );
     };
 
     function setSuppressMarkerClicks(containerId, durationMs) {
@@ -497,17 +1006,18 @@
       var lifecycle = getKakaoMapLifecycle(containerId);
       var markerGeneration = ++window.nextKakaoMarkerRequestGeneration;
       window.kakaoMarkerRequestGenerations[containerId] = markerGeneration;
-      var waitAttempts = 0;
-      var maxWaitAttempts = 25;
+      lifecycle.pendingMarkerRender = null;
+      var sdkWaitAttempts = 0;
 
       function isCurrentMarkerRequest() {
         return window.kakaoMarkerRequestGenerations[containerId] === markerGeneration;
       }
 
-      function retryWhenReady(message) {
-        waitAttempts++;
-        if (waitAttempts > maxWaitAttempts) {
-          if (isCurrentMarkerRequest()) notifyKakaoMapError(containerId, message);
+      // Only an SDK that never loads is a marker failure.
+      function retryUntilSdkLoads() {
+        sdkWaitAttempts++;
+        if (sdkWaitAttempts > 25) {
+          if (isCurrentMarkerRequest()) notifyKakaoMapError(containerId, "지도 마커를 불러오지 못했어요.");
           return;
         }
         scheduleKakaoMapTask(lifecycle, function() {
@@ -515,24 +1025,23 @@
         }, 200);
       }
 
-      if (typeof kakao === 'undefined' || !kakao.maps) {
-        retryWhenReady("지도 마커를 불러오지 못했어요.");
-        return;
-      }
-
       renderMarkersWhenReady();
 
       function renderMarkersWhenReady() {
         if (!isCurrentMarkerRequest()) return;
         if (typeof kakao === 'undefined' || !kakao.maps) {
-          retryWhenReady("지도 마커를 불러오지 못했어요.");
+          retryUntilSdkLoads();
           return;
         }
         kakao.maps.load(function() {
         if (!isCurrentMarkerRequest()) return;
+        if (window.kakaoMapLifecycles[containerId] !== lifecycle) return;
         var map = window.kakaoMapObjects[containerId];
         if (!isUsableKakaoMap(map)) {
-          retryWhenReady("지도 마커를 표시하지 못했어요.");
+          // Covered, detached, or still being created: keep only this newest
+          // payload and draw it when the map is visible again.
+          lifecycle.pendingMarkerRender = renderMarkersWhenReady;
+          if (map) watchKakaoMapVisibility(containerId, lifecycle);
           return;
         }
 
@@ -545,6 +1054,8 @@
         }
         if (!Array.isArray(markerData) || !isCurrentMarkerRequest()) return;
         window.markerDataCache[containerId] = markerData;
+        window.kakaoMarkerLatitudeIndices[containerId] = buildStoreLatitudeIndex(markerData);
+        window.kakaoVisibleOverlayIndices[containerId] = {};
         var selectedIndex = -1;
         for (var selectedItemIndex = 0; selectedItemIndex < markerData.length; selectedItemIndex++) {
           if (markerData[selectedItemIndex] && markerData[selectedItemIndex].selected === true) {
@@ -559,94 +1070,11 @@
         }
         var overlays = window.customOverlays[containerId];
         for (var i = 0; i < overlays.length; i++) {
-          overlays[i].setMap(null);
+          if (overlays[i]) overlays[i].setMap(null);
         }
-        overlays.length = 0; // 배열 비우기
-
-        for (var i = 0; i < markerData.length; i++) {
-          (function(idx) {
-            var item = markerData[idx];
-
-            var wrapper = document.createElement('div');
-            wrapper.id = containerId + '-marker-wrapper-' + idx;
-            wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;transition:transform 0.2s ease;';
-
-            var bubble = document.createElement('div');
-            bubble.className = 'kakao-map-marker';
-            bubble.setAttribute('role', 'button');
-            bubble.setAttribute('tabindex', '0');
-            bubble.setAttribute('aria-label', item.title + ', ' + item.menu + ', ' + item.price);
-            var bgColor = item.source === 'USER' ? '#F97316' : '#2563EB';
-            bubble.style.cssText = [
-              'cursor:pointer',
-              'background:' + bgColor,
-              'color:#fff',
-              'border-radius:20px',
-              'padding:5px 10px',
-              'font-size:12px',
-              'font-weight:700',
-              'box-shadow:0 2px 8px rgba(0,0,0,0.25)',
-              'white-space:nowrap',
-              'display:flex',
-              'flex-direction:column',
-              'align-items:center',
-              'gap:1px',
-              'line-height:1.3',
-              'border:1.5px solid rgba(255,255,255,0.3)',
-              'transition:background 0.2s ease'
-            ].join(';');
-
-            var nameEl = document.createElement('span');
-            nameEl.style.cssText = 'font-size:11px;font-weight:800;letter-spacing:-0.3px;';
-            nameEl.innerText = item.title;
-
-            var priceEl = document.createElement('span');
-            priceEl.style.cssText = 'font-size:10px;font-weight:500;opacity:0.88;';
-            priceEl.innerText = item.menu + '  ' + item.price;
-
-            var tail = document.createElement('div');
-            tail.style.cssText = [
-              'width:0',
-              'height:0',
-              'border-left:5px solid transparent',
-              'border-right:5px solid transparent',
-              'border-top:6px solid ' + bgColor,
-              'margin-top:-1px',
-              'transition:border-top-color 0.2s ease'
-            ].join(';');
-
-            bubble.appendChild(nameEl);
-            bubble.appendChild(priceEl);
-            bubble.onclick = function(e) {
-              if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-              if (!isCurrentMarkerRequest() || !isUsableKakaoMap(map) || lifecycle.suppressMarkerClicks) return;
-              window.onMarkerClickWeb(containerId, idx);
-            };
-            bubble.onkeydown = function(e) {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                bubble.onclick(e);
-              }
-            };
-            wrapper.appendChild(bubble);
-            wrapper.appendChild(tail);
-
-            var customOverlay = new kakao.maps.CustomOverlay({
-                position: new kakao.maps.LatLng(item.lat, item.lng),
-                content: wrapper,
-                yAnchor: 1.0,
-                zIndex: item.selected === true ? 10 : 3
-            });
-            customOverlay._howmuchWrapper = wrapper;
-            customOverlay._howmuchBaseColor = bgColor;
-            customOverlay.setMap(map);
-            overlays.push(customOverlay);
-          })(i);
-        }
-        applyKakaoMapMarkerHighlight(
-          containerId,
-          window.highlightedKakaoMarkerIndices[containerId]
-        );
+        overlays.length = 0;
+        clearKakaoMarkerCluster(containerId);
+        rebuildKakaoMarkerCluster(containerId);
         // Adding overlays does not resize the platform view. Relayout here
         // caused a second idle/request/rebuild loop on every marker update.
       });
@@ -654,46 +1082,51 @@
     }
 
     function setKakaoMapCenter(containerId, lat, lng) {
-      var map = window.kakaoMapObjects[containerId];
-      if (isUsableKakaoMap(map)) {
-        var lifecycle = getKakaoMapLifecycle(containerId);
+      var lifecycle = getKakaoMapLifecycle(containerId);
+      runKakaoMapNavigation(containerId, lifecycle, 'center', function(map) {
         var generation = lifecycle.generation;
         map.setCenter(new kakao.maps.LatLng(lat, lng));
         scheduleKakaoMapTask(lifecycle, function() {
           if (isActiveKakaoMap(containerId, map, generation)) notifyKakaoMapIdle(containerId, lifecycle);
         }, 150);
-      }
+      });
     }
 
+    // A result chosen on another screen (AI pick, swipe target) must not be
+    // lost when it arrives while home is still hidden behind that screen.
     function setKakaoMapCenterFromSwipe(containerId, lat, lng) {
-      var map = window.kakaoMapObjects[containerId];
-      if (isUsableKakaoMap(map)) map.panTo(new kakao.maps.LatLng(lat, lng));
-    }
-
-    function zoomKakaoMap(containerId, delta) {
-      var map = window.kakaoMapObjects[containerId];
-      if (!isUsableKakaoMap(map) || typeof map.getLevel !== 'function') return;
-      var maxLevel = getKakaoMapLifecycle(containerId).searchMode ? 14 : 10;
-      map.setLevel(Math.max(1, Math.min(maxLevel, map.getLevel() + Number(delta))));
+      var lifecycle = getKakaoMapLifecycle(containerId);
+      runKakaoMapNavigation(containerId, lifecycle, 'pan', function(map) {
+        map.panTo(new kakao.maps.LatLng(lat, lng));
+      });
     }
 
     function setKakaoMapSearchMode(containerId, enabled) {
       var lifecycle = getKakaoMapLifecycle(containerId);
       lifecycle.searchMode = enabled === true;
       if (!lifecycle.searchMode) {
+        // Clearing a search cancels the fit it may still be waiting to run.
         lifecycle.fitRequestGeneration = (lifecycle.fitRequestGeneration || 0) + 1;
-        cancelKakaoMapTask(lifecycle, lifecycle.fitTimer);
+        if (lifecycle.pendingNavigationKind === 'fit') {
+          lifecycle.pendingNavigation = null;
+          lifecycle.pendingNavigationKind = null;
+        }
       }
       var map = window.kakaoMapObjects[containerId];
-      if (isUsableKakaoMap(map) && typeof map.setMaxLevel === 'function') map.setMaxLevel(enabled === true ? 14 : 10);
+      if (isUsableKakaoMap(map)) {
+        applyKakaoMapZoomLimit(map, lifecycle);
+        return;
+      }
+      // A hidden map ignores the new limit. Apply it once it is visible so a
+      // returned search can zoom out to level 14 and normal mode is back to 10.
+      lifecycle.zoomLimitPending = true;
+      if (map) watchKakaoMapVisibility(containerId, lifecycle);
     }
 
     function fitKakaoMapStores(containerId, coordinatesJson) {
       var lifecycle = getKakaoMapLifecycle(containerId);
-      var generation = lifecycle.generation;
       var fitGeneration = (lifecycle.fitRequestGeneration || 0) + 1;
       lifecycle.fitRequestGeneration = fitGeneration;
-      cancelKakaoMapTask(lifecycle, lifecycle.fitTimer);
       var coordinates;
       try { coordinates = JSON.parse(coordinatesJson); } catch (_) { return; }
       if (!Array.isArray(coordinates)) return;
@@ -703,37 +1136,32 @@
           point.lat !== 0 && point.lng !== 0;
       });
       if (!valid.length) return;
-      var attempts = 0;
-      function fitWhenVisible() {
-      if (window.kakaoMapLifecycles[containerId] !== lifecycle ||
-          lifecycle.generation !== generation || lifecycle.fitRequestGeneration !== fitGeneration) return;
-      var map = window.kakaoMapObjects[containerId];
-      // A retained Flutter platform view has zero size during route-pop
-      // transitions. Keep this one navigation intent until it is visible;
-      // never execute work for a disposed or superseded map/search.
-      if (!isUsableKakaoMap(map)) {
-        if (++attempts <= 20) lifecycle.fitTimer = scheduleKakaoMapTask(lifecycle, fitWhenVisible, 100);
-        return;
-      }
-      lifecycle.fitTimer = null;
-      if (valid.length === 1) {
-        map.setCenter(new kakao.maps.LatLng(valid[0].lat, valid[0].lng));
-        map.setLevel(4);
-      } else {
-        var bounds = new kakao.maps.LatLngBounds();
-        valid.forEach(function(point) { bounds.extend(new kakao.maps.LatLng(point.lat, point.lng)); });
-        map.setBounds(bounds, 150, 40, 260, 40);
-      }
-      scheduleKakaoMapTask(lifecycle, function() {
-        if (isActiveKakaoMap(containerId, map, generation) && lifecycle.fitRequestGeneration === fitGeneration) {
-          // A new result/filter is a new request even if its viewport matches
-          // the previous one; bounds-only idle deduplication cannot skip it.
-          lifecycle.lastIdleBounds = null;
-          notifyKakaoMapIdle(containerId, lifecycle);
+      // A retained Flutter platform view has zero size while a pushed route
+      // covers it and during route-pop transitions. Keep this one navigation
+      // intent until it is visible; a disposed view or newer search drops it.
+      runKakaoMapNavigation(containerId, lifecycle, 'fit', function(map) {
+        if (window.kakaoMapLifecycles[containerId] !== lifecycle ||
+            lifecycle.fitRequestGeneration !== fitGeneration) return;
+        var generation = lifecycle.generation;
+        applyKakaoMapZoomLimit(map, lifecycle);
+        if (valid.length === 1) {
+          map.setCenter(new kakao.maps.LatLng(valid[0].lat, valid[0].lng));
+          map.setLevel(4);
+        } else {
+          var bounds = new kakao.maps.LatLngBounds();
+          valid.forEach(function(point) { bounds.extend(new kakao.maps.LatLng(point.lat, point.lng)); });
+          var padding = kakaoMapFitPadding(map);
+          map.setBounds(bounds, padding[0], padding[1], padding[2], padding[3]);
         }
-      }, 150);
-      }
-      fitWhenVisible();
+        scheduleKakaoMapTask(lifecycle, function() {
+          if (isActiveKakaoMap(containerId, map, generation) && lifecycle.fitRequestGeneration === fitGeneration) {
+            // A new result/filter is a new request even if its viewport matches
+            // the previous one; bounds-only idle deduplication cannot skip it.
+            lifecycle.lastIdleBounds = null;
+            notifyKakaoMapIdle(containerId, lifecycle);
+          }
+        }, 150);
+      });
     }
 
     function updateUserLocationMarker(containerId, lat, lng) {
@@ -806,12 +1234,24 @@
       }
       if (!areValid(values)) return null;
 
-      return JSON.stringify({
+      var result = {
         minLat: values[0],
         maxLat: values[1],
         minLng: values[2],
         maxLng: values[3]
-      });
+      };
+      // Flutter keeps the viewport so the next home screen opens there.
+      try {
+        var center = typeof map.getCenter === 'function' ? map.getCenter() : null;
+        var level = typeof map.getLevel === 'function' ? map.getLevel() : null;
+        if (center && Number.isFinite(center.getLat()) && Number.isFinite(center.getLng()) &&
+            Number.isInteger(level)) {
+          result.centerLat = center.getLat();
+          result.centerLng = center.getLng();
+          result.level = level;
+        }
+      } catch (_) {}
+      return JSON.stringify(result);
     }
   </script>
 </head>

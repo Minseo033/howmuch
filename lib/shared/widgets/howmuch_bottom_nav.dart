@@ -28,13 +28,10 @@ class HowmuchBottomNav extends StatelessWidget {
     'sans-serif',
   ];
 
-  static const designHeight = 81.98863220214844;
   static const contentHeight = 60.002838134765625;
-  static const designBottomReserve = designHeight - contentHeight;
-  static const contentLift = 0.0; // Removed the 32.0 compensation hack
 
   static double heightFor(double safeBottom) {
-    return contentHeight + (safeBottom > 8.0 ? safeBottom : 8.0) + contentLift;
+    return contentHeight + (safeBottom > 8.0 ? safeBottom : 8.0);
   }
 
   final double safeBottom;
@@ -51,7 +48,7 @@ class HowmuchBottomNav extends StatelessWidget {
           Positioned(
             left: 12,
             right: 12,
-            bottom: bottomReserve + contentLift,
+            bottom: bottomReserve,
             height: contentHeight,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(28),
@@ -85,7 +82,11 @@ class HowmuchBottomNav extends StatelessWidget {
                             icon: Icons.home_outlined,
                             label: '홈',
                             active: activeTab == HowmuchBottomTab.home,
-                            onTap: () => context.go(AppRoutes.home),
+                            onTap: () {
+                              if (activeTab != HowmuchBottomTab.home) {
+                                context.go(AppRoutes.home);
+                              }
+                            },
                           ),
                         ),
                         Expanded(
@@ -93,7 +94,11 @@ class HowmuchBottomNav extends StatelessWidget {
                             icon: Icons.explore_outlined,
                             label: '탐색',
                             active: activeTab == HowmuchBottomTab.explore,
-                            onTap: () => context.go(AppRoutes.communityFeed),
+                            onTap: () {
+                              if (activeTab != HowmuchBottomTab.explore) {
+                                context.go(AppRoutes.communityFeed);
+                              }
+                            },
                           ),
                         ),
                         Expanded(
@@ -109,8 +114,11 @@ class HowmuchBottomNav extends StatelessWidget {
                             icon: Icons.bar_chart_rounded,
                             label: '리포트',
                             active: activeTab == HowmuchBottomTab.savings,
-                            onTap: () =>
-                                context.go(AppRoutes.savingsReportDashboard),
+                            onTap: () {
+                              if (activeTab != HowmuchBottomTab.savings) {
+                                context.go(AppRoutes.savingsReportDashboard);
+                              }
+                            },
                           ),
                         ),
                         Expanded(
@@ -118,7 +126,11 @@ class HowmuchBottomNav extends StatelessWidget {
                             icon: Icons.person_outline_rounded,
                             label: '마이',
                             active: activeTab == HowmuchBottomTab.mypage,
-                            onTap: () => context.go(AppRoutes.mypage),
+                            onTap: () {
+                              if (activeTab != HowmuchBottomTab.mypage) {
+                                context.go(AppRoutes.mypage);
+                              }
+                            },
                           ),
                         ),
                       ],
@@ -186,23 +198,34 @@ class _NavItem extends StatelessWidget {
                     ]
                   : null,
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: color, size: 22),
-                const SizedBox(height: 1),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: color,
-                    fontFamily: HowmuchBottomNav.fontFamily,
-                    fontFamilyFallback: HowmuchBottomNav.fontFallback,
-                    fontSize: 11,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w600,
-                    height: 1.35,
+            // The tab is named by the label above ('홈 탭'); the visible text
+            // made screen readers say '홈 탭, 홈' (same issue as QA 10/7 #51).
+            child: ExcludeSemantics(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: color, size: 22),
+                  const SizedBox(height: 1),
+                  // The bar keeps its fixed height, so the label stops growing
+                  // at the compact chrome scale instead of being cut off at
+                  // large accessibility text sizes (QA 10/7 #5).
+                  MediaQuery.withClampedTextScaling(
+                    maxScaleFactor: AppTextScale.compactChrome,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: color,
+                        fontFamily: HowmuchBottomNav.fontFamily,
+                        fontFamilyFallback: HowmuchBottomNav.fontFallback,
+                        fontSize: 11,
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

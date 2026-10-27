@@ -41,7 +41,8 @@ class StoreHoursCatalogTest {
 
         Map<?, ?> allHours = (Map<?, ?>) service.getAllStores().getFirst().get("openingHours");
         assertThat(allHours.get("text")).isEqualTo("18:00~익일 02:00\n매주 월요일 휴무");
-        assertThat(service.getStoresInBounds(37.5, 37.6, 127.1, 127.2).getFirst().get("openingHours")).isEqualTo(allHours);
+        assertThat(service.getStoresInBoundsPage(37.5, 37.6, 127.1, 127.2).stores().getFirst().get("openingHours"))
+                .isEqualTo(allHours);
         assertThat(service.getGovStoresSnapshot().getFirst().get("openingHours"))
                 .isEqualTo(Map.of("text", "unreviewed upstream value"));
         // A later public-data refresh replaces the raw cache but cannot erase the separate hours.

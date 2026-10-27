@@ -6,6 +6,38 @@ import 'package:howmuch/features/store/store_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test(
+    'approved free menus can rise from zero; unconfirmed zero prices stay blocked',
+    () {
+      String? check(
+        String type,
+        String newPrice, {
+        bool wasFree = true,
+        bool free = false,
+      }) => validatePriceChange(
+        changeType: type,
+        menu: '무료 메뉴',
+        price: newPrice,
+        registeredMenus: [(menu: '무료 메뉴', price: '0', free: wasFree)],
+        free: free,
+      );
+      expect(check('rise', '1000'), isNull);
+      expect(check('drop', '1000'), contains('가격 인상'));
+      expect(check('rise', '0', free: true), contains('같아요'));
+      expect(check('rise', '1000', wasFree: false), contains('현재 가격'));
+      expect(check('delete', ''), isNull);
+      expect(
+        validatePriceChange(
+          changeType: 'drop',
+          menu: '유료 메뉴',
+          price: '0',
+          free: true,
+          registeredMenus: [(menu: '유료 메뉴', price: '1000', free: false)],
+        ),
+        isNull,
+      );
+    },
+  );
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
@@ -27,6 +59,50 @@ void main() {
     latitude: 37.49,
     longitude: 127.01,
     source: 'GOV',
+  );
+
+  for (final slot in [2, 3]) {
+    testWidgets('history menu slot $slot is retained and new price is blank', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: PriceChangeReportScreen(
+              store: testStore,
+              initialMenuIndex: slot,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final fields = tester
+          .widgetList<TextField>(find.byType(TextField))
+          .toList();
+      expect(fields.first.controller!.text, testStore.menuAt(slot));
+      expect(fields[1].controller!.text, isEmpty);
+    });
+  }
+
+  testWidgets(
+    'missing explicit history slot never silently selects primary menu',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: PriceChangeReportScreen(
+              store: testStore,
+              initialMenuIndex: 4,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        isEmpty,
+      );
+    },
   );
 
   testWidgets(
@@ -127,7 +203,7 @@ void main() {
   });
 
   test('price direction validation rejects unchanged and inverse values', () {
-    final menus = [(menu: '김치찌개', price: '3,000원')];
+    final menus = [(menu: '김치찌개', price: '3,000원', free: false)];
     String? check(String type, String price) => validatePriceChange(
       changeType: type,
       menu: '김치찌개',

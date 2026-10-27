@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_failure.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_radius.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
 
@@ -18,94 +20,232 @@ final todaysPickServiceProvider = Provider(
 );
 
 const todaysPickMaxDistanceMeters = 3000.0;
+const todaysPickCacheMaxAge = Duration(minutes: 1);
 
 class TodaysPickService {
   TodaysPickService([
     http.Client? client,
-    this.requestTimeout = const Duration(seconds: 8),
-  ]) : _client = client ?? http.Client();
+    this.requestTimeout = recommendationRequestTimeout,
+    DateTime Function()? clock,
+  ]) : _client = client ?? http.Client(),
+       _clock = clock ?? DateTime.now;
 
   final http.Client _client;
   final Duration requestTimeout;
+  final DateTime Function() _clock;
+  final _pickCache =
+      <String, ({DateTime savedAt, Map<String, dynamic> data})>{};
+  final _pickRequests = <String, Future<Map<String, dynamic>>>{};
 
-  /// 오늘의 픽 조회 (세션 인증 불필요 — 공개 GET)
+  /// Synchronous, fresh-only lookup for rendering before a refresh completes.
+  /// Reading never extends the one-minute lifetime or changes the context key.
+  Map<String, dynamic>? getCachedTodaysPick({
+    required double? lat,
+    required double? lng,
+    int radiusMeters = defaultRecommendationRadiusMeters,
+  }) {
+    final now = _clock();
+    final key = _cacheKey(now, lat, lng, radiusMeters);
+    final cached = _pickCache[key];
+    if (cached == null) return null;
+    final age = now.difference(cached.savedAt);
+    if (age.isNegative || age >= todaysPickCacheMaxAge) {
+      _pickCache.remove(key);
+      return null;
+    }
+    return cached.data;
+  }
+
+  String _cacheKey(DateTime now, double? lat, double? lng, int radiusMeters) =>
+      '${now.year}-${now.month}-${now.day}:$lat:$lng:$radiusMeters';
+
+  /// 오늘의 픽 조회. 공개 GET이지만 로그인 상태면 세션 토큰을 함께 보내
+  /// 서버가 IP 대신 계정 기준으로 요청량을 셀 수 있게 합니다.
   Future<Map<String, dynamic>> getTodaysPick({
     double? lat,
     double? lng,
     int radiusMeters = defaultRecommendationRadiusMeters,
+    bool forceRefresh = false,
   }) async {
-    if (!validRecommendationRadius(radiusMeters)) {
-      return const {'error': true, 'message': '추천 거리는 1~15km, 1km 단위로 선택해주세요.'};
+    // Exact coordinates and radius preserve the server's distance boundary.
+    // Only successful public results are kept briefly in this provider's memory.
+    final now = _clock();
+    final key = _cacheKey(now, lat, lng, radiusMeters);
+    // A forced request bypasses, but does not hide, a still-fresh result.
+    final cached = forceRefresh ? null : _pickCache[key];
+    if (cached != null) {
+      final age = now.difference(cached.savedAt);
+      if (!age.isNegative && age < todaysPickCacheMaxAge) return cached.data;
+      _pickCache.remove(key);
     }
-    if (lat == null || lng == null) {
-      return const {'error': true, 'message': '현재 위치가 필요합니다.'};
-    }
-    final query = <String, String>{
-      'lat': lat.toString(),
-      'lng': lng.toString(),
-      'radiusMeters': radiusMeters.toString(),
-    };
-    final url = ApiClient.uri('/api/recommendation/todays-pick', query);
-
+    final activeRequest = _pickRequests[key];
+    if (activeRequest != null) return activeRequest;
+    final request = _getRecommendation(
+      '/api/recommendation/todays-pick',
+      lat: lat,
+      lng: lng,
+      radiusMeters: radiusMeters,
+      invalidMessage: '추천 응답 형식이 올바르지 않습니다.',
+    );
+    _pickRequests[key] = request;
     try {
-      final response = await _client
-          .get(url, headers: ApiClient.jsonHeaders())
-          .timeout(requestTimeout);
-
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-        if (decoded is Map) {
-          return normalizeRecommendationResponse(
-            Map<String, dynamic>.from(decoded),
-            invalidMessage: '추천 응답 형식이 올바르지 않습니다.',
-          );
-        }
-        return const {'error': true, 'message': '추천 응답 형식이 올바르지 않습니다.'};
+      final data = await request;
+      if (data['error'] != true) {
+        _pickCache.remove(key);
+        _pickCache[key] = (savedAt: _clock(), data: data);
+        if (_pickCache.length > 8) _pickCache.remove(_pickCache.keys.first);
+      } else {
+        _pickCache.remove(key);
       }
-      return {'error': true, 'statusCode': response.statusCode};
-    } catch (_) {
-      return const {'error': true, 'message': '추천 정보를 불러오지 못했습니다.'};
+      return data;
+    } finally {
+      if (identical(_pickRequests[key], request)) _pickRequests.remove(key);
     }
   }
 
-  /// AI 루트 추천 조회 (세션 인증 불필요 — 공개 GET)
+  /// Render의 공유 IP가 보조 날씨 API의 사용량 제한을 받을 때도 사용자의
+  /// 네트워크에서 한 번 더 조회해 오늘의 픽 온도를 복구한다.
+  Future<Map<String, dynamic>?> getDeviceWeather({
+    required double lat,
+    required double lng,
+  }) async {
+    final url = Uri.https('api.open-meteo.com', '/v1/forecast', {
+      'latitude': lat.toString(),
+      'longitude': lng.toString(),
+      'current': 'temperature_2m,weather_code',
+      'timezone': 'Asia/Seoul',
+    });
+    try {
+      final response = await _client
+          .get(url)
+          .timeout(const Duration(seconds: 4));
+      if (response.statusCode != 200) return null;
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is! Map || decoded['current'] is! Map) return null;
+      final current = Map<String, dynamic>.from(decoded['current'] as Map);
+      final rawTemperature = current['temperature_2m'];
+      final temperature = rawTemperature is num
+          ? rawTemperature.toDouble()
+          : double.tryParse(rawTemperature?.toString() ?? '');
+      if (temperature == null || !temperature.isFinite) return null;
+      final rawCode = current['weather_code'];
+      final weatherCode = rawCode is num
+          ? rawCode.toInt()
+          : int.tryParse(rawCode?.toString() ?? '') ?? -1;
+      return {
+        'weatherAvailable': true,
+        'weather': describeWmoWeather(weatherCode),
+        'temp': temperature.round(),
+        'fcstTime': current['time']?.toString(),
+        'weatherSource': 'OPEN_METEO_DEVICE',
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 추천 루트 조회. 서버의 시간당 요청 제한이 같은 와이파이 사용자끼리
+  /// 공유되지 않도록 로그인 상태면 세션 토큰을 보냅니다.
   Future<Map<String, dynamic>> getRoute({
     double? lat,
     double? lng,
     int radiusMeters = defaultRecommendationRadiusMeters,
+  }) => _getRecommendation(
+    '/api/recommendation/route',
+    lat: lat,
+    lng: lng,
+    radiusMeters: radiusMeters,
+    invalidMessage: '추천 루트 응답 형식이 올바르지 않습니다.',
+  );
+
+  Future<Map<String, dynamic>> _getRecommendation(
+    String path, {
+    required double? lat,
+    required double? lng,
+    required int radiusMeters,
+    required String invalidMessage,
   }) async {
     if (!validRecommendationRadius(radiusMeters)) {
-      return const {'error': true, 'message': '추천 거리는 1~15km, 1km 단위로 선택해주세요.'};
+      return recommendationError(
+        RecommendationFailure.invalidRequest,
+        message: '추천 거리는 1~15km, 1km 단위로 선택해주세요.',
+      );
     }
     if (lat == null || lng == null) {
-      return const {'error': true, 'message': '현재 위치가 필요합니다.'};
+      return recommendationError(RecommendationFailure.location);
     }
-    final query = <String, String>{
+    final url = ApiClient.uri(path, {
       'lat': lat.toString(),
       'lng': lng.toString(),
       'radiusMeters': radiusMeters.toString(),
-    };
-    final url = ApiClient.uri('/api/recommendation/route', query);
+    });
 
+    final http.Response response;
     try {
-      final response = await _client
-          .get(url, headers: ApiClient.jsonHeaders())
+      // GET has no body: omitting Content-Type avoids a CORS preflight.
+      response = await _client
+          .get(url, headers: ApiClient.authHeaders(auth: true))
           .timeout(requestTimeout);
+    } on TimeoutException {
+      return recommendationError(RecommendationFailure.timeout);
+    } catch (_) {
+      return recommendationError(RecommendationFailure.network);
+    }
 
-      if (response.statusCode == 200) {
+    final statusCode = response.statusCode;
+    if (statusCode == 200) {
+      try {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map) {
           return normalizeRecommendationResponse(
             Map<String, dynamic>.from(decoded),
-            invalidMessage: '추천 루트 응답 형식이 올바르지 않습니다.',
+            invalidMessage: invalidMessage,
           );
         }
-        return const {'error': true, 'message': '추천 루트 응답 형식이 올바르지 않습니다.'};
+      } catch (_) {
+        // Treated as an unreadable response below.
       }
-      return {'error': true, 'statusCode': response.statusCode};
-    } catch (_) {
-      return const {'error': true, 'message': '추천 루트를 불러오지 못했습니다.'};
+      return recommendationError(
+        RecommendationFailure.invalidResponse,
+        message: invalidMessage,
+      );
     }
+    final failure = switch (statusCode) {
+      429 => RecommendationFailure.rateLimited,
+      400 => RecommendationFailure.invalidRequest,
+      >= 500 => RecommendationFailure.server,
+      _ => RecommendationFailure.unknown,
+    };
+    return recommendationError(
+      failure,
+      message: _serverMessage(response),
+      statusCode: statusCode,
+    );
+  }
+}
+
+String describeWmoWeather(int code) {
+  if (code == 0) return '맑음';
+  if (code == 1) return '대체로 맑음';
+  if (code == 2) return '구름 조금';
+  if (code == 3) return '흐림';
+  if (code == 45 || code == 48) return '안개';
+  if (code >= 51 && code <= 57) return '이슬비';
+  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return '비';
+  if ((code >= 71 && code <= 77) || code == 85 || code == 86) return '눈';
+  if (code >= 95 && code <= 99) return '천둥번개';
+  return '알 수 없음';
+}
+
+String? _serverMessage(http.Response response) {
+  try {
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    final message = decoded is Map
+        ? decoded['message']?.toString().trim()
+        : null;
+    return message == null || message.isEmpty ? null : message;
+  } catch (_) {
+    return null;
   }
 }
 
@@ -115,7 +255,10 @@ Map<String, dynamic> normalizeRecommendationResponse(
 }) {
   final rawPicks = response['picks'];
   if (rawPicks is! List) {
-    return {'error': true, 'message': invalidMessage};
+    return recommendationError(
+      RecommendationFailure.invalidResponse,
+      message: invalidMessage,
+    );
   }
 
   final picks = rawPicks
@@ -125,9 +268,18 @@ Map<String, dynamic> normalizeRecommendationResponse(
       .toList(growable: false);
 
   if (rawPicks.isNotEmpty && picks.isEmpty) {
-    return {'error': true, 'message': invalidMessage};
+    return recommendationError(
+      RecommendationFailure.invalidResponse,
+      message: invalidMessage,
+    );
   }
-  return {...response, 'picks': picks};
+  return {
+    ...response,
+    if (response['recommendationBasis'] == null &&
+        response['weatherAvailable'] == false)
+      'recommendationBasis': 'nearby',
+    'picks': picks,
+  };
 }
 
 Map<String, dynamic> buildLocalTodaysPickData({
@@ -196,6 +348,9 @@ Map<String, dynamic> buildLocalTodaysPickData({
 
   return {
     'weather': '위치 기반',
+    'weatherAvailable': false,
+    'weatherRefreshing': false,
+    'recommendationBasis': 'nearby',
     'fallback': true,
     'picks': selected.map((entry) {
       final slot = _localPickMenuSlot(entry.store)!;
@@ -207,7 +362,8 @@ Map<String, dynamic> buildLocalTodaysPickData({
         'matchedFree': entry.store.freeAt(slot),
         'menuIndex': slot,
         'theme': '가까운 거리',
-        'reason': 'AI 연결 대신 가까운 매장을 안내해요.',
+        // Today's pick is rule-based on the server, not AI; say what failed.
+        'reason': '추천 서버에 연결하지 못해 가까운 매장을 안내해요.',
       };
     }).toList(),
   };
@@ -240,32 +396,6 @@ bool _isFoodStore(Store store) {
 }
 
 bool _isDessertStore(Store store) {
-  const keywords = [
-    '카페',
-    '커피',
-    '아메리카노',
-    '라떼',
-    '에이드',
-    '주스',
-    '스무디',
-    '녹차',
-    '홍차',
-    '밀크티',
-    '디저트',
-    '베이커리',
-    '제과',
-    '빵',
-    '케이크',
-    '쿠키',
-    '도넛',
-    '꽈배기',
-    '크로플',
-    '와플',
-    '아이스크림',
-    '빙수',
-    '마카롱',
-    '샌드위치',
-  ];
   final text = [
     store.industry,
     store.storeName,
@@ -274,8 +404,53 @@ bool _isDessertStore(Store store) {
     store.menu3,
     store.menu4,
   ].join(' ').toLowerCase();
-  return keywords.any(text.contains);
+  return _dessertKeywords.any(text.contains);
 }
+
+/// Whether a recommended stop is a cafe or dessert place, judged the same way
+/// the server splits meals from desserts when it picks the stops.
+bool isDessertRecommendation(Map<String, dynamic> pick) {
+  final text = [
+    for (final key in const [
+      'industry',
+      'storeName',
+      'menu1',
+      'menu2',
+      'menu3',
+      'menu4',
+    ])
+      pick[key]?.toString() ?? '',
+  ].join(' ').toLowerCase();
+  return _dessertKeywords.any(text.contains);
+}
+
+/// Mirrors DESSERT_KEYWORDS in the server's FirebaseService.
+const _dessertKeywords = [
+  '카페',
+  '커피',
+  '아메리카노',
+  '라떼',
+  '에이드',
+  '주스',
+  '스무디',
+  '녹차',
+  '홍차',
+  '밀크티',
+  '디저트',
+  '베이커리',
+  '제과',
+  '빵',
+  '케이크',
+  '쿠키',
+  '도넛',
+  '꽈배기',
+  '크로플',
+  '와플',
+  '아이스크림',
+  '빙수',
+  '마카롱',
+  '샌드위치',
+];
 
 double _distanceMeters(double lat1, double lng1, double lat2, double lng2) {
   const earthRadius = 6371000.0;

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/keep_all_text.dart';
 import 'dart:convert';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/savings/presentation/state/savings_period.dart';
@@ -11,18 +13,26 @@ import 'package:howmuch/app/app_routes.dart';
 String normalizeSavingsCategory(Object? rawValue) {
   final value = rawValue?.toString().trim() ?? '';
   if (value.isEmpty) return '기타';
-  if (value.contains('카페') || value.contains('커피') || value.contains('다방')) {
+  if (value.contains('카페') ||
+      value.contains('커피') ||
+      value.contains('다방') ||
+      value.contains('제과') ||
+      value.contains('베이커리')) {
     return '카페';
   }
   if (value.contains('미용') || value.contains('이용') || value.contains('헤어')) {
     return '미용';
   }
+  // The public dataset has '기타비요식업' (non-food) next to '기타요식업' (food).
+  if (value.contains('비요식')) return '기타';
   if (value.contains('음식') ||
       value.contains('식당') ||
       value.contains('분식') ||
       value.contains('한식') ||
       value.contains('중식') ||
-      value.contains('양식')) {
+      value.contains('양식') ||
+      value.contains('일식') ||
+      value.contains('요식')) {
     return '음식점';
   }
   return '기타';
@@ -115,11 +125,14 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
         // 💡 실제 API는 List<SavingsHistoryResponse> 직렬 배열을 반환합니다.
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         final List<dynamic> historyData = decoded is List ? decoded : [];
+        final storeSources = await _lookUpStoreSources(historyData);
+        if (!mounted) return;
 
         final parsed = historyData.map((item) {
-          final source = item['storeSource']?.toString().trim().toUpperCase();
-          final isGov =
-              source == 'GOV' || (source == null && item['isGov'] == true);
+          final source =
+              _recordedSource(item) ??
+              storeSources[item['storeId']?.toString().trim()];
+          final isGov = source == 'GOV';
           final String badgeText = isGov
               ? '정부 인증'
               : source == 'USER'
@@ -138,8 +151,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
               ? 0
               : (item['savedAmount'] as num?)?.toInt() ?? 0;
 
-          final String dateRaw =
-              item['date']?.toString() ?? item['visitedAt']?.toString() ?? '';
+          final String dateRaw = _visitDateText(item);
           final String category = normalizeSavingsCategory(
             item['category'] ?? item['industry'],
           );
@@ -183,11 +195,11 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
           _isLoading = false;
         });
       } else {
-        _setLoadError('절약 내역을 불러오지 못했어요.');
+        _setLoadError('잠시 후 다시 시도해 주세요.');
       }
     } catch (e) {
       debugPrint('절약 내역 조회 오류: $e');
-      if (mounted) _setLoadError('네트워크 오류로 절약 내역을 불러오지 못했어요.');
+      if (mounted) _setLoadError('인터넷 연결을 확인하고 다시 시도해 주세요.');
     }
   }
 
@@ -201,6 +213,60 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
       _errorMessage = message;
       _isLoading = false;
     });
+  }
+
+  static String _visitDateText(dynamic item) =>
+      item['date']?.toString() ?? item['visitedAt']?.toString() ?? '';
+
+  /// 절약 내역에 담긴 매장 출처입니다. 서버는 지도·매장 상세와 같은 출처를
+  /// storeSource로 보냅니다. 매장을 찾지 못했거나 이전 서버라 이 값이 없으면
+  /// isGov로 정부 인증 여부만 알 수 있습니다.
+  static String? _recordedSource(dynamic item) {
+    final source = item['storeSource']?.toString().trim().toUpperCase();
+    if (source == 'GOV' || source == 'USER') return source;
+    if (source == null && item['isGov'] == true) return 'GOV';
+    return null;
+  }
+
+  /// 출처를 받지 못한 기간 안의 방문 기록은 매장 정보로 실제 출처를 확인합니다.
+  /// 지도와 매장 상세도 이 매장 정보의 출처를 쓰므로 같은 매장이 화면마다 다르게
+  /// 보이지 않습니다. 조회하지 못한 매장은 출처를 추측하지 않습니다.
+  Future<Map<String, String>> _lookUpStoreSources(List<dynamic> history) async {
+    final period = _period;
+    if (period == null) return const {};
+    final storeIds = <String>{};
+    for (final item in history) {
+      if (item is! Map || _recordedSource(item) != null) continue;
+      final date = _parseDate(_visitDateText(item));
+      final storeId = item['storeId']?.toString().trim() ?? '';
+      if (date != null && period.contains(date) && storeId.isNotEmpty) {
+        storeIds.add(storeId);
+      }
+    }
+    final results = await Future.wait(
+      storeIds.map((storeId) async {
+        try {
+          final response = await ApiClient.get(
+            ApiClient.uri('/api/stores/${Uri.encodeComponent(storeId)}'),
+            headers: ApiClient.jsonHeaders(),
+            timeout: const Duration(seconds: 5),
+          );
+          if (response.statusCode != 200) return null;
+          final store = jsonDecode(utf8.decode(response.bodyBytes));
+          if (store is! Map) return null;
+          final id = (store['storeId'] ?? store['id'])?.toString();
+          final source = store['source']?.toString().trim().toUpperCase();
+          if (id != storeId || (source != 'GOV' && source != 'USER')) {
+            return null;
+          }
+          return MapEntry(storeId, source!);
+        } catch (error) {
+          debugPrint('절약 내역 매장 출처 조회 실패: $error');
+          return null;
+        }
+      }),
+    );
+    return Map.fromEntries(results.nonNulls);
   }
 
   /// ISO 8601/점 형식 날짜 문자열을 파싱 (실패 시 null)
@@ -418,46 +484,21 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                               ),
                             )
                           else if (_errorMessage != null)
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 40,
-                                ),
-                                child: Column(
-                                  children: [
-                                    Text(
-                                      _errorMessage!,
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontFamily: 'Noto Sans KR',
-                                        fontFamilyFallback: ['Noto Sans KR'],
-                                        color: Color(0xFF64748B),
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    TextButton(
-                                      onPressed: _fetchSavingsHistory,
-                                      child: const Text('다시 시도'),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                            _SavingsListState(
+                              icon: Icons.error_outline_rounded,
+                              title: '절약 내역을 불러오지 못했어요',
+                              message: _errorMessage!,
+                              // Without a valid period a retry fails the same
+                              // way; the message points back to the report.
+                              onRetry: _period == null
+                                  ? null
+                                  : _fetchSavingsHistory,
                             )
                           else if (filteredItems.isEmpty)
-                            const Center(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 40),
-                                child: Text(
-                                  '절약 내역이 없습니다.',
-                                  style: TextStyle(
-                                    fontFamily: 'Noto Sans KR',
-                                    fontFamilyFallback: ['Noto Sans KR'],
-                                    color: Color(0xFF64748B),
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
+                            const _SavingsListState(
+                              icon: Icons.receipt_long_outlined,
+                              title: '절약 내역이 없어요',
+                              message: '방문 인증을 하면 아낀 금액이 여기에 쌓여요.',
                             )
                           else
                             ...filteredItems.map((item) {
@@ -689,6 +730,96 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The error and empty states of the savings list: a quiet card in the
+/// list's place, styled like the saving cards it stands in for.
+class _SavingsListState extends StatelessWidget {
+  const _SavingsListState({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.onRetry,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: AppColors.muted, size: 22),
+          ),
+          const SizedBox(height: 12),
+          KeepAllText(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Noto Sans KR',
+              fontFamilyFallback: ['Noto Sans KR'],
+              color: AppColors.ink,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 4),
+          KeepAllText(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Noto Sans KR',
+              fontFamilyFallback: ['Noto Sans KR'],
+              color: AppColors.muted,
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+          if (onRetry != null) ...[
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onRetry,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primaryLight,
+                foregroundColor: AppColors.primary,
+                minimumSize: const Size(0, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: const TextStyle(
+                  fontFamily: 'Noto Sans KR',
+                  fontFamilyFallback: ['Noto Sans KR'],
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              icon: const Icon(Icons.refresh_rounded, size: 16),
+              label: const Text('다시 시도'),
+            ),
+          ],
         ],
       ),
     );

@@ -84,6 +84,12 @@ public class InquiryController {
         try {
             Map<String, Object> result = firebaseService.createInquiry(firebaseUid, request);
             return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            // BE-CORE-21: 첨부 사진 주소가 본인 업로드가 아니거나 형식이 틀리면 서버 오류가 아니라 요청 오류입니다.
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "첨부한 사진을 확인할 수 없어요. 사진을 다시 첨부해주세요."
+            ));
         } catch (Exception e) {
             log.error("[InquiryController] 문의 등록 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(

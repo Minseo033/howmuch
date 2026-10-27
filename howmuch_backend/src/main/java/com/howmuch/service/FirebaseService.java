@@ -22,7 +22,7 @@ import com.howmuch.dto.UserProfileResponse;
 import com.howmuch.dto.StoreCoordinates;
 import com.howmuch.dto.NotificationSettingsDto;
 import com.howmuch.dto.PriceAlertSubscriptionDto;
-import com.howmuch.dto.PriceAlertSubscriptionRequest;
+import com.howmuch.diagnostics.CatalogTiming;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.beans.factory.annotation.Value;
@@ -55,8 +55,11 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Stream;
+import java.util.regex.Pattern;
+import java.security.DigestOutputStream;
+import java.io.OutputStream;
 
 @Slf4j
 @Service
@@ -66,7 +69,19 @@ public class FirebaseService {
     private final ReportImageStorage reportImageStorage;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private TruePriceService truePriceService;
+    private static final TruePriceService BUNDLED_TRUE_PRICE_FALLBACK = new TruePriceService(8000);
     private StoreHoursCatalog storeHoursCatalog;
+
+    // Reuse regex programs during nationwide builds without changing identity rules.
+    private static final Pattern IDENTITY_WHITESPACE = Pattern.compile("\\s+");
+    private static final Pattern NON_PHONE_DIGIT = Pattern.compile("\\D");
+    private static final Pattern NON_IDENTITY_CHARACTER = Pattern.compile("[^\\p{L}\\p{N}]");
+    private static final Pattern CORRECTABLE_MENU_FIELD = Pattern.compile("(?:menu|price|free)[1-4]");
+    private static final List<String> PUBLIC_STORE_FIELDS = List.of(
+            "storeId", "storeName", "address", "phoneNumber", "industry",
+            "menu1", "price1", "menu2", "price2", "menu3", "price3",
+            "menu4", "price4", "free1", "free2", "free3", "free4", "latitude", "longitude",
+            "openingHours", "isClosed", "correctionRevision");
 
     /**
      * 착한가격업소(공공데이터) 인메모리 캐시.
@@ -80,6 +95,16 @@ public class FirebaseService {
 
     /** 사용자 제보 매장 인메모리 캐시 (bounds 조회 시 Firestore 실시간 조회 제거) */
     private volatile List<Map<String, Object>> cachedUserStores = List.of();
+    private static final long SAVINGS_HISTORY_CACHE_TTL_MS = 30_000L;
+    private static final int SAVINGS_HISTORY_CACHE_MAX_USERS = 256;
+    private final Object savingsHistoryCacheLock = new Object();
+    private final Map<String, SavingsHistoryLoad> savingsHistoryCache = new LinkedHashMap<>(16, 0.75f, true);
+
+    private static final class SavingsHistoryLoad {
+        final CompletableFuture<List<com.howmuch.dto.SavingsHistoryResponse>> result = new CompletableFuture<>();
+        long cachedAtMs;
+        boolean invalidated;
+    }
     /** Reviewed overlays survive snapshots/restarts; source records are never overwritten. */
     private volatile Map<String, Map<String, Object>> cachedStoreCorrections = Map.of();
     private static final String STORE_CORRECTIONS_COLLECTION = "store_corrections";
@@ -131,19 +156,51 @@ public class FirebaseService {
     @Async
     @EventListener(ApplicationReadyEvent.class)
     public void warmStoreCaches() {
-        loadStoreCorrections();
-        // 1순위: 디스크 스냅샷 (같은 인스턴스 재시작 시 Firestore 읽기 0)
-        if (loadGovStoresFromDisk()) {
-            log.info("디스크 스냅샷에서 매장 {}개를 로드했습니다.", cachedStores.size());
-        // 2순위: 리포지토리에 커밋된 classpath 스냅샷 (신규 인스턴스 콜드스타트 대비)
-        } else if (loadGovStoresFromClasspath()) {
-            log.info("classpath 스냅샷에서 매장 {}개를 로드했습니다.", cachedStores.size());
-        // 3순위: Firestore 로드 후 디스크에 영속화 (하루 1회 갱신 주기 내 최초 1회)
-        } else {
-            refreshGovStores();
+        try {
+            loadStoreCorrections();
+            // 시작 전에 동기로 올린 스냅샷이 있으면 다시 읽지 않습니다(BE-CORE-7).
+            if (cachedStores.isEmpty()) {
+                // 1순위: 디스크 스냅샷 (같은 인스턴스 재시작 시 Firestore 읽기 0)
+                if (loadGovStoresFromDisk()) {
+                    log.info("디스크 스냅샷에서 매장 {}개를 로드했습니다.", cachedStores.size());
+                // 2순위: 리포지토리에 커밋된 classpath 스냅샷 (신규 인스턴스 콜드스타트 대비)
+                } else if (loadGovStoresFromClasspath()) {
+                    log.info("classpath 스냅샷에서 매장 {}개를 로드했습니다.", cachedStores.size());
+                // 3순위: Firestore 로드 후 디스크에 영속화 (하루 1회 갱신 주기 내 최초 1회)
+                } else {
+                    refreshGovStores();
+                }
+            }
+            // 사용자 제보 매장은 소량이므로 부팅 시 로드
+            loadUserStoresFromFirestore();
+        } finally {
+            storeCatalogWarmingUp = false;
         }
-        // 사용자 제보 매장은 소량이므로 부팅 시 로드
-        loadUserStoresFromFirestore();
+    }
+
+    /** 사용자 제보 매장·매장 보정의 첫 로드가 끝나기 전인지 여부(BE-CORE-7). */
+    private volatile boolean storeCatalogWarmingUp = true;
+
+    /**
+     * BE-CORE-7: 서버 시작 직후 첫 요청 전에 번들(디스크·classpath) 스냅샷을 동기로 올려
+     * 콜드스타트 구간에 지도 목록이 비거나 매장 상세가 404가 되지 않게 합니다. Firestore는 읽지 않습니다.
+     */
+    @jakarta.annotation.PostConstruct
+    void loadBundledStoresBeforeServing() {
+        if (!cachedStores.isEmpty()) return;
+        if (loadGovStoresFromDisk()) {
+            log.info("시작 전 디스크 스냅샷에서 매장 {}개를 로드했습니다.", cachedStores.size());
+        } else if (loadGovStoresFromClasspath()) {
+            log.info("시작 전 classpath 스냅샷에서 매장 {}개를 로드했습니다.", cachedStores.size());
+        }
+    }
+
+    /**
+     * 매장 목록이 아직 준비 중이면 true입니다. 이때 "매장을 찾을 수 없음"은 확정 답이 아니므로
+     * 컨트롤러가 404·422 대신 503과 Retry-After로 응답합니다.
+     */
+    public boolean isStoreCatalogWarmingUp() {
+        return storeCatalogWarmingUp || cachedStores.isEmpty();
     }
 
     /**
@@ -187,7 +244,21 @@ public class FirebaseService {
                     .get().get().getDocuments().stream()
                     .map(DocumentSnapshot::getData)
                     .toList();
-            if (!stores.isEmpty()) {
+            if (!stores.isEmpty() && isSuspiciousCatalogShrink(stores.size())) {
+                // BE-CORE-25: 동기화 오류로 매장 수가 급감한 결과는 설치·디스크 저장하지 않고 기존 캐시를 유지합니다.
+                // 매시간 전량을 다시 읽어 일일 쿼터를 소진하지 않도록 이번 시도도 24시간 가드에 기록합니다.
+                log.warn("Firestore 매장 수가 급감해 갱신을 보류합니다: 기존 {}개 → 새 {}개",
+                        cachedBaseStores.size(), stores.size());
+                lastGovRefreshSuccessMillis = System.currentTimeMillis();
+                try {
+                    db.collection(GOV_META_COLLECTION).document(GOV_META_DOC).set(Map.of(
+                            "lastRefreshAt", lastGovRefreshSuccessMillis,
+                            "lastRejectedCount", stores.size(),
+                            "lastAcceptedCount", cachedBaseStores.size())).get();
+                } catch (Exception metaEx) {
+                    log.warn("매장 갱신 보류 기록 저장 실패: {}", metaEx.getClass().getSimpleName());
+                }
+            } else if (!stores.isEmpty()) {
                 installGovStores(stores);
                 lastGovRefreshSuccessMillis = System.currentTimeMillis();
                 persistGovStoresSnapshot(stores);
@@ -214,6 +285,14 @@ public class FirebaseService {
     public void refreshUserStores() {
         loadUserStoresFromFirestore();
         loadStoreCorrections();
+    }
+
+    /** 새 공공데이터가 기존의 80% 미만이면 동기화 오류로 보고 설치하지 않습니다. */
+    static final double MIN_CATALOG_RETENTION_RATIO = 0.8;
+
+    boolean isSuspiciousCatalogShrink(int incomingCount) {
+        int current = cachedBaseStores.size();
+        return current > 0 && incomingCount < current * MIN_CATALOG_RETENTION_RATIO;
     }
 
     private void loadStoreCorrections() {
@@ -323,7 +402,17 @@ public class FirebaseService {
                     strOrNull(store.get("address")),
                     strOrNull(store.get("phoneNumber")));
             if (!identities.add(identity)) continue;
-            merged.add(store);
+            // Identity was just calculated for deduplication. Retain it only in the
+            // runtime copy so first requests/correction rebuilds do not hash 11k IDs again.
+            // cachedBaseStores remains the untouched refresh/export snapshot.
+            Object existingId = store.get("storeId");
+            if (existingId == null || existingId.toString().isBlank()) {
+                Map<String, Object> identified = new HashMap<>(store);
+                identified.put("storeId", identity);
+                merged.add(Collections.unmodifiableMap(identified));
+            } else {
+                merged.add(store);
+            }
             String phoneNumber = comparablePhone(store.get("phoneNumber"));
             if (!phoneNumber.isBlank()) phoneNumbers.add(phoneNumber);
             nameAddresses.add(comparableNameAddress(store));
@@ -370,14 +459,14 @@ public class FirebaseService {
     }
 
     private String comparablePhone(Object value) {
-        String digits = value == null ? "" : value.toString().replaceAll("\\D", "");
+        String digits = value == null ? "" : NON_PHONE_DIGIT.matcher(value.toString()).replaceAll("");
         return digits.length() >= 8 ? digits : "";
     }
 
     private String comparableNameAddress(Map<String, Object> store) {
-        return normalizeStoreIdentityPart(strOrNull(store.get("storeName"))).replaceAll("[^\\p{L}\\p{N}]", "")
+        return NON_IDENTITY_CHARACTER.matcher(normalizeStoreIdentityPart(strOrNull(store.get("storeName")))).replaceAll("")
                 + "|"
-                + normalizeStoreIdentityPart(strOrNull(store.get("address"))).replaceAll("[^\\p{L}\\p{N}]", "");
+                + NON_IDENTITY_CHARACTER.matcher(normalizeStoreIdentityPart(strOrNull(store.get("address")))).replaceAll("");
     }
 
     /** 스냅샷을 임시 파일에 쓴 뒤 원자적으로 교체 (쓰기 중단으로 인한 파일 깨짐 방지) */
@@ -400,14 +489,17 @@ public class FirebaseService {
         return getStoreCatalogEntry().discoverableStores();
     }
 
-    public String getAllStoresEtag() { return getStoreCatalogEntry().etag(); }
-
     /** Body and validation tag must describe one immutable catalog snapshot. */
     public record PublicStoreCatalog(List<Map<String, Object>> stores, String etag) {}
 
     public PublicStoreCatalog getPublicStoreCatalog() {
-        AllStoresCacheEntry entry = getStoreCatalogEntry();
-        return new PublicStoreCatalog(entry.discoverableStores(), entry.etag());
+        long lookupStarted = System.nanoTime();
+        try {
+            AllStoresCacheEntry entry = getStoreCatalogEntry();
+            return new PublicStoreCatalog(entry.discoverableStores(), entry.etag());
+        } finally {
+            CatalogTiming.record("catalog_lookup", lookupStarted);
+        }
     }
 
     /** Includes closed stores for existing favorites, reviewed history and detail only. */
@@ -423,26 +515,39 @@ public class FirebaseService {
         Map<String, Map<String, Object>> correctionSnapshot = cachedStoreCorrections;
         AllStoresCacheEntry cached = allStoresCache;
         if (cached != null && cached.matches(govSnapshot, userSnapshot, correctionSnapshot)) {
+            CatalogTiming.source("hit", cached.discoverableStores().size(), storeCatalogWarmingUp);
             return cached;
         }
 
+        long waitStarted = System.nanoTime();
         synchronized (allStoresCacheLock) {
+            CatalogTiming.record("catalog_wait", waitStarted);
             govSnapshot = cachedStores;
             userSnapshot = cachedUserStores;
             correctionSnapshot = cachedStoreCorrections;
             cached = allStoresCache;
             if (cached != null && cached.matches(govSnapshot, userSnapshot, correctionSnapshot)) {
+                CatalogTiming.source("shared", cached.discoverableStores().size(), storeCatalogWarmingUp);
                 return cached;
             }
+            long buildStarted = System.nanoTime();
             List<Map<String, Object>> stores = buildAllStores(govSnapshot, userSnapshot, correctionSnapshot);
             List<Map<String, Object>> discoverable = stores.stream()
                     .filter(store -> !Boolean.TRUE.equals(store.get("isClosed"))).toList();
+            CatalogTiming.record("catalog_build", buildStarted);
             String etag;
+            long etagStarted = System.nanoTime();
             try {
-                byte[] digest = MessageDigest.getInstance("SHA-256").digest(objectMapper.writeValueAsBytes(discoverable));
-                etag = "\"" + java.util.HexFormat.of().formatHex(digest) + "\"";
+                // Hash the identical JSON stream without allocating a second nationwide byte array.
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                try (DigestOutputStream output = new DigestOutputStream(OutputStream.nullOutputStream(), digest)) {
+                    objectMapper.writeValue(output, discoverable);
+                }
+                etag = "\"" + java.util.HexFormat.of().formatHex(digest.digest()) + "\"";
             } catch (Exception exception) { throw new IllegalStateException("매장 목록의 검증값을 계산하지 못했습니다.", exception); }
+            finally { CatalogTiming.record("catalog_etag", etagStarted); }
             allStoresCache = new AllStoresCacheEntry(govSnapshot, userSnapshot, correctionSnapshot, stores, discoverable, etag);
+            CatalogTiming.source("miss", discoverable.size(), storeCatalogWarmingUp);
             return allStoresCache;
         }
     }
@@ -499,12 +604,11 @@ public class FirebaseService {
         Map<String, Object> normalized = withStableStoreId(rawStore);
         normalized = applyStoreCorrection(normalized, correctionSnapshot.get(String.valueOf(normalized.get("storeId"))));
         Map<String, Object> result = new HashMap<>();
-        for (String field : List.of(
-                "storeId", "storeName", "address", "phoneNumber", "industry",
-                "menu1", "price1", "menu2", "price2", "menu3", "price3",
-                "menu4", "price4", "free1", "free2", "free3", "free4", "latitude", "longitude", "openingHours", "isClosed", "correctionRevision")) {
+        for (String field : PUBLIC_STORE_FIELDS) {
             if (normalized.containsKey(field)) {
-                result.put(field, immutablePublicValue(normalized.get(field)));
+                // This private intermediate is not published. buildAllStores freezes it once,
+                // after duplicate filtering, including every nested hours/list value.
+                result.put(field, normalized.get(field));
             }
         }
         result.put("source", source);
@@ -517,7 +621,7 @@ public class FirebaseService {
         if (correction != null && correction.get("fields") instanceof Map<?, ?> fields) {
             for (var entry : fields.entrySet()) {
                 String field = String.valueOf(entry.getKey());
-                if (field.matches("(?:menu|price|free)[1-4]") || List.of("address", "latitude", "longitude", "isClosed").contains(field)) {
+                if (CORRECTABLE_MENU_FIELD.matcher(field).matches() || List.of("address", "latitude", "longitude", "isClosed").contains(field)) {
                     result.put(field, entry.getValue());
                 }
             }
@@ -575,11 +679,6 @@ public class FirebaseService {
      * 클라이언트가 보낸 매장명·가격·출처는 신뢰하지 않습니다.
      */
     public List<Map<String, Object>> getAiStoreContext(
-            List<String> storeIds, Double latitude, Double longitude) {
-        return getAiStoreContext(storeIds, latitude, longitude, 3000);
-    }
-
-    public List<Map<String, Object>> getAiStoreContext(
             List<String> storeIds, Double latitude, Double longitude, int radiusMeters) {
         validateRecommendationRadius(radiusMeters);
         if (!isValidCoordinate(latitude, longitude)) return List.of();
@@ -607,30 +706,6 @@ public class FirebaseService {
         }
     }
 
-    private void addAiStores(Map<String, Map<String, Object>> target,
-                             Set<String> requestedIds,
-                             List<Map<String, Object>> stores,
-                             String source,
-                             Double latitude,
-                             Double longitude) {
-        for (Map<String, Object> rawStore : stores) {
-            Map<String, Object> store = withStableStoreId(rawStore);
-            String storeId = strOrNull(store.get("storeId"));
-            if (storeId == null || !requestedIds.contains(storeId) || target.containsKey(storeId)) continue;
-
-            Map<String, Object> context = new HashMap<>();
-            context.put("storeId", storeId);
-            context.put("storeName", String.valueOf(store.getOrDefault("storeName", "매장명 없음")));
-            addAiStoreDetails(context, store);
-            context.put("source", source);
-            if (isValidCoordinate(latitude, longitude) && hasValidStoreCoordinate(store)) {
-                context.put("distanceMeters", (int) Math.round(haversine(
-                        latitude, longitude, parseLat(store), parseLng(store))));
-            }
-            target.put(storeId, context);
-        }
-    }
-
     private void addAiStoreDetails(Map<String, Object> context, Map<String, Object> store) {
         context.put("industry", String.valueOf(store.getOrDefault("industry", "")));
         context.put("address", store.getOrDefault("address", ""));
@@ -646,11 +721,10 @@ public class FirebaseService {
     /** 참가격을 우선하고, 미지원 품목은 실제 착한가격업소 가격 표본으로 보완합니다. */
     public java.util.Optional<ReferencePrices.Estimate> estimateReferencePrice(
             String menu, String industry, String address) {
-        if (truePriceService != null) {
-            java.util.Optional<ReferencePrices.Estimate> official =
-                    truePriceService.estimate(menu, industry, address);
-            if (official.isPresent()) return official;
-        }
+        TruePriceService officialService = truePriceService != null ? truePriceService : BUNDLED_TRUE_PRICE_FALLBACK;
+        java.util.Optional<ReferencePrices.Estimate> official =
+                officialService.estimate(menu, industry, address);
+        if (official.isPresent()) return official;
         return ReferencePrices.estimateFromPublicStores(getAllStores().stream()
                 .filter(store -> "GOV".equals(store.get("source"))).toList(), menu, industry);
     }
@@ -673,10 +747,44 @@ public class FirebaseService {
                 .toList();
     }
 
-    // 💡 화면 범위(Bounds) 기반 업소 조회 (정부 데이터 + 사용자 제보 통합, 전량 인메모리)
-    public List<Map<String, Object>> getStoresInBounds(double minLat, double maxLat, double minLng, double maxLng) {
-        return getAllStores().stream().filter(store -> isInBounds(store, minLat, maxLat, minLng, maxLng))
-                .limit(1200).toList();
+    /** 지도 범위 조회 상한 */
+    static final int MAX_BOUNDS_STORES = 1200;
+
+    /** 범위 안 매장과 상한 때문에 잘렸는지 여부 */
+    public record BoundsResult(List<Map<String, Object>> stores, boolean truncated) { }
+
+    /**
+     * 계약 C6: 범위 중심에서 가까운 순으로 정렬한 뒤 1,200곳으로 제한합니다. 넓게 줌아웃해도
+     * 화면 중앙 근처 매장(사용자 제보 포함)이 가나다·카탈로그 순서 때문에 빠지지 않습니다.
+     */
+    public BoundsResult getStoresInBoundsPage(double minLat, double maxLat, double minLng, double maxLng) {
+        double centerLat = (minLat + maxLat) / 2.0;
+        double centerLng = (minLng + maxLng) / 2.0;
+        double lngScale = Math.cos(Math.toRadians(centerLat));
+        List<Map<String, Object>> inBounds = getAllStores().stream()
+                .filter(store -> isInBounds(store, minLat, maxLat, minLng, maxLng))
+                .toList();
+        if (inBounds.size() <= MAX_BOUNDS_STORES) {
+            return new BoundsResult(sortedByCenterDistance(inBounds, centerLat, centerLng, lngScale), false);
+        }
+        List<Map<String, Object>> nearest = sortedByCenterDistance(inBounds, centerLat, centerLng, lngScale)
+                .subList(0, MAX_BOUNDS_STORES);
+        return new BoundsResult(List.copyOf(nearest), true);
+    }
+
+    private List<Map<String, Object>> sortedByCenterDistance(
+            List<Map<String, Object>> stores, double centerLat, double centerLng, double lngScale) {
+        // 범위가 10° 이내라 평면 근사로 순서를 정해도 충분합니다(동률은 기존 목록 순서 유지).
+        record Ranked(Map<String, Object> store, double distance) { }
+        return stores.stream()
+                .map(store -> {
+                    double dLat = parseLat(store) - centerLat;
+                    double dLng = (parseLng(store) - centerLng) * lngScale;
+                    return new Ranked(store, dLat * dLat + dLng * dLng);
+                })
+                .sorted(Comparator.comparingDouble(Ranked::distance))
+                .map(Ranked::store)
+                .toList();
     }
 
     /** 매장 상세의 가격 이력 조회. 승인된 가격 변동 제보만 공개합니다. */
@@ -718,7 +826,9 @@ public class FirebaseService {
             item.put("source", "USER");
             item.put("description", "승인된 가격 변동 반영");
             item.put("free", Boolean.TRUE.equals(applied.get("free" + slot)));
-            item.put("date", stringOrDefault(report, "createdAt", ""));
+            // BE-CORE-26: 가격이 실제로 바뀐 날은 승인일입니다. 승인 기록이 없는 예전 제보만 작성일을 씁니다.
+            item.put("date", stringOrDefault(report, "processedAt", stringOrDefault(report, "createdAt", "")));
+            item.put("reportedAt", stringOrDefault(report, "createdAt", ""));
             item.put("changeType", stringOrDefault(report, "changeType", ""));
             history.add(item);
         }
@@ -788,6 +898,8 @@ public class FirebaseService {
     public String saveUserReport(com.howmuch.dto.UserReportRequest report) throws Exception {
         report.setStatus("PENDING");
         report.setCreatedAt(java.time.Instant.now().toString());
+        // 반려 사유는 관리자만 정합니다. 클라이언트가 보낸 값은 저장하지 않습니다.
+        report.setRejectReason(null);
         if (report.getStoreId() == null || report.getStoreId().isBlank()) {
             report.setStoreId(stableStoreId(
                     report.getStoreName(), report.getAddress(), report.getPhoneNumber()));
@@ -816,6 +928,65 @@ public class FirebaseService {
         return docRef.getId();
     }
 
+    /**
+     * 본인이 수정할 수 있는 제보 원본을 돌려줍니다. 수정 요청 검증 전에 기존 유형·대상을 채우는 데 씁니다.
+     */
+    public Map<String, Object> getOwnedReportForEdit(String reportId, String reporterUid) throws Exception {
+        DocumentSnapshot existing = db.collection("stores_user").document(reportId).get().get();
+        if (!existing.exists()) {
+            throw new NoSuchElementException("제보를 찾을 수 없습니다.");
+        }
+        if (reporterUid == null || !reporterUid.equals(existing.getString("reporterId"))) {
+            throw new SecurityException("본인의 제보만 수정할 수 있습니다.");
+        }
+        if ("APPROVED".equalsIgnoreCase(existing.getString("status"))) {
+            throw new IllegalArgumentException("승인된 제보는 다시 작성할 수 없습니다. 새 변경 제보를 등록해주세요.");
+        }
+        return existing.getData() == null ? Map.of() : new HashMap<>(existing.getData());
+    }
+
+    /**
+     * 계약 C7: 수정 요청에 없는 유형(changeType·reportType)·대상(storeId)·설명은 기존 값으로 채웁니다.
+     * 제보의 종류는 수정으로 바뀌지 않습니다. 기존 매장 대상 제보(가격 변동·정보 신고)의 유형이나 대상을
+     * 바꾸는 요청과, 신규 매장 제보를 기존 매장 대상 제보로 바꾸는 요청은 거부합니다.
+     */
+    public static void preserveReportIdentity(
+            Map<String, Object> existing, com.howmuch.dto.UserReportRequest report) {
+        if (existing == null || report == null) return;
+        String existingChangeType = blankToNull(existing.get("changeType"));
+        String existingReportType = blankToNull(existing.get("reportType"));
+        String existingStoreId = blankToNull(existing.get("storeId"));
+        String requestedChangeType = blankToNull(report.getChangeType());
+        String requestedReportType = blankToNull(report.getReportType());
+        String requestedStoreId = blankToNull(report.getStoreId());
+        boolean existingStoreTarget = existingChangeType != null || existingReportType != null;
+        if (existingStoreTarget) {
+            if ((requestedChangeType != null && !requestedChangeType.equalsIgnoreCase(existingChangeType))
+                    || (requestedReportType != null && !requestedReportType.equalsIgnoreCase(existingReportType))) {
+                throw new IllegalArgumentException("제보 유형은 수정할 수 없어요. 기존 제보를 삭제한 뒤 새로 제보해주세요.");
+            }
+            if (requestedStoreId != null && existingStoreId != null && !requestedStoreId.equals(existingStoreId)) {
+                throw new IllegalArgumentException("제보 대상 매장은 수정할 수 없어요. 기존 제보를 삭제한 뒤 새로 제보해주세요.");
+            }
+        } else if (requestedChangeType != null || requestedReportType != null) {
+            throw new IllegalArgumentException("신규 매장 제보는 가격 변동이나 정보 신고로 바꿀 수 없어요. 새로 제보해주세요.");
+        }
+        report.setChangeType(existingChangeType);
+        report.setReportType(existingReportType);
+        // 신규 매장 제보도 처음 정한 식별자를 유지해야 이름·주소를 고쳐도 같은 제보로 남습니다.
+        if (existingStoreId != null) report.setStoreId(existingStoreId);
+        else report.setStoreId(requestedStoreId);
+        if (blankToNull(report.getDescription()) == null) {
+            report.setDescription(blankToNull(existing.get("description")));
+        }
+    }
+
+    private static String blankToNull(Object value) {
+        if (value == null) return null;
+        String text = value.toString().trim();
+        return text.isEmpty() ? null : text;
+    }
+
     public void updateUserReport(
             String reportId,
             String reporterUid,
@@ -832,6 +1003,8 @@ public class FirebaseService {
             throw new IllegalArgumentException("승인된 제보는 다시 작성할 수 없습니다. 새 변경 제보를 등록해주세요.");
         }
 
+        Map<String, Object> existingData = existing.getData() == null ? Map.of() : existing.getData();
+        preserveReportIdentity(existingData, report);
         List<String> existingImageUrls = stringList(existing.get("imageUrls"));
         report.setReporterId(reporterUid);
         report.setStatus("PENDING");
@@ -841,8 +1014,19 @@ public class FirebaseService {
         }
         validateReportTarget(report);
         report.setCreatedAt(stringOrDefault(
-                existing.getData(), "createdAt", java.time.Instant.now().toString()));
+                existingData, "createdAt", java.time.Instant.now().toString()));
         report.setRejectReason(null);
+        // 주소 좌표 변환에 실패한 수정은 기존 좌표·지역을 0이나 빈 값으로 덮지 않습니다.
+        if (report.getLatitude() == 0 && report.getLongitude() == 0) {
+            Double latitude = finiteNumberOrNull(existingData.get("latitude"));
+            Double longitude = finiteNumberOrNull(existingData.get("longitude"));
+            if (latitude != null && longitude != null) {
+                report.setLatitude(latitude);
+                report.setLongitude(longitude);
+            }
+        }
+        if (report.getCityProvince() == null) report.setCityProvince(strOrNull(existingData.get("cityProvince")));
+        if (report.getCityDistrict() == null) report.setCityDistrict(strOrNull(existingData.get("cityDistrict")));
         report.setImageUrls(normalizeReportImageUrls(
                 reporterUid,
                 report.getImageUrls(),
@@ -853,6 +1037,8 @@ public class FirebaseService {
         Map<String, Object> currentTarget = getStoreById(report.getStoreId());
         if (currentTarget != null) data.put("baseRevision", StoreCorrectionPolicy.revision(currentTarget));
         data.put("appliedFields", Map.of()); data.put("previousFields", Map.of()); data.put("resolution", "");
+        // 다시 검토 요청된 제보에 이전 처리 기록(처리 시각·검토 사유)이 남지 않게 비웁니다.
+        data.put("processedAt", null); data.put("reviewReason", null);
         try {
             db.runTransaction(transaction -> {
                 DocumentSnapshot latest = transaction.get(docRef).get();
@@ -944,7 +1130,9 @@ public class FirebaseService {
         int deletedComments = deleteWhere("comments", "postId", reportId);
         int deletedLikes = deleteWhere("feed_likes", "postId", reportId);
         int deletedSubscriptions = deleteWhere("feed_notifications", "postId", reportId);
-        int deletedNotifications = deleteWhere("notifications", "relatedReportId", reportId);
+        // BE-CORE-11: 제보 처리 알림(relatedReportId)과 새 댓글 알림(relatedPostId)을 함께 지웁니다.
+        int deletedNotifications = deleteWhere("notifications", "relatedReportId", reportId)
+                + deleteWhere("notifications", "relatedPostId", reportId);
         docRef.delete().get();
         synchronized (allStoresCacheLock) {
             cachedUserStores = cachedUserStores.stream()
@@ -1017,15 +1205,29 @@ public class FirebaseService {
             long price,
             String receiptFingerprint,
             List<String> imageUrls,
-            ReceiptOcrService.Result ocrResult) throws Exception {
+            ReceiptOcrService.Result ocrResult,
+            com.howmuch.dto.VisitLocationEvidence locationEvidence) throws Exception {
         if (firebaseUid == null || firebaseUid.isBlank()) {
             throw new SecurityException("로그인이 필요합니다.");
+        }
+        if (locationEvidence == null) {
+            throw new IllegalArgumentException("영수증 제출 전에 매장 위치 확인이 필요합니다.");
         }
         if (imageUrls == null || imageUrls.isEmpty()) {
             throw new IllegalArgumentException("영수증 사진이 필요합니다.");
         }
         if (receiptFingerprint == null || !receiptFingerprint.matches("[a-f0-9]{64}")) {
             throw new IllegalArgumentException("영수증 이미지 식별값이 올바르지 않습니다.");
+        }
+        String createdAt = java.time.Instant.now().toString();
+        LocalDate visitDate = receiptVisitDate(
+                ocrResult == null ? null : ocrResult.detectedDate(),
+                ocrResult != null && ocrResult.receiptDatePlausible(),
+                createdAt);
+        // 계약 C9: 같은 날 같은 매장 방문(위치 인증·다른 영수증)이 이미 있으면 접수하지 않습니다.
+        if (db.collection("visits").document(dailyVisitDocumentId(firebaseUid, storeId, storeName, visitDate))
+                .get().get().exists()) {
+            throw new DuplicateVisitException("같은 날 이 매장의 방문 기록이 이미 있어요. 같은 방문은 한 번만 적립돼요.");
         }
         Map<String, Object> data = new HashMap<>();
         data.put("userId", firebaseUid);
@@ -1035,7 +1237,11 @@ public class FirebaseService {
         data.put("price", price);
         data.put("imageUrls", imageUrls);
         data.put("status", "PENDING");
-        data.put("createdAt", java.time.Instant.now().toString());
+        data.put("createdAt", createdAt);
+        data.put("submissionVersion", 1L);
+        data.put("visitDate", visitDate.toString());
+        data.put("verificationDistanceMeters", locationEvidence.distanceMeters());
+        data.put("locationAccuracyMeters", locationEvidence.accuracyMeters());
         if (ocrResult != null) {
             data.put("ocrProviderAvailable", ocrResult.providerAvailable());
             data.put("ocrStatus", ocrResult.status());
@@ -1044,6 +1250,9 @@ public class FirebaseService {
             data.put("ocrLabeledPrice", ocrResult.labeledPrice());
             data.put("ocrStoreMatch", ocrResult.storeMatch());
             data.put("ocrPriceMatch", ocrResult.priceMatch());
+            if (ocrResult.providerAvailable()) {
+                data.put("ocrMenuMatch", ocrResult.menuMatch());
+            }
             data.put("ocrDetectedDate", ocrResult.detectedDate());
             data.put("ocrReceiptDatePlausible", ocrResult.receiptDatePlausible());
             data.put("ocrScore", ocrResult.score());
@@ -1054,20 +1263,181 @@ public class FirebaseService {
             document.create(data).get();
         } catch (ExecutionException e) {
             if (isAlreadyExists(e)) {
-                throw new DuplicateReceiptException("이미 제출된 영수증입니다.");
+                return resubmitRejectedReceipt(document, firebaseUid, data, createdAt);
             }
             throw e;
         }
         return document.getId();
     }
 
+    @SuppressWarnings("unchecked")
+    private String resubmitRejectedReceipt(
+            DocumentReference document,
+            String firebaseUid,
+            Map<String, Object> nextData,
+            String resubmittedAt) throws Exception {
+        final DocumentReference[] archiveRefHolder = new DocumentReference[1];
+        var txFuture = db.runTransaction(transaction -> {
+            DocumentSnapshot existing = transaction.get(document).get();
+            if (existing == null || !existing.exists()
+                    || !"REJECTED".equalsIgnoreCase(existing.getString("status"))
+                    || (existing.getString("userId") != null
+                            && !firebaseUid.equals(existing.getString("userId")))) {
+                throw new DuplicateReceiptException("이미 제출된 영수증입니다.");
+            }
+            Map<String, Object> merged = buildResubmittedReceiptData(existing, nextData, resubmittedAt);
+            long attempt = ((Number) merged.get("resubmissionCount")).longValue();
+            List<String> oldUrls = stringList(existing.get("imageUrls"));
+            List<String> newUrls = stringList(nextData.get("imageUrls"));
+            List<String> obsoleteUrls = oldUrls.stream().filter(url -> !newUrls.contains(url)).toList();
+            var collection = db.collection("receipt_verifications");
+            if (collection != null) {
+                DocumentReference archiveRef = collection.document(document.getId() + "_rejected_" + attempt);
+                archiveRefHolder[0] = archiveRef;
+                if (archiveRef != null && existing.getData() != null) {
+                    Map<String, Object> archived = new HashMap<>(existing.getData());
+                    archived.put("status", "REJECTED");
+                    archived.put("imageUrls", obsoleteUrls);
+                    archived.put("imageCleanupStatus", obsoleteUrls.isEmpty() ? "DELETED" : "PENDING");
+                    archived.put("resubmittedAt", resubmittedAt);
+                    archived.put("resubmittedReceiptId", document.getId());
+                    transaction.set(archiveRef, archived);
+                }
+            }
+            transaction.set(document, merged);
+            return obsoleteUrls;
+        });
+        List<String> obsoleteUrls;
+        if (txFuture != null) {
+            try {
+                obsoleteUrls = txFuture.get();
+            } catch (ExecutionException txError) {
+                if (txError.getCause() instanceof DuplicateReceiptException dup) {
+                    throw dup;
+                }
+                throw txError;
+            }
+        } else {
+            DocumentSnapshot existing = document.get().get();
+            if (existing == null || !existing.exists()
+                    || !"REJECTED".equalsIgnoreCase(existing.getString("status"))
+                    || (existing.getString("userId") != null
+                            && !firebaseUid.equals(existing.getString("userId")))) {
+                throw new DuplicateReceiptException("이미 제출된 영수증입니다.");
+            }
+            Map<String, Object> merged = buildResubmittedReceiptData(existing, nextData, resubmittedAt);
+            document.set(merged).get();
+            List<String> oldUrls = stringList(existing.get("imageUrls"));
+            List<String> newUrls = stringList(nextData.get("imageUrls"));
+            obsoleteUrls = oldUrls.stream().filter(url -> !newUrls.contains(url)).toList();
+        }
+        if (!obsoleteUrls.isEmpty()) {
+            if (archiveRefHolder[0] != null) {
+                cleanupProcessedReceiptImages(archiveRefHolder[0], firebaseUid, obsoleteUrls);
+            } else {
+                try {
+                    reportImageStorage.deleteOwned(firebaseUid, new LinkedHashSet<>(obsoleteUrls));
+                } catch (Exception cleanupError) {
+                    log.warn("재제출 전 반려 영수증 이미지 정리에 실패했습니다. receiptId={}", document.getId(), cleanupError);
+                }
+            }
+        }
+        return document.getId();
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> buildResubmittedReceiptData(
+            DocumentSnapshot existing,
+            Map<String, Object> nextData,
+            String resubmittedAt) {
+        Map<String, Object> merged = new HashMap<>(nextData);
+        Long prevCount = existing.getLong("resubmissionCount");
+        long nextCount = (prevCount == null ? 0L : prevCount) + 1L;
+        List<Map<String, Object>> history = new ArrayList<>();
+        Object rawHistory = existing.get("rejectionHistory");
+        if (rawHistory instanceof List<?> list) {
+            for (Object item : list) {
+                if (item instanceof Map<?, ?> map) {
+                    history.add(new HashMap<>((Map<String, Object>) map));
+                }
+            }
+        }
+        Map<String, Object> entry = new HashMap<>();
+        entry.put("attempt", nextCount);
+        entry.put("rejectReason", existing.getString("rejectReason"));
+        entry.put("rejectedBy", existing.getString("rejectedBy"));
+        entry.put("rejectedAt", existing.getString("rejectedAt"));
+        entry.put("menu", existing.getString("menu"));
+        entry.put("price", existing.getLong("price"));
+        entry.put("createdAt", existing.getString("createdAt"));
+        history.add(entry);
+        merged.put("resubmissionCount", nextCount);
+        merged.put("submissionVersion", nextCount + 1L);
+        merged.put("resubmittedAt", resubmittedAt);
+        merged.put("rejectionHistory", history);
+        return merged;
+    }
+
+    /**
+     * 영수증 방문 인증 대상 매장을 공개 목록(폐업 제외)에서 정확히 확인합니다.
+     * ID가 맞지 않으면 고유한 매장명일 때만 찾고, 매장명이 다르면 찾지 못한 것으로 봅니다.
+     */
+    public java.util.Optional<Map<String, Object>> findVisitableStore(String storeId, String storeName) {
+        String key = storeId != null && !storeId.isBlank() ? storeId : storeName;
+        Map<String, Object> store = resolveReviewStore(key, getAllStores());
+        if (store == null || strOrNull(store.get("storeId")) == null) return java.util.Optional.empty();
+        if (storeName != null && !storeName.isBlank()
+                && !normalizeStoreIdentityPart(storeName).equals(normalizeStoreIdentityPart(strOrNull(store.get("storeName"))))) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(store);
+    }
+
+    /**
+     * FE-STORE-15: 영수증 방문일은 판독된 영수증 날짜가 타당하면 그 날짜, 아니면 제출일(KST)입니다.
+     * 승인 시각은 방문일에 쓰지 않습니다.
+     */
+    static LocalDate receiptVisitDate(String detectedDate, boolean detectedDatePlausible, String submittedAt) {
+        if (detectedDatePlausible && detectedDate != null && !detectedDate.isBlank()) {
+            try {
+                return LocalDate.parse(detectedDate.trim());
+            } catch (java.time.format.DateTimeParseException ignored) {
+                // 형식이 맞지 않는 판독 날짜는 제출일로 대체합니다.
+            }
+        }
+        java.time.Instant submitted;
+        try {
+            submitted = submittedAt == null ? java.time.Instant.now() : java.time.Instant.parse(submittedAt);
+        } catch (java.time.format.DateTimeParseException ignored) {
+            submitted = java.time.Instant.now();
+        }
+        return submitted.atZone(ZoneId.of("Asia/Seoul")).toLocalDate();
+    }
+
+    /** 저장된 영수증 문서의 방문일입니다. 이전에 접수된 영수증은 판독 결과와 제출 시각으로 다시 계산합니다. */
+    private LocalDate receiptVisitDate(DocumentSnapshot receipt) {
+        String stored = receipt.getString("visitDate");
+        if (stored != null && !stored.isBlank()) {
+            try {
+                return LocalDate.parse(stored.trim());
+            } catch (java.time.format.DateTimeParseException ignored) {
+                // 아래 계산으로 대체합니다.
+            }
+        }
+        return receiptVisitDate(receipt.getString("ocrDetectedDate"),
+                Boolean.TRUE.equals(receipt.getBoolean("ocrReceiptDatePlausible")),
+                receipt.getString("createdAt"));
+    }
+
     public boolean receiptVerificationExists(String receiptFingerprint) throws Exception {
         if (receiptFingerprint == null || !receiptFingerprint.matches("[a-f0-9]{64}")) {
             return false;
         }
-        return db.collection("receipt_verifications")
+        DocumentSnapshot snapshot = db.collection("receipt_verifications")
                 .document("receipt_" + receiptFingerprint)
-                .get().get().exists();
+                .get().get();
+        return snapshot != null && snapshot.exists()
+                && !"REJECTED".equalsIgnoreCase(snapshot.getString("status"));
     }
 
     // [어드민] 영수증 인증 목록 조회. 소량 컬렉션이라 복합 인덱스 없이 필터링합니다.
@@ -1088,13 +1458,17 @@ public class FirebaseService {
                 .toList();
     }
 
-    /** 영수증 인증 승인 시 위치 인증 없이 방문 기록을 생성합니다. */
+    /** 접수 시 확인한 위치와 승인된 영수증을 함께 검증한 후 방문 기록을 생성합니다. */
     public Map<String, Object> approveReceiptVerification(String receiptId, String approvedBy) throws Exception {
+        return approveReceiptVerification(receiptId, approvedBy, null, null);
+    }
+
+    public Map<String, Object> approveReceiptVerification(
+            String receiptId, String approvedBy, Long expectedVersion, String expectedCreatedAt) throws Exception {
         if (receiptId == null || receiptId.isBlank()) {
             throw new IllegalArgumentException("영수증 인증 ID가 필요합니다.");
         }
         DocumentReference docRef = db.collection("receipt_verifications").document(receiptId);
-        DocumentReference visitRef = db.collection("visits").document();
         try {
             ReceiptApprovalResult committed = db.runTransaction(transaction -> {
                 DocumentSnapshot snapshot = transaction.get(docRef).get();
@@ -1106,10 +1480,19 @@ public class FirebaseService {
                 if (status != null && !"PENDING".equalsIgnoreCase(status)) {
                     throw new IllegalArgumentException("이미 처리된 영수증 인증입니다.");
                 }
+                verifyReceiptSubmissionVersion(snapshot, expectedVersion, expectedCreatedAt, isManualApproval(approvedBy));
 
                 if (!isManualApproval(approvedBy)) {
                     requireUsableReceiptOcrEvidence(snapshot);
                 }
+
+                Object distance = snapshot.get("verificationDistanceMeters");
+                Object accuracy = snapshot.get("locationAccuracyMeters");
+                if (!(distance instanceof Number) || !(accuracy instanceof Number)) {
+                    throw new IllegalArgumentException("위치 확인 정보가 없습니다. 매장 근처에서 영수증을 다시 제출해주세요.");
+                }
+                com.howmuch.dto.VisitLocationEvidence locationEvidence = new com.howmuch.dto.VisitLocationEvidence(
+                        ((Number) distance).doubleValue(), ((Number) accuracy).doubleValue());
 
                 String userId = snapshot.getString("userId");
                 String storeName = snapshot.getString("storeName");
@@ -1123,28 +1506,57 @@ public class FirebaseService {
 
                 String menu = snapshot.getString("menu");
                 if (isClosedStore(snapshot.getString("storeId"), storeName)) throw new IllegalArgumentException("폐업한 매장은 방문 인증할 수 없습니다.");
+                String receiptStoreId = snapshot.getString("storeId");
+                Map<String, Object> canonicalStore = resolveReviewStore(
+                        receiptStoreId != null && !receiptStoreId.isBlank() ? receiptStoreId : storeName,
+                        getStoreCatalogEntry().stores());
+                String visitStoreId = canonicalStore != null && strOrNull(canonicalStore.get("storeId")) != null
+                        ? strOrNull(canonicalStore.get("storeId")) : receiptStoreId;
+                // 계약 C9: 위치 방문과 같은 (회원, 정규 매장 ID, KST 방문일) 문서 ID로 만들어
+                // 같은 날 같은 매장의 방문이 위치·영수증·재촬영 영수증으로 두 번 적립되지 않게 합니다.
+                LocalDate visitDate = receiptVisitDate(snapshot);
+                DocumentReference visitRef = db.collection("visits").document(
+                        dailyVisitDocumentId(userId, visitStoreId, storeName, visitDate));
+                if (transaction.get(visitRef).get().exists()) {
+                    throw new DuplicateVisitException("같은 날 이 매장의 방문 기록이 이미 있어 영수증을 승인할 수 없어요.");
+                }
                 String industry = findIndustryByStoreName(storeName);
-                long savedAmount = price == 0 ? 0L : ReferencePrices.savedAmount(
-                        estimateReferencePrice(menu, industry, findAddressByStoreName(storeName)), price);
+                String effectiveMenu = resolveMenuForSavings(
+                        visitStoreId, storeName, menu, price, snapshot.getBoolean("ocrMenuMatch"));
+                boolean menuRejectedByValidation = effectiveMenu == null
+                        || (effectiveMenu.isBlank() && ((menu != null && !menu.isBlank()) || Boolean.FALSE.equals(snapshot.getBoolean("ocrMenuMatch"))));
+                long savedAmount = (price == 0 || menuRejectedByValidation) ? 0L : ReferencePrices.savedAmount(
+                        estimateReferencePrice(effectiveMenu, industry, findAddressByStoreName(storeName)), price);
                 com.howmuch.dto.VisitRequest visitRequest = com.howmuch.dto.VisitRequest.builder()
-                        .storeId(snapshot.getString("storeId"))
+                        .storeId(visitStoreId)
                         .storeName(storeName)
-                        .menu(menu)
+                        .menu(effectiveMenu != null && !effectiveMenu.isBlank() ? effectiveMenu : menu)
                         .price(price)
-                        .verificationMethod("RECEIPT_OCR")
+                        .verificationMethod("LOCATION_RECEIPT")
+                        .verificationDistanceMeters(locationEvidence.distanceMeters())
                         .build();
 
                 String processedAt = java.time.Instant.now().toString();
-                transaction.set(visitRef, buildVisitData(userId, visitRequest, savedAmount, processedAt));
-                transaction.update(docRef, Map.of(
-                        "status", "APPROVED",
-                        "approvedBy", approvedBy == null ? "AUTO_OCR" : approvedBy,
-                        "approvedAt", processedAt,
-                        "visitId", visitRef.getId()
-                ));
+                // FE-STORE-15: 방문 시각은 제출 시각이고, 승인 시각은 별도 필드로 남깁니다.
+                String submittedAt = snapshot.getString("createdAt");
+                Map<String, Object> visitData = buildVisitData(userId, visitRequest, savedAmount,
+                        submittedAt == null || submittedAt.isBlank() ? processedAt : submittedAt);
+                visitData.put("visitDate", visitDate.toString());
+                visitData.put("approvedAt", processedAt);
+                visitData.put("receiptId", receiptId);
+                transaction.create(visitRef, visitData);
+                List<String> imageUrls = stringList(snapshot.get("imageUrls"));
+                Map<String, Object> receiptUpdate = new HashMap<>();
+                receiptUpdate.put("status", "APPROVED");
+                receiptUpdate.put("approvedBy", approvedBy == null ? "AUTO_OCR" : approvedBy);
+                receiptUpdate.put("approvedAt", processedAt);
+                receiptUpdate.put("visitId", visitRef.getId());
+                if (!imageUrls.isEmpty()) receiptUpdate.put("imageCleanupStatus", "PENDING");
+                transaction.update(docRef, receiptUpdate);
                 return new ReceiptApprovalResult(
-                        userId, stringList(snapshot.get("imageUrls")), visitRef.getId());
+                        userId, imageUrls, visitRef.getId());
             }).get();
+            invalidateSavingsHistory(committed.userId());
             cleanupProcessedReceiptImages(docRef, committed.userId(), committed.imageUrls());
             return Map.of(
                     "success", true,
@@ -1152,6 +1564,9 @@ public class FirebaseService {
                     "status", "APPROVED",
                     "visitId", committed.visitId());
         } catch (ExecutionException e) {
+            if (e.getCause() instanceof DuplicateVisitException duplicateVisit) {
+                throw duplicateVisit;
+            }
             if (e.getCause() instanceof IllegalArgumentException invalidReceipt) {
                 throw invalidReceipt;
             }
@@ -1160,6 +1575,11 @@ public class FirebaseService {
     }
 
     public void rejectReceiptVerification(String receiptId, String reason, String rejectedBy) throws Exception {
+        rejectReceiptVerification(receiptId, reason, rejectedBy, null, null);
+    }
+
+    public void rejectReceiptVerification(
+            String receiptId, String reason, String rejectedBy, Long expectedVersion, String expectedCreatedAt) throws Exception {
         if (receiptId == null || receiptId.isBlank()) {
             throw new IllegalArgumentException("영수증 인증 ID가 필요합니다.");
         }
@@ -1175,13 +1595,17 @@ public class FirebaseService {
                 if (status != null && !"PENDING".equalsIgnoreCase(status)) {
                     throw new IllegalArgumentException("이미 처리된 영수증 인증입니다.");
                 }
-                transaction.update(docRef, Map.of(
-                        "status", "REJECTED",
-                        "rejectReason", reason,
-                        "rejectedBy", rejectedBy,
-                        "rejectedAt", java.time.Instant.now().toString()));
+                verifyReceiptSubmissionVersion(snapshot, expectedVersion, expectedCreatedAt, isManualApproval(rejectedBy));
+                List<String> imageUrls = stringList(snapshot.get("imageUrls"));
+                Map<String, Object> receiptUpdate = new HashMap<>();
+                receiptUpdate.put("status", "REJECTED");
+                receiptUpdate.put("rejectReason", reason);
+                receiptUpdate.put("rejectedBy", rejectedBy);
+                receiptUpdate.put("rejectedAt", java.time.Instant.now().toString());
+                if (!imageUrls.isEmpty()) receiptUpdate.put("imageCleanupStatus", "PENDING");
+                transaction.update(docRef, receiptUpdate);
                 return new ReceiptRejectionResult(
-                        snapshot.getString("userId"), stringList(snapshot.get("imageUrls")));
+                        snapshot.getString("userId"), imageUrls);
             }).get();
             cleanupProcessedReceiptImages(docRef, committed.userId(), committed.imageUrls());
         } catch (ExecutionException e) {
@@ -1197,10 +1621,12 @@ public class FirebaseService {
         Long detectedTextLength = snapshot.getLong("ocrDetectedTextLength");
         Long detectedPrice = snapshot.getLong("ocrDetectedPrice");
         String detectedDate = snapshot.getString("ocrDetectedDate");
+        Boolean menuMatch = snapshot.getBoolean("ocrMenuMatch");
         if (!Boolean.TRUE.equals(providerAvailable)
                 || detectedTextLength == null || detectedTextLength <= 0
                 || detectedPrice == null || detectedPrice <= 0
-                || detectedDate == null || detectedDate.isBlank()) {
+                || detectedDate == null || detectedDate.isBlank()
+                || Boolean.FALSE.equals(menuMatch)) {
             throw new ReceiptOcrEvidenceException(
                     "OCR 판독이 완료되지 않은 영수증은 승인할 수 없습니다. 공급자 설정을 확인한 뒤 다시 제출해주세요.");
         }
@@ -1208,6 +1634,29 @@ public class FirebaseService {
 
     private static boolean isManualApproval(String approvedBy) {
         return "ADMIN".equalsIgnoreCase(approvedBy);
+    }
+
+    private static void verifyReceiptSubmissionVersion(
+            DocumentSnapshot snapshot, Long expectedVersion, String expectedCreatedAt, boolean manualAction) {
+        Long storedVersion = snapshot.getLong("submissionVersion");
+        if (storedVersion == null || storedVersion <= 0L) {
+            Long resubCount = snapshot.getLong("resubmissionCount");
+            storedVersion = (resubCount == null || resubCount <= 0L ? 0L : resubCount) + 1L;
+        }
+        boolean hasExplicitCreatedAt = expectedCreatedAt != null && !expectedCreatedAt.isBlank();
+        Long effectiveExpectedVersion = expectedVersion != null
+                ? expectedVersion
+                : (manualAction && !hasExplicitCreatedAt ? 1L : null);
+        if (effectiveExpectedVersion != null && !effectiveExpectedVersion.equals(storedVersion)) {
+            throw new IllegalArgumentException("영수증이 다시 제출되어 내용이 변경되었습니다. 새로고침 후 다시 확인해주세요.");
+        }
+        if (hasExplicitCreatedAt) {
+            String currentCreatedAt = snapshot.getString("createdAt");
+            if (currentCreatedAt != null && !currentCreatedAt.isBlank()
+                    && !expectedCreatedAt.trim().equals(currentCreatedAt.trim())) {
+                throw new IllegalArgumentException("영수증이 다시 제출되어 내용이 변경되었습니다. 새로고침 후 다시 확인해주세요.");
+            }
+        }
     }
 
     private record ReceiptApprovalResult(
@@ -1224,15 +1673,59 @@ public class FirebaseService {
             if (deleted < uniqueUrls.size()) {
                 log.warn("처리된 영수증 이미지 일부를 정리하지 못했습니다. receiptId={}, deleted={}/{}",
                         receiptRef.getId(), deleted, uniqueUrls.size());
+                recordReceiptCleanupFailure(receiptRef, imageUrls);
                 return;
             }
-            receiptRef.update(Map.of(
-                    "imageUrls", List.of(),
-                    "imageCleanupStatus", "DELETED",
-                    "imageDeletedAt", java.time.Instant.now().toString()
-            )).get();
+            markReceiptImagesDeletedIfUnchanged(receiptRef, imageUrls);
         } catch (Exception e) {
             log.warn("처리된 영수증 이미지 정리에 실패했습니다. receiptId={}", receiptRef.getId(), e);
+            recordReceiptCleanupFailure(receiptRef, imageUrls);
+        }
+    }
+
+    private void markReceiptImagesDeletedIfUnchanged(DocumentReference receiptRef, List<String> cleanedUrls) throws Exception {
+        Map<String, Object> update = Map.of(
+                "imageUrls", List.of(),
+                "imageCleanupStatus", "DELETED",
+                "imageDeletedAt", java.time.Instant.now().toString()
+        );
+        var future = receiptRef.get();
+        if (future != null) {
+            DocumentSnapshot current = future.get();
+            if (current != null && current.exists()) {
+                if ("PENDING".equalsIgnoreCase(current.getString("status"))) return;
+                List<String> currentUrls = stringList(current.get("imageUrls"));
+                if (!currentUrls.isEmpty() && !currentUrls.equals(cleanedUrls)) return;
+            }
+        }
+        receiptRef.update(update).get();
+    }
+
+    /** 정리 재시도 상한. 넘으면 FAILED로 바꿔 대기열 앞을 막지 않게 합니다. */
+    private static final int MAX_RECEIPT_CLEANUP_ATTEMPTS = 24;
+    private static final int RECEIPT_CLEANUP_BATCH = 100;
+    private volatile boolean legacyReceiptCleanupSwept = false;
+
+    private void recordReceiptCleanupFailure(DocumentReference receiptRef, List<String> expectedUrls) {
+        try {
+            DocumentSnapshot current = receiptRef.get().get();
+            if (current != null && current.exists()
+                    && "PENDING".equalsIgnoreCase(current.getString("status"))) {
+                return;
+            }
+            if (current != null && current.exists()) {
+                List<String> currentUrls = stringList(current.get("imageUrls"));
+                if (!currentUrls.isEmpty() && expectedUrls != null && !currentUrls.equals(expectedUrls)) {
+                    return;
+                }
+            }
+            Long attempts = current.getLong("imageCleanupAttempts");
+            long next = (attempts == null ? 0L : attempts) + 1L;
+            receiptRef.update(Map.of(
+                    "imageCleanupAttempts", next,
+                    "imageCleanupStatus", next >= MAX_RECEIPT_CLEANUP_ATTEMPTS ? "FAILED" : "PENDING")).get();
+        } catch (Exception e) {
+            log.warn("영수증 이미지 정리 실패 기록을 남기지 못했습니다. receiptId={}", receiptRef.getId());
         }
     }
 
@@ -1240,27 +1733,54 @@ public class FirebaseService {
      * 승인·반려 직후 외부 저장소가 일시적으로 실패해 남은 영수증 원본을
      * 다음 주기에 재시도한다. 이미 삭제된 Cloudinary 리소스도 완료로
      * 취급하므로 Firestore의 imageUrls가 결국 비워진다.
+     * BE-CORE-4: 정리 대기(imageCleanupStatus=PENDING) 문서만 조회해 처리된 영수증 전체를
+     * 매시간 읽지 않습니다. 상태 필드가 생기기 전에 처리된 영수증은 프로세스 시작 후 한 번만 확인합니다.
      */
     @Scheduled(
             initialDelayString = "${receipt.images.cleanup.initial-delay-ms:300000}",
             fixedDelayString = "${receipt.images.cleanup.delay-ms:3600000}")
     void retryProcessedReceiptImageCleanup() {
         try {
-            var documents = db.collection("receipt_verifications")
-                    .whereIn("status", List.of("APPROVED", "REJECTED"))
-                    .limit(adminListLimit())
+            var pending = db.collection("receipt_verifications")
+                    .whereEqualTo("imageCleanupStatus", "PENDING")
+                    .limit(RECEIPT_CLEANUP_BATCH)
                     .get().get().getDocuments();
-            for (DocumentSnapshot document : documents) {
-                List<String> imageUrls = stringList(document.get("imageUrls"));
-                if (imageUrls.isEmpty()) continue;
-                cleanupProcessedReceiptImages(
-                        document.getReference(), document.getString("userId"), imageUrls);
+            for (DocumentSnapshot document : pending) {
+                retryReceiptCleanup(document);
+            }
+            if (!legacyReceiptCleanupSwept) {
+                var processed = db.collection("receipt_verifications")
+                        .whereIn("status", List.of("APPROVED", "REJECTED"))
+                        .limit(adminListLimit())
+                        .get().get().getDocuments();
+                for (DocumentSnapshot document : processed) {
+                    if (document.getString("imageCleanupStatus") != null) continue;
+                    if (stringList(document.get("imageUrls")).isEmpty()) continue;
+                    retryReceiptCleanup(document);
+                }
+                legacyReceiptCleanupSwept = true;
             }
         } catch (IllegalStateException e) {
             log.debug("영수증 이미지 저장소가 설정되지 않아 정리 재시도를 건너뜁니다.");
         } catch (Exception e) {
             log.warn("처리된 영수증 이미지 정리 재시도 중 오류가 발생했습니다.", e);
         }
+    }
+
+    private void retryReceiptCleanup(DocumentSnapshot document) {
+        if ("PENDING".equalsIgnoreCase(document.getString("status"))) {
+            return;
+        }
+        List<String> imageUrls = stringList(document.get("imageUrls"));
+        if (imageUrls.isEmpty()) {
+            try {
+                document.getReference().update(Map.of("imageCleanupStatus", "DELETED")).get();
+            } catch (Exception e) {
+                log.warn("빈 영수증 정리 상태를 갱신하지 못했습니다. receiptId={}", document.getId());
+            }
+            return;
+        }
+        cleanupProcessedReceiptImages(document.getReference(), document.getString("userId"), imageUrls);
     }
 
     private int adminListLimit() {
@@ -1346,16 +1866,17 @@ public class FirebaseService {
                 .toList();
     }
 
-    // 💡 사용자의 제보 목록 조회 (내 제보 현황은 실시간성이 중요하므로 Firestore 유지, 소량)
+    // 💡 사용자의 제보 목록 조회 (내 제보 현황은 실시간성이 중요하므로 Firestore 유지, 소량).
+    // 계약 C4: 복합 인덱스 없이 메모리에서 createdAt 내림차순(최신순)으로 정렬합니다.
     public List<Map<String, Object>> getUserReports(String firebaseUid) throws Exception {
         return db.collection("stores_user")
                 .whereEqualTo("reporterId", firebaseUid)
                 .get().get().getDocuments().stream()
-                .map(doc -> {
-                    Map<String, Object> data = new HashMap<>(doc.getData());
-                    data.put("id", doc.getId());
-                    return data;
-                })
+                .map(doc -> UserReportResponsePolicy.ownerView(doc.getId(), doc.getData()))
+                .sorted(Comparator.comparing(
+                        (Map<String, Object> report) -> report.get("createdAt") == null
+                                ? "" : report.get("createdAt").toString(),
+                        Comparator.reverseOrder()))
                 .toList();
     }
 
@@ -1444,7 +1965,8 @@ public class FirebaseService {
                     updates.put("resolution", "NEW_STORE");
                 }
                 transaction.update(reportRef, updates);
-                return new ApprovalCommit(storeId, correction, updates, strOrNull(report.get("storeName")), strOrNull(report.get("changeType")));
+                return new ApprovalCommit(storeId, correction, updates, strOrNull(report.get("storeName")),
+                        strOrNull(report.get("changeType")), strOrNull(report.get("reporterId")));
             }).get();
         } catch (ExecutionException exception) {
             if (exception.getCause() instanceof RuntimeException failure) throw failure;
@@ -1462,14 +1984,104 @@ public class FirebaseService {
             }
         }
         updateReportCache(reportId, committed.updates());
+        notifyReporterOfReview(reportId, committed.reporterId(), committed.storeId(), committed.storeName(),
+                true, strOrNull(committed.updates().get("resolution")), null,
+                strOrNull(committed.updates().get("processedAt")));
         if ("PRICE".equals(committed.updates().get("resolution"))) {
-            try { notifyUsersOnPriceReportApproved(committed.storeName(), committed.storeId(), reportId, committed.changeType()); }
-            catch (Exception exception) { log.warn("가격 반영 후 알림을 보내지 못했습니다: {}", reportId); }
+            // BE-CORE-17: 알림 방향은 제보 유형 대신 실제 반영 전후 금액으로 정합니다. 변경이 없으면 보내지 않습니다.
+            String direction = priceChangeDirection(
+                    committed.updates().get("previousFields"), committed.updates().get("appliedFields"));
+            if (direction != null) {
+                try { notifyUsersOnPriceReportApproved(committed.storeName(), committed.storeId(), reportId, direction); }
+                catch (Exception exception) { log.warn("가격 반영 후 알림을 보내지 못했습니다: {}", reportId); }
+            }
         }
     }
 
     private record ApprovalCommit(String storeId, Map<String, Object> correction, Map<String, Object> updates,
-                                  String storeName, String changeType) {}
+                                  String storeName, String changeType, String reporterId) {}
+
+    /**
+     * 승인으로 바뀐 메뉴 칸의 전후 값을 비교해 가격 알림 방향(rise·drop·new·delete·change)을 돌려줍니다.
+     * 반영된 변화가 없으면 null입니다. change는 복수 가격처럼 방향을 정할 수 없는 변경입니다.
+     */
+    static String priceChangeDirection(Object previousValue, Object appliedValue) {
+        if (!(previousValue instanceof Map<?, ?> previous) || !(appliedValue instanceof Map<?, ?> applied)) return null;
+        for (int slot = 1; slot <= 4; slot++) {
+            String menuKey = "menu" + slot;
+            String priceKey = "price" + slot;
+            String freeKey = "free" + slot;
+            if (!applied.containsKey(menuKey) && !applied.containsKey(priceKey) && !applied.containsKey(freeKey)) continue;
+            String beforeMenu = blankToNull(previous.get(menuKey));
+            String afterMenu = blankToNull(applied.containsKey(menuKey) ? applied.get(menuKey) : previous.get(menuKey));
+            if (beforeMenu == null && afterMenu == null) continue;
+            if (beforeMenu == null) return "new";
+            if (afterMenu == null) return "delete";
+            if (!beforeMenu.equals(afterMenu)) return "new";
+            Object beforePriceRaw = previous.get(priceKey);
+            Object afterPriceRaw = applied.containsKey(priceKey) ? applied.get(priceKey) : beforePriceRaw;
+            var beforePrice = WonPrice.parse(beforePriceRaw);
+            var afterPrice = WonPrice.parse(afterPriceRaw);
+            if (beforePrice.isPresent() && afterPrice.isPresent()
+                    && beforePrice.get().exact() && afterPrice.get().exact()) {
+                long delta = afterPrice.get().minimum() - beforePrice.get().minimum();
+                if (delta > 0) return "rise";
+                if (delta < 0) return "drop";
+                continue;
+            }
+            if (!java.util.Objects.equals(blankToNull(beforePriceRaw), blankToNull(afterPriceRaw))) return "change";
+        }
+        return null;
+    }
+
+    /**
+     * 계약 C3: 제보 승인·반려를 제보자 알림함에 남기고 '제보 상태' 토글에 따라 푸시합니다.
+     * (제보, 처리 결과, 처리 시각)으로 정한 문서 ID라 같은 처리에 알림이 두 번 생기지 않습니다.
+     * 알림 실패는 이미 끝난 승인·반려를 되돌리지 않습니다.
+     */
+    private void notifyReporterOfReview(String reportId, String reporterId, String storeId, String storeName,
+                                        boolean approved, String resolution, String rejectReason, String processedAt) {
+        if (reporterId == null || reporterId.isBlank()) return;
+        String type = approved ? "REPORT_APPROVED" : "REPORT_REJECTED";
+        String name = storeName == null || storeName.isBlank() ? "매장" : "'" + storeName + "'";
+        // QA 2026-10-07 #13: 수정 없음은 신고 내용이 반영된 것으로 오해하지 않게 '승인' 대신 검토 완료 제목을 씁니다.
+        // 이미 설치된 앱의 분류·이동과 푸시 설정이 그대로 동작하도록 type은 REPORT_APPROVED를 유지합니다.
+        String title = !approved ? "제보가 반려됐어요"
+                : "NO_CHANGE".equals(resolution) ? "제보 검토가 끝났어요" : "제보가 승인됐어요";
+        String body;
+        if (!approved) {
+            String reason = rejectReason == null ? "" : rejectReason.trim();
+            if (reason.length() > 120) reason = reason.substring(0, 120) + "…";
+            body = name + " 제보가 반려됐어요." + (reason.isEmpty() ? "" : " 사유: " + reason);
+        } else if ("NEW_STORE".equals(resolution)) {
+            body = name + " 제보가 승인되어 지도에 등록됐어요.";
+        } else if ("NO_CHANGE".equals(resolution)) {
+            body = name + " 제보를 확인했어요. 현재 정보가 맞아 변경 없이 처리했어요.";
+        } else {
+            body = name + " 제보가 승인되어 매장 정보에 반영됐어요.";
+        }
+        String reviewedAt = processedAt == null || processedAt.isBlank() ? java.time.Instant.now().toString() : processedAt;
+        String notificationId = "report_" + (approved ? "approved_" : "rejected_")
+                + sanitizeForDocId(reportId) + "_" + sha256Hex(reviewedAt).substring(0, 16);
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", reporterId);
+        data.put("title", title);
+        data.put("body", body);
+        data.put("type", type);
+        data.put("isRead", false);
+        data.put("createdAt", reviewedAt);
+        data.put("relatedReportId", reportId);
+        data.put("storeId", storeId);
+        try {
+            db.collection("notifications").document(notificationId).create(data).get();
+        } catch (Exception exception) {
+            if (!isAlreadyExists(exception)) {
+                log.warn("제보 처리 알림을 저장하지 못했습니다: reportId={}", reportId);
+            }
+            return;
+        }
+        dispatchPushNotification(reporterId, notificationId, title, body, type);
+    }
 
     private static long correctionRevision(Map<String, Object> correction) {
         return correction != null && correction.get("revision") instanceof Number revision ? revision.longValue() : 0L;
@@ -1515,7 +2127,8 @@ public class FirebaseService {
         DocumentReference docRef = db.collection("stores_user").document(reportId);
         Map<String, Object> updates = new HashMap<>();
         updates.put("status", status);
-        updates.put("processedAt", java.time.Instant.now().toString());
+        String processedAt = java.time.Instant.now().toString();
+        updates.put("processedAt", processedAt);
         if (rejectReason != null) {
             updates.put("rejectReason", rejectReason);
         }
@@ -1534,7 +2147,7 @@ public class FirebaseService {
                 return new ReportStatusUpdate(
                         snapshot.getString("storeName"),
                         snapshot.getString("storeId"),
-                        snapshot.getString("changeType"));
+                        snapshot.getString("reporterId"));
             }).get();
         } catch (ExecutionException e) {
             if (e.getCause() instanceof RuntimeException reportFailure) {
@@ -1543,27 +2156,15 @@ public class FirebaseService {
             throw e;
         }
 
-        // 💡 가격 변동 제보 승인 시 찜한 사용자에게 알림 발송
-        if ("APPROVED".equals(status)) {
-            String storeName = committed.storeName();
-            if (storeName != null && !storeName.isBlank()) {
-                try {
-                    notifyUsersOnPriceReportApproved(
-                            storeName,
-                            committed.storeId(),
-                            reportId,
-                            committed.changeType());
-                } catch (Exception e) {
-                    // 승인 상태 변경은 완료됐으므로 부가 알림 실패가 관리자 승인 결과를 실패로 만들지 않게 합니다.
-                    log.warn("가격 변동 알림 발송 실패: reportId={}", reportId, e);
-                }
-            }
-        }
-
         updateReportCache(reportId, updates);
+        // 승인은 approveReport가 처리하므로 여기서는 반려만 다룹니다(BE-CORE-13: 쓰이지 않던 승인 분기 제거).
+        if ("REJECTED".equals(status)) {
+            notifyReporterOfReview(reportId, committed.reporterId(), committed.storeId(), committed.storeName(),
+                    false, null, rejectReason, processedAt);
+        }
     }
 
-    private record ReportStatusUpdate(String storeName, String storeId, String changeType) { }
+    private record ReportStatusUpdate(String storeName, String storeId, String reporterId) { }
 
     // 💡 매장 가격 변동 제보 승인 시 알림 생성 및 발송
     private void notifyUsersOnPriceReportApproved(
@@ -1621,6 +2222,7 @@ public class FirebaseService {
             data.put("isRead", false);
             data.put("createdAt", createdAt);
             data.put("relatedReportId", reportId);
+            data.put("storeId", targetId);
 
             notifRef.set(data).get();
 
@@ -1644,15 +2246,21 @@ public class FirebaseService {
         return matches.size() == 1 && targetId.equals(matches.getFirst().get("storeId"));
     }
 
+    /**
+     * 사용자의 가격 알림 조건을 적용합니다. 방향은 승인 전후 금액으로 계산한 값입니다.
+     * 메뉴가 빠지거나 방향을 정할 수 없는 변경은 인상·인하 알림 중 하나라도 켠 사용자에게만 보냅니다.
+     */
     private boolean shouldNotifyPriceChange(NotificationSettingsDto settings, String changeType) {
         if (changeType == null || changeType.isBlank()) {
-            return true;
+            return false;
         }
-        return switch (changeType.toLowerCase()) {
+        return switch (changeType.toLowerCase(java.util.Locale.ROOT)) {
             case "rise" -> Boolean.TRUE.equals(settings.getNotifyOnRise());
             case "drop" -> Boolean.TRUE.equals(settings.getNotifyOnDrop());
             case "new", "new_menu" -> Boolean.TRUE.equals(settings.getNotifyOnNewMenu());
-            default -> true;
+            case "delete", "change" -> Boolean.TRUE.equals(settings.getNotifyOnRise())
+                    || Boolean.TRUE.equals(settings.getNotifyOnDrop());
+            default -> false;
         };
     }
 
@@ -1663,11 +2271,14 @@ public class FirebaseService {
 
     // 💡 [어드민] 대시보드 개요 지표 (매장 수는 인메모리 캐시 사용 — Firestore 읽기 0)
     public Map<String, Object> getAdminOverview() throws Exception {
-        long pending = 0, approved = 0, rejected = 0, legacy = 0;
+        long pending = 0, approved = 0, rejected = 0, legacy = 0, noChange = 0;
         for (Map<String, Object> store : cachedUserStores) {
             switch (String.valueOf(store.getOrDefault("status", ""))) {
                 case "PENDING" -> pending++;
-                case "APPROVED" -> approved++;
+                case "APPROVED" -> {
+                    approved++;
+                    if ("NO_CHANGE".equals(store.get("resolution"))) noChange++;
+                }
                 case "REJECTED" -> rejected++;
                 default -> legacy++;
             }
@@ -1675,6 +2286,8 @@ public class FirebaseService {
         Map<String, Object> userStores = new HashMap<>();
         userStores.put("pending", pending);
         userStores.put("approved", approved);
+        // QA 2026-10-07 #13: approved는 기존처럼 승인 상태 전체이고, 그중 수정 없이 처리한 건수를 따로 알려 줍니다.
+        userStores.put("noChange", noChange);
         userStores.put("rejected", rejected);
         userStores.put("legacy", legacy);
         userStores.put("total", cachedUserStores.size());
@@ -1700,28 +2313,119 @@ public class FirebaseService {
         ReportDeletionSummary reports = deleteReportsByUser(firebaseUid);
         result.put("reports", reports.deleted());
         result.put("anonymizedReports", reports.anonymized());
-        result.put("visits", deleteWhere("visits", "userId", firebaseUid));
+        try {
+            result.put("visits", deleteWhere("visits", "userId", firebaseUid));
+        } finally {
+            invalidateSavingsHistory(firebaseUid);
+        }
         result.put("receiptVerifications",
                 deleteWhere("receipt_verifications", "userId", firebaseUid));
         result.put("favorites", deleteWhere("favorites", "userId", firebaseUid));
         result.put("inquiries", deleteWhere("inquiries", "userId", firebaseUid));
-        result.put("comments", deleteWhere("comments", "userId", firebaseUid));
-        result.put("feedLikes", deleteWhere("feed_likes", "userId", firebaseUid));
+        // BE-CORE-3·WEB-ADM-9: 탈퇴자 댓글·좋아요가 있던 다른 글의 카운터를 다시 세고,
+        // 탈퇴자 댓글에 달린 답글(부모가 사라져 볼 수 없는 고아 답글)도 함께 지웁니다.
+        CommunityDeletion community = deleteCommunityActivity(firebaseUid, reports.deletedIds());
+        result.put("comments", community.comments());
+        result.put("orphanReplies", community.orphanReplies());
+        result.put("feedLikes", community.likes());
         result.put("feedSubscriptions", deleteWhere("feed_notifications", "userId", firebaseUid));
         result.put("notifications", deleteWhere("notifications", "userId", firebaseUid));
         result.put("deviceTokens", deleteWhere("device_tokens", "userId", firebaseUid));
         db.collection("notification_settings").document(firebaseUid).delete().get();
-        cachedUserStores = cachedUserStores.stream()
-                .filter(item -> !firebaseUid.equals(item.get("reporterId"))
-                        || "APPROVED".equalsIgnoreCase(String.valueOf(item.get("status"))))
-                .map(item -> firebaseUid.equals(item.get("reporterId"))
-                        ? immutableStoreCopy(anonymizeReportData(item))
-                        : item)
-                .toList();
+        // BE-CORE-12: 같은 잠금 안에서 최신 캐시를 기준으로 바꿔 그 사이에 들어온 다른 제보를 잃지 않습니다.
+        synchronized (allStoresCacheLock) {
+            cachedUserStores = cachedUserStores.stream()
+                    .filter(item -> !firebaseUid.equals(item.get("reporterId"))
+                            || "APPROVED".equalsIgnoreCase(String.valueOf(item.get("status"))))
+                    .map(item -> firebaseUid.equals(item.get("reporterId"))
+                            ? immutableStoreCopy(anonymizeReportData(item))
+                            : item)
+                    .toList();
+            allStoresCache = null;
+        }
         db.collection("users").document(firebaseUid).delete().get();
         invalidateCommunityFeedCache();
         result.put("uid", firebaseUid);
         return result;
+    }
+
+    private record CommunityDeletion(int comments, int orphanReplies, int likes) { }
+
+    private CommunityDeletion deleteCommunityActivity(String firebaseUid, Set<String> deletedPostIds) throws Exception {
+        Set<String> affectedPosts = new LinkedHashSet<>();
+        Set<String> affectedParents = new LinkedHashSet<>();
+        Set<String> deletedCommentIds = new LinkedHashSet<>();
+        int comments = 0;
+        int orphanReplies = 0;
+        for (DocumentSnapshot comment : db.collection("comments")
+                .whereEqualTo("userId", firebaseUid).get().get().getDocuments()) {
+            String postId = strOrNull(comment.get("postId"));
+            String parentId = strOrNull(comment.get("parentId"));
+            if (postId != null) affectedPosts.add(postId);
+            if (parentId != null) {
+                affectedParents.add(parentId);
+            } else {
+                for (DocumentSnapshot reply : db.collection("comments")
+                        .whereEqualTo("parentId", comment.getId()).get().get().getDocuments()) {
+                    if (firebaseUid.equals(strOrNull(reply.get("userId")))) continue; // 본인 답글은 이 반복에서 지웁니다.
+                    // Keep the reference until dependent personal data is removed, so retry can find it.
+                    deleteWhere("notifications", "relatedCommentId", reply.getId());
+                    reply.getReference().delete().get();
+                    deletedCommentIds.add(reply.getId());
+                    orphanReplies++;
+                }
+            }
+            deleteWhere("notifications", "relatedCommentId", comment.getId());
+            comment.getReference().delete().get();
+            deletedCommentIds.add(comment.getId());
+            comments++;
+        }
+        affectedParents.removeAll(deletedCommentIds);
+        for (String parentId : affectedParents) recountReplies(parentId);
+
+        int likes = 0;
+        for (DocumentSnapshot like : db.collection("feed_likes")
+                .whereEqualTo("userId", firebaseUid).get().get().getDocuments()) {
+            String postId = strOrNull(like.get("postId"));
+            if (postId != null) affectedPosts.add(postId);
+            like.getReference().delete().get();
+            likes++;
+        }
+        affectedPosts.removeAll(deletedPostIds);
+        for (String postId : affectedPosts) syncFeedCounts(postId);
+        deleteCommentNotifications(deletedCommentIds);
+        return new CommunityDeletion(comments, orphanReplies, likes);
+    }
+
+    /** 부모 댓글의 답글 수를 실제 답글 개수로 다시 저장합니다. 부모가 없으면 건너뜁니다. */
+    private void recountReplies(String parentId) {
+        try {
+            long count = db.collection("comments").whereEqualTo("parentId", parentId)
+                    .count().get().get().getCount();
+            db.collection("comments").document(parentId).update("replyCount", count).get();
+        } catch (Exception e) {
+            log.warn("답글 수를 다시 세지 못했습니다: commentId={}", parentId);
+        }
+    }
+
+    /** BE-CORE-11: 지워진 댓글·답글을 가리키는 새 댓글 알림을 함께 지웁니다(in 조건은 30개씩). */
+    private int deleteCommentNotifications(java.util.Collection<String> commentIds) {
+        if (commentIds == null || commentIds.isEmpty()) return 0;
+        List<String> ids = new ArrayList<>(commentIds);
+        int deleted = 0;
+        for (int start = 0; start < ids.size(); start += 30) {
+            List<String> chunk = ids.subList(start, Math.min(ids.size(), start + 30));
+            try {
+                for (DocumentSnapshot notification : db.collection("notifications")
+                        .whereIn("relatedCommentId", new ArrayList<>(chunk)).get().get().getDocuments()) {
+                    notification.getReference().delete().get();
+                    deleted++;
+                }
+            } catch (Exception e) {
+                log.warn("삭제된 댓글의 알림을 정리하지 못했습니다: {}건", chunk.size());
+            }
+        }
+        return deleted;
     }
 
     private ReportDeletionSummary deleteReportsByUser(String firebaseUid) throws Exception {
@@ -1730,6 +2434,7 @@ public class FirebaseService {
                 .get().get().getDocuments();
         int deleted = 0;
         int anonymized = 0;
+        Set<String> deletedIds = new LinkedHashSet<>();
         for (DocumentSnapshot report : reports) {
             String reportId = report.getId();
             if ("APPROVED".equalsIgnoreCase(report.getString("status"))) {
@@ -1741,10 +2446,12 @@ public class FirebaseService {
             deleteWhere("feed_likes", "postId", reportId);
             deleteWhere("feed_notifications", "postId", reportId);
             deleteWhere("notifications", "relatedReportId", reportId);
+            deleteWhere("notifications", "relatedPostId", reportId);
             report.getReference().delete().get();
+            deletedIds.add(reportId);
             deleted++;
         }
-        return new ReportDeletionSummary(deleted, anonymized);
+        return new ReportDeletionSummary(deleted, anonymized, deletedIds);
     }
 
     private static Map<String, Object> anonymizedReportFields() {
@@ -1762,7 +2469,7 @@ public class FirebaseService {
         return anonymized;
     }
 
-    private record ReportDeletionSummary(int deleted, int anonymized) { }
+    private record ReportDeletionSummary(int deleted, int anonymized, Set<String> deletedIds) { }
 
     /** 컬렉션에서 field == value 인 문서 전부 삭제하고 삭제 건수 반환 */
     private int deleteWhere(String collection, String field, String value) throws Exception {
@@ -1794,11 +2501,17 @@ public class FirebaseService {
 
     // 💡 [어드민] 회원 목록 조회 (가입 최신순, 소량 컬렉션)
     public List<Map<String, Object>> getAllUsers() throws Exception {
+        // WEB-ADM-18: createdAt 정렬 쿼리는 그 필드가 없는 회원(예: 프로필 저장 전 목표만 저장)을 빼므로
+        // 회원 문서를 읽은 뒤 메모리에서 최신순(가입일 없는 회원은 끝)으로 정렬합니다.
         return db.collection("users")
-                .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
-                .limit(adminListLimit()).get().get().getDocuments().stream()
+                .limit(MAX_ADMIN_USER_SCAN).get().get().getDocuments().stream()
+                .sorted(Comparator.comparing(
+                        (DocumentSnapshot doc) -> doc.getData() == null || doc.getData().get("createdAt") == null
+                                ? "" : doc.getData().get("createdAt").toString(),
+                        Comparator.reverseOrder()))
+                .limit(adminListLimit())
                 .map(doc -> {
-                    Map<String, Object> source = doc.getData();
+                    Map<String, Object> source = doc.getData() == null ? Map.of() : doc.getData();
                     Map<String, Object> user = new HashMap<>();
                     user.put("id", doc.getId());
                     // 관리자 UI에 필요한 필드만 명시적으로 노출한다. 이후 users 문서에
@@ -1815,6 +2528,9 @@ public class FirebaseService {
                 .toList();
     }
 
+    /** 관리자 회원 목록이 한 번에 읽는 회원 문서 상한(정렬을 메모리에서 하므로 읽기량을 묶어 둡니다). */
+    private static final int MAX_ADMIN_USER_SCAN = 5000;
+
     // 💡 매장명으로 업종 조회 (공공데이터 인메모리 캐시 사용 — Firestore 읽기 0)
     public String findIndustryByStoreName(String storeName) {
         if (storeName == null || storeName.isBlank()) return null;
@@ -1828,41 +2544,27 @@ public class FirebaseService {
         return store == null ? null : strOrNull(store.get("address"));
     }
 
-    // 💡 방문 기록 저장 (절약 금액은 VisitController에서 서버 룰로 계산되어 주입됨)
-    public String saveVisit(String firebaseUid, com.howmuch.dto.VisitRequest request, long savedAmount) throws Exception {
-        if (isClosedStore(request.getStoreId(), request.getStoreName())) throw new IllegalArgumentException("폐업한 매장은 방문 인증할 수 없습니다.");
-        if (request.getPrice() != null && request.getPrice() == 0
-                && !isApprovedFreeMenu(request.getStoreId(), request.getStoreName(), request.getMenu())) {
-            throw new IllegalArgumentException("승인된 무료 메뉴만 0원 방문 인증할 수 있습니다.");
-        }
-        boolean locationVerification = "LOCATION".equalsIgnoreCase(request.getVerificationMethod());
-        DocumentReference docRef = locationVerification
-                ? db.collection("visits").document(locationVisitDocumentId(
-                        firebaseUid, request, LocalDate.now(ZoneId.of("Asia/Seoul"))))
-                : db.collection("visits").document();
-        Map<String, Object> data = buildVisitData(
-                firebaseUid, request, savedAmount, java.time.Instant.now().toString());
-        try {
-            if (locationVerification) {
-                docRef.create(data).get();
-            } else {
-                docRef.set(data).get();
-            }
-        } catch (ExecutionException e) {
-            if (locationVerification && isAlreadyExists(e)) {
-                throw new DuplicateVisitException("오늘 이미 이 매장의 방문 인증을 완료했습니다.");
-            }
-            throw e;
-        }
-        return docRef.getId();
-    }
-
     String locationVisitDocumentId(
             String firebaseUid, com.howmuch.dto.VisitRequest request, LocalDate date) {
         String storeKey = request.getStoreId() != null && !request.getStoreId().isBlank()
                 ? request.getStoreId().trim()
                 : String.valueOf(request.getStoreName()).trim().toLowerCase(java.util.Locale.ROOT);
         return "location_" + sha256Hex(firebaseUid + "|" + storeKey + "|" + date);
+    }
+
+    /**
+     * 위치 방문과 같은 체계의 하루 1회 방문 문서 ID입니다. 매장은 공개 목록의 정규 ID로 맞춰
+     * 이름·옛 ID로 들어온 영수증도 같은 매장의 위치 방문과 같은 ID가 되게 합니다.
+     */
+    String dailyVisitDocumentId(String firebaseUid, String storeId, String storeName, LocalDate date) {
+        String key = storeId != null && !storeId.isBlank() ? storeId : storeName;
+        Map<String, Object> canonical = resolveReviewStore(key, getStoreCatalogEntry().stores());
+        String canonicalId = canonical == null ? null : strOrNull(canonical.get("storeId"));
+        com.howmuch.dto.VisitRequest identity = com.howmuch.dto.VisitRequest.builder()
+                .storeId(canonicalId != null && !canonicalId.isBlank() ? canonicalId : storeId)
+                .storeName(storeName)
+                .build();
+        return locationVisitDocumentId(firebaseUid, identity, date);
     }
 
     private String sha256Hex(String value) {
@@ -1910,6 +2612,97 @@ public class FirebaseService {
         data.put("verificationDistanceMeters", request.getVerificationDistanceMeters());
         data.put("visitedAt", visitedAt);
         return data;
+    }
+
+    /**
+     * 매장에 등록된 메뉴와 가격이 있을 때, 영수증 OCR로 확인되지 않은 다른 고가 메뉴명을 입력해
+     * 절약액을 부풀리는 경우 결제 금액과 일치하는 매장 등록 메뉴를 우선 사용합니다.
+     */
+    public String resolveMenuForSavings(
+            String storeId, String storeName, String submittedMenu, long price, Boolean ocrMenuMatch) {
+        String trimmed = submittedMenu == null ? "" : submittedMenu.trim();
+        Map<String, Object> store = resolveReviewStore(
+                storeId != null && !storeId.isBlank() ? storeId : storeName,
+                getAllStores());
+        if (store == null) {
+            return Boolean.FALSE.equals(ocrMenuMatch) ? "" : trimmed;
+        }
+
+        String normalizedSubmitted = ReferencePrices.normalize(trimmed);
+        List<String> priceMatchedMenus = new ArrayList<>();
+        String nameAndPriceMatchedMenu = null;
+        String unpricedNameMatchedMenu = null;
+        boolean hasRegisteredMenus = false;
+        for (int i = 1; i <= 4; i++) {
+            String candidateMenu = strOrNull(store.get("menu" + i));
+            if (candidateMenu == null || candidateMenu.isBlank()) continue;
+            hasRegisteredMenus = true;
+            String normalizedCandidate = ReferencePrices.normalize(candidateMenu);
+            Long candidatePrice = WonPrice.exactPositive(store.get("price" + i));
+            boolean matchesSubmittedName = !normalizedSubmitted.isEmpty()
+                    && (normalizedCandidate.equals(normalizedSubmitted)
+                            || normalizedCandidate.contains(normalizedSubmitted)
+                            || normalizedSubmitted.contains(normalizedCandidate));
+            if (candidatePrice != null && candidatePrice == price) {
+                priceMatchedMenus.add(candidateMenu);
+            }
+            if (matchesSubmittedName) {
+                if (candidatePrice != null && candidatePrice == price && Boolean.TRUE.equals(ocrMenuMatch)) {
+                    nameAndPriceMatchedMenu = candidateMenu;
+                } else if (candidatePrice == null && Boolean.TRUE.equals(ocrMenuMatch)) {
+                    unpricedNameMatchedMenu = candidateMenu;
+                }
+            }
+        }
+        if (hasRegisteredMenus) {
+            if (nameAndPriceMatchedMenu != null && Boolean.TRUE.equals(ocrMenuMatch)) {
+                return nameAndPriceMatchedMenu;
+            }
+            if (!priceMatchedMenus.isEmpty()) {
+                if (Boolean.FALSE.equals(ocrMenuMatch)
+                        && priceMatchedMenus.size() == 1
+                        && !normalizedSubmitted.isEmpty()
+                        && ReferencePrices.normalize(priceMatchedMenus.getFirst()).equals(normalizedSubmitted)) {
+                    return "";
+                }
+                return selectMostConservativeMenu(
+                        priceMatchedMenus,
+                        price,
+                        strOrNull(store.get("industry")),
+                        strOrNull(store.get("address")));
+            }
+            if (unpricedNameMatchedMenu != null) {
+                return unpricedNameMatchedMenu;
+            }
+            return "";
+        }
+        if (Boolean.FALSE.equals(ocrMenuMatch)) {
+            return "";
+        }
+        return trimmed;
+    }
+
+    private String selectMostConservativeMenu(List<String> candidates, long paidPrice, String industry, String address) {
+        if (candidates.size() == 1) return candidates.getFirst();
+        String chosen = candidates.getFirst();
+        long minSaved = Long.MAX_VALUE;
+        long minRefPrice = Long.MAX_VALUE;
+        for (String candidate : candidates) {
+            java.util.Optional<ReferencePrices.Estimate> estimate = estimateReferencePrice(candidate, industry, address);
+            if (estimate.isEmpty()) {
+                estimate = BUNDLED_TRUE_PRICE_FALLBACK.estimate(candidate, industry, address);
+            }
+            long refPrice = estimate
+                    .map(ReferencePrices.Estimate::referencePrice)
+                    .orElse(0L);
+            long saved = ReferencePrices.savedAmount(estimate, paidPrice);
+            if (saved < minSaved || (saved == minSaved && refPrice < minRefPrice)) {
+                minSaved = saved;
+                minRefPrice = refPrice;
+                chosen = candidate;
+            }
+        }
+        return chosen;
     }
 
     public boolean isApprovedFreeMenu(String storeId, String storeName, String menu) {
@@ -1963,9 +2756,11 @@ public class FirebaseService {
                 verificationDistanceMeters = distance.doubleValue();
             }
 
+            String visitDateStr = data.get("visitDate") != null ? data.get("visitDate").toString() : null;
             com.howmuch.dto.VisitResponseDto dto = com.howmuch.dto.VisitResponseDto.builder()
                     .id(doc.getId())
                     .visitedAt(data.get("visitedAt") != null ? data.get("visitedAt").toString() : null)
+                    .visitDate(visitDateStr)
                     .storeName(data.get("storeName") != null ? data.get("storeName").toString() : null)
                     .savedAmount(savedAmt)
                     .storeId(data.get("storeId") != null ? data.get("storeId").toString() : null)
@@ -1990,8 +2785,23 @@ public class FirebaseService {
         return visits;
     }
 
-    // 💡 리뷰 저장 (작성자 uid는 인증된 세션에서만 주입)
-    public String saveReview(String authorUid, com.howmuch.dto.ReviewRequest request) throws Exception {
+    /** 요청한 계정이 소유한 방문 기록만 삭제합니다. 다른 계정의 기록 존재 여부도 노출하지 않습니다. */
+    public void deleteOwnedVisit(String visitId, String firebaseUid) throws Exception {
+        try {
+            deleteOwnedDocument("visits", visitId, "userId", firebaseUid, "방문 기록을 찾을 수 없습니다.");
+        } finally {
+            invalidateSavingsHistory(firebaseUid);
+        }
+    }
+
+    /** 저장된 리뷰 ID와 서버가 정한 작성자 표시명입니다. */
+    public record SavedReview(String reviewId, String authorName) { }
+
+    /**
+     * 리뷰를 저장합니다. 작성자 uid는 인증된 세션에서만 받고, 표시명은 요청 본문 값을 쓰지 않고
+     * 회원 정보로 정합니다(계약 C1).
+     */
+    public SavedReview createReview(String authorUid, com.howmuch.dto.ReviewRequest request) throws Exception {
         if (authorUid == null || authorUid.isBlank()) {
             throw new IllegalArgumentException("인증된 사용자만 리뷰를 저장할 수 있습니다.");
         }
@@ -2000,12 +2810,13 @@ public class FirebaseService {
                 .equals(normalizeStoreIdentityPart(strOrNull(store.get("storeName"))))) {
             throw new IllegalArgumentException("매장을 정확히 확인할 수 없습니다. 매장 상세에서 다시 작성해주세요.");
         }
+        String authorName = resolveReviewAuthorName(authorUid);
         Map<String, Object> data = new HashMap<>();
         data.put("storeId", store.get("storeId"));
         data.put("storeName", store.get("storeName"));
         data.put("storeAddress", store.get("address"));
         data.put("authorUid", authorUid);
-        data.put("authorName", request.getAuthorName());
+        data.put("authorName", authorName);
         data.put("menu", request.getMenu());
         data.put("price", request.getPrice());
         data.put("content", request.getContent());
@@ -2017,12 +2828,57 @@ public class FirebaseService {
         DocumentReference docRef = db.collection("reviews").document();
         ApiFuture<WriteResult> future = docRef.set(data);
         future.get();
-        return docRef.getId();
+        return new SavedReview(docRef.getId(), authorName);
+    }
+
+    private static final String REVIEW_AUTHOR_ANONYMOUS = "익명";
+    private static final String REVIEW_AUTHOR_DEFAULT = "사용자";
+
+    /**
+     * 공개 리뷰 응답(계약 C1). 작성자 uid·매장 주소 같은 내부 필드는 내보내지 않고,
+     * 작성자명은 저장된 값 대신 현재 회원 정보로 다시 정해 공개 설정 변경과 위조를 함께 막습니다.
+     */
+    private Map<String, Object> publicReviewView(
+            String id, Map<String, Object> data, Object storeId, Object storeName,
+            Object storeSource, Map<String, String> authorNames) {
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("id", id);
+        view.put("storeId", storeId);
+        view.put("storeName", storeName);
+        view.put("storeSource", storeSource == null ? "UNKNOWN" : storeSource);
+        view.put("authorName", reviewAuthorName(strOrNull(data.get("authorUid")), authorNames));
+        view.put("menu", data.get("menu"));
+        view.put("price", data.get("price"));
+        view.put("content", data.get("content"));
+        view.put("stars", data.get("stars"));
+        view.put("likes", data.get("likes") == null ? 0 : data.get("likes"));
+        view.put("ownerReply", data.get("ownerReply"));
+        view.put("createdAt", data.get("createdAt"));
+        return view;
+    }
+
+    private String reviewAuthorName(String authorUid, Map<String, String> authorNames) {
+        if (authorUid == null || authorUid.isBlank()) return REVIEW_AUTHOR_DEFAULT;
+        return authorNames.computeIfAbsent(authorUid, this::resolveReviewAuthorName);
+    }
+
+    /** 닉네임 비공개면 "익명", 회원 정보나 닉네임이 없으면 "사용자"입니다. 조회 실패도 "사용자"로 숨깁니다. */
+    private String resolveReviewAuthorName(String authorUid) {
+        try {
+            UserProfileResponse user = getUserProfile(authorUid);
+            if (user == null) return REVIEW_AUTHOR_DEFAULT;
+            if (Boolean.FALSE.equals(user.getNicknamePublic())) return REVIEW_AUTHOR_ANONYMOUS;
+            String nickname = user.getNickname();
+            return nickname == null || nickname.isBlank() ? REVIEW_AUTHOR_DEFAULT : nickname.trim();
+        } catch (Exception exception) {
+            return REVIEW_AUTHOR_DEFAULT;
+        }
     }
 
     // 💡 특정 매장의 리뷰 목록 조회 (최신순 정렬 포함)
     public List<Map<String, Object>> getReviews(String storeId) throws Exception {
-        List<Map<String, Object>> catalog = getAllStores();
+        // 폐업 매장 상세에서도 기존 리뷰는 보여야 하므로 폐업 매장을 포함한 목록으로 해석합니다.
+        List<Map<String, Object>> catalog = getStoreCatalogEntry().stores();
         Map<String, Object> store = resolveReviewStore(storeId, catalog);
         if (store == null) return List.of();
         String canonicalId = String.valueOf(store.get("storeId"));
@@ -2034,13 +2890,14 @@ public class FirebaseService {
         // manual reconciliation; never guess a branch or rewrite data on GET.
         if (reviewStoresNamed(storeName, catalog).size() == 1) lookupIds.add(storeName);
         Map<String, Map<String, Object>> reviewsById = new LinkedHashMap<>();
+        Map<String, String> authorNames = new HashMap<>();
         for (String lookupId : lookupIds) {
             for (DocumentSnapshot doc : db.collection("reviews")
                     .whereEqualTo("storeId", lookupId).get().get().getDocuments()) {
-                Map<String, Object> data = new HashMap<>(doc.getData());
-                data.put("id", doc.getId());
-                data.put("storeId", canonicalId);
-                reviewsById.put(doc.getId(), data);
+                Map<String, Object> data = doc.getData() == null ? Map.of() : doc.getData();
+                Object reviewStoreName = data.get("storeName") != null ? data.get("storeName") : store.get("storeName");
+                reviewsById.put(doc.getId(), publicReviewView(doc.getId(), data, canonicalId,
+                        reviewStoreName, store.get("source"), authorNames));
             }
         }
         List<Map<String, Object>> reviews = new ArrayList<>(reviewsById.values());
@@ -2094,18 +2951,40 @@ public class FirebaseService {
         docRef.delete().get();
     }
 
+    /** 요청한 계정이 작성한 리뷰만 삭제합니다. 다른 계정의 리뷰 존재 여부도 노출하지 않습니다. */
+    public void deleteOwnedReview(String reviewId, String authorUid) throws Exception {
+        deleteOwnedDocument("reviews", reviewId, "authorUid", authorUid, "리뷰를 찾을 수 없습니다.");
+    }
+
+    private void deleteOwnedDocument(
+            String collection,
+            String documentId,
+            String ownerField,
+            String ownerUid,
+            String notFoundMessage) throws Exception {
+        DocumentReference document = db.collection(collection).document(documentId);
+        DocumentSnapshot snapshot = document.get().get();
+        if (!snapshot.exists() || ownerUid == null || !ownerUid.equals(snapshot.getString(ownerField))) {
+            throw new NoSuchElementException(notFoundMessage);
+        }
+        document.delete().get();
+    }
+
     // 💡 로그인한 사용자가 작성한 리뷰 목록 조회 (최신순 정렬 포함)
     public List<Map<String, Object>> getMyReviews(String authorUid) throws Exception {
         List<Map<String, Object>> catalog = getStoreCatalogEntry().stores();
+        Map<String, String> authorNames = new HashMap<>();
         List<Map<String, Object>> reviews = new ArrayList<>(db.collection("reviews")
                 .whereEqualTo("authorUid", authorUid)
                 .get().get().getDocuments().stream()
                 .map(doc -> {
-                    Map<String, Object> data = new HashMap<>(doc.getData());
-                    data.put("id", doc.getId());
+                    Map<String, Object> data = doc.getData() == null ? Map.of() : doc.getData();
                     Map<String, Object> store = resolveReviewStore(strOrNull(data.get("storeId")), catalog);
-                    data.put("storeSource", store == null ? "UNKNOWN" : store.get("source"));
-                    return data;
+                    Object storeName = data.get("storeName") != null || store == null
+                            ? data.get("storeName") : store.get("storeName");
+                    return publicReviewView(doc.getId(), data,
+                            store == null ? data.get("storeId") : store.get("storeId"), storeName,
+                            store == null ? "UNKNOWN" : store.get("source"), authorNames);
                 })
                 .toList());
         // 복합 인덱스 없이 동작하도록 메모리에서 최신순 정렬
@@ -2117,8 +2996,99 @@ public class FirebaseService {
         return reviews;
     }
 
-    // 💡 사용자의 절약 내역 목록 조회 (visits 컬렉션 기반)
+    // 내역 화면에만 필요한 매장 출처·업종 보강은 통계 조회의 대기 경로에서 제외합니다.
     public List<com.howmuch.dto.SavingsHistoryResponse> getSavingsHistory(String firebaseUid) throws Exception {
+        List<com.howmuch.dto.SavingsHistoryResponse> history = getSavingsStatsHistory(firebaseUid);
+        if (history.isEmpty()) return history;
+        AllStoresCacheEntry catalog = getStoreCatalogEntry();
+        Map<String, Map<String, Object>> storesByKey = new HashMap<>();
+        Map<String, String> industriesByName = new HashMap<>();
+        List<com.howmuch.dto.SavingsHistoryResponse> enriched = new ArrayList<>(history.size());
+        for (com.howmuch.dto.SavingsHistoryResponse item : history) {
+            String storeKey = item.getStoreId() != null && !item.getStoreId().isBlank()
+                    ? item.getStoreId() : item.getStoreName();
+            if (storeKey != null && !storesByKey.containsKey(storeKey)) {
+                storesByKey.put(storeKey, resolveReviewStore(storeKey, catalog.stores()));
+            }
+            Map<String, Object> store = storesByKey.get(storeKey);
+            String industry = item.getCategory();
+            if (industry == null || industry.isBlank()) {
+                String storeName = item.getStoreName();
+                if (!industriesByName.containsKey(storeName)) {
+                    Map<String, Object> named = storeName == null || storeName.isBlank() ? null
+                            : resolveReviewStore(storeName, catalog.stores());
+                    industriesByName.put(storeName, named == null ? null : strOrNull(named.get("industry")));
+                }
+                industry = industriesByName.get(storeName);
+            }
+            enriched.add(item.toBuilder().category(industry)
+                    .storeSource(store == null ? null : strOrNull(store.get("source"))).build());
+        }
+        return List.copyOf(enriched);
+    }
+
+    /** 같은 사용자의 진행 중 조회를 공유하고, 방문 변경 전 응답은 캐시에 되돌리지 않습니다. */
+    List<com.howmuch.dto.SavingsHistoryResponse> getSavingsStatsHistory(String firebaseUid) throws Exception {
+        if (firebaseUid == null || firebaseUid.isBlank()) return List.of();
+        while (true) {
+            SavingsHistoryLoad load;
+            boolean owner;
+            synchronized (savingsHistoryCacheLock) {
+                load = savingsHistoryCache.get(firebaseUid);
+                if (load != null && load.result.isDone()
+                        && System.currentTimeMillis() - load.cachedAtMs >= SAVINGS_HISTORY_CACHE_TTL_MS) {
+                    savingsHistoryCache.remove(firebaseUid);
+                    load = null;
+                }
+                owner = load == null;
+                if (owner) {
+                    load = new SavingsHistoryLoad();
+                    savingsHistoryCache.put(firebaseUid, load);
+                }
+            }
+            if (owner) {
+                try {
+                    List<com.howmuch.dto.SavingsHistoryResponse> items = loadSavingsHistory(firebaseUid);
+                    synchronized (savingsHistoryCacheLock) {
+                        load.cachedAtMs = System.currentTimeMillis();
+                        load.result.complete(items);
+                        // Active reads stay shared; completed entries have a bounded account count.
+                        var entries = savingsHistoryCache.entrySet().iterator();
+                        while (savingsHistoryCache.size() > SAVINGS_HISTORY_CACHE_MAX_USERS && entries.hasNext()) {
+                            if (entries.next().getValue().result.isDone()) entries.remove();
+                        }
+                    }
+                } catch (Exception exception) {
+                    synchronized (savingsHistoryCacheLock) {
+                        savingsHistoryCache.remove(firebaseUid, load);
+                        load.result.completeExceptionally(exception);
+                    }
+                }
+            }
+            final List<com.howmuch.dto.SavingsHistoryResponse> items;
+            try {
+                items = load.result.get();
+            } catch (ExecutionException exception) {
+                if (exception.getCause() instanceof Exception cause) throw cause;
+                throw exception;
+            }
+            synchronized (savingsHistoryCacheLock) {
+                if (!load.invalidated) return items;
+            }
+            // Approval/delete/withdrawal committed while the old read was in flight.
+            // Retry against the new generation instead of publishing that stale snapshot.
+        }
+    }
+
+    void invalidateSavingsHistory(String firebaseUid) {
+        if (firebaseUid == null) return;
+        synchronized (savingsHistoryCacheLock) {
+            SavingsHistoryLoad load = savingsHistoryCache.remove(firebaseUid);
+            if (load != null) load.invalidated = true;
+        }
+    }
+
+    private List<com.howmuch.dto.SavingsHistoryResponse> loadSavingsHistory(String firebaseUid) throws Exception {
         var documents = db.collection("visits")
                 .whereEqualTo("userId", firebaseUid)
                 .get().get().getDocuments();
@@ -2133,16 +3103,17 @@ public class FirebaseService {
             Boolean isGov = parseBooleanSafely(data.get("isGov"));
 
             String visitedAtStr = data.get("visitedAt") != null ? data.get("visitedAt").toString() : null;
-            String dateStr = data.get("date") != null ? data.get("date").toString() : visitedAtStr;
+            String visitDateStr = data.get("visitDate") != null ? data.get("visitDate").toString() : null;
+            String dateStr = (visitDateStr != null && !visitDateStr.isBlank())
+                    ? visitDateStr
+                    : (data.get("date") != null ? data.get("date").toString() : visitedAtStr);
             String storeName = data.get("storeName") != null ? data.get("storeName").toString() : null;
             String industry = data.get("industry") != null ? data.get("industry").toString() : null;
-            if (industry == null || industry.isBlank()) {
-                industry = findIndustryByStoreName(storeName);
-            }
+            String storeId = data.get("storeId") != null ? data.get("storeId").toString() : null;
 
             com.howmuch.dto.SavingsHistoryResponse dto = com.howmuch.dto.SavingsHistoryResponse.builder()
                     .id(doc.getId())
-                    .storeId(data.get("storeId") != null ? data.get("storeId").toString() : null)
+                    .storeId(storeId)
                     .storeName(storeName)
                     .category(industry)
                     .visitedAt(visitedAtStr)
@@ -2164,7 +3135,7 @@ public class FirebaseService {
             return bTime.compareTo(aTime);
         });
 
-        return historyList;
+        return List.copyOf(historyList);
     }
 
     private Long parseLongSafely(Object obj) {
@@ -2369,7 +3340,7 @@ public class FirebaseService {
     }
 
     private String normalizeStoreIdentityPart(String value) {
-        return value == null ? "" : value.trim().replaceAll("\\s+", " ").toLowerCase();
+        return value == null ? "" : IDENTITY_WHITESPACE.matcher(value.trim()).replaceAll(" ").toLowerCase();
     }
 
     private String stableStoreIdForData(Map<String, Object> data) {
@@ -2649,18 +3620,21 @@ public class FirebaseService {
             throws Exception {
         List<PriceAlertSubscriptionDto> subscriptions = new ArrayList<>();
         NotificationSettingsDto settings = getNotificationSettings(firebaseUid);
+        // BE-CORE-5: 승인된 보정이 반영된 공개 목록에서 대표 메뉴·가격을 읽습니다(원본 스냅샷 가격 아님).
+        Map<String, Map<String, Object>> storesById = publicStoreIndex();
         for (DocumentSnapshot favorite : db.collection("favorites")
                 .whereEqualTo("userId", firebaseUid).get().get().getDocuments()) {
             Map<String, Object> data = favorite.getData();
-            String storeName = strOrNull(data.get("storeName"));
-            Map<String, Object> store = findGovStoreByName(storeName);
-            String menuName = store != null ? strOrNull(store.get("menu1")) : null;
-            String price = store != null ? strOrNull(store.get("price1")) : null;
+            String storeId = canonicalStoreIdForFavorite(data);
+            Map<String, Object> store = storesById.get(storeId);
+            String storeName = store != null && strOrNull(store.get("storeName")) != null
+                    ? strOrNull(store.get("storeName")) : strOrNull(data.get("storeName"));
+            String[] representative = representativeMenu(store);
             subscriptions.add(PriceAlertSubscriptionDto.builder()
-                    .storeId(canonicalStoreIdForFavorite(data))
+                    .storeId(storeId)
                     .storeName(storeName != null && !storeName.isBlank() ? storeName : "매장명 없음")
-                    .menuName(menuName != null && !menuName.isBlank() ? menuName : "가격 변동 알림")
-                    .price(price)
+                    .menuName(representative[0] != null ? representative[0] : "가격 변동 알림")
+                    .price(representative[1])
                     .enabled(booleanOrDefault(data, "priceAlertEnabled", true))
                     .notifyOnRise(Boolean.TRUE.equals(settings.getNotifyOnRise()))
                     .notifyOnDrop(Boolean.TRUE.equals(settings.getNotifyOnDrop()))
@@ -2673,56 +3647,14 @@ public class FirebaseService {
         return subscriptions;
     }
 
-    /** 찜한 매장에 대해서만 가격 알림 구독 상태를 변경합니다. */
-    public PriceAlertSubscriptionDto savePriceAlertSubscription(
-            String firebaseUid,
-            PriceAlertSubscriptionRequest request) throws Exception {
-        if (request == null || request.getStoreId() == null || request.getStoreId().isBlank()) {
-            throw new IllegalArgumentException("storeId는 필수입니다.");
+    /** 첫 번째로 등록된 메뉴와 그 가격입니다(보정으로 1번 메뉴가 빠졌으면 다음 메뉴). 없으면 둘 다 null입니다. */
+    private static String[] representativeMenu(Map<String, Object> store) {
+        if (store == null) return new String[]{null, null};
+        for (int slot = 1; slot <= 4; slot++) {
+            String menu = blankToNull(store.get("menu" + slot));
+            if (menu != null) return new String[]{menu, blankToNull(store.get("price" + slot))};
         }
-        if (request.getEnabled() == null) {
-            throw new IllegalArgumentException("enabled는 필수입니다.");
-        }
-
-        DocumentSnapshot favorite = findFavoriteDocument(firebaseUid, request.getStoreId());
-        if (favorite == null) {
-            throw new NoSuchElementException("찜한 매장을 찾을 수 없습니다.");
-        }
-        favorite.getReference().update("priceAlertEnabled", request.getEnabled()).get();
-
-        if (request.getNotifyOnRise() != null
-                || request.getNotifyOnDrop() != null
-                || request.getNotifyOnNewMenu() != null) {
-            Map<String, Object> conditionUpdates = new HashMap<>();
-            if (request.getNotifyOnRise() != null) {
-                conditionUpdates.put("notifyOnRise", request.getNotifyOnRise());
-            }
-            if (request.getNotifyOnDrop() != null) {
-                conditionUpdates.put("notifyOnDrop", request.getNotifyOnDrop());
-            }
-            if (request.getNotifyOnNewMenu() != null) {
-                conditionUpdates.put("notifyOnNewMenu", request.getNotifyOnNewMenu());
-            }
-            db.collection("notification_settings").document(firebaseUid)
-                    .set(conditionUpdates, SetOptions.merge()).get();
-        }
-
-        Map<String, Object> data = new HashMap<>(favorite.getData());
-        data.put("priceAlertEnabled", request.getEnabled());
-        NotificationSettingsDto savedConditions = getNotificationSettings(firebaseUid);
-        String storeName = strOrNull(data.get("storeName"));
-        Map<String, Object> store = findGovStoreByName(storeName);
-        String menuName = store != null ? strOrNull(store.get("menu1")) : null;
-        return PriceAlertSubscriptionDto.builder()
-                .storeId(canonicalStoreIdForFavorite(data))
-                .storeName(storeName != null ? storeName : "매장명 없음")
-                .menuName(menuName != null && !menuName.isBlank() ? menuName : "가격 변동 알림")
-                .price(store != null ? strOrNull(store.get("price1")) : null)
-                .enabled(request.getEnabled())
-                .notifyOnRise(Boolean.TRUE.equals(savedConditions.getNotifyOnRise()))
-                .notifyOnDrop(Boolean.TRUE.equals(savedConditions.getNotifyOnDrop()))
-                .notifyOnNewMenu(Boolean.TRUE.equals(savedConditions.getNotifyOnNewMenu()))
-                .build();
+        return new String[]{null, null};
     }
 
     // ==================== 절약 목표 (savings goal) ====================
@@ -2792,6 +3724,38 @@ public class FirebaseService {
 
     // 💡 커뮤니티 피드 목록 조회 (최신순, REJECTED 제외)
     // 60초 캐시와 단일 갱신 잠금으로 동시 만료 요청의 Firestore 중복 조회를 방지합니다.
+    /**
+     * 로그인 요청자는 자신이 좋아요한 글을 목록에서도 표시합니다(FE-COMM-18).
+     * 공유 캐시는 바꾸지 않고, 요청자의 좋아요 문서만 한 번 조회해 해당 글의 복사본에 표시합니다.
+     */
+    public List<com.howmuch.dto.FeedResponseDto> getCommunityFeeds(String requesterUid) throws Exception {
+        List<com.howmuch.dto.FeedResponseDto> feeds = getCommunityFeeds();
+        if (requesterUid == null || requesterUid.isBlank() || feeds.isEmpty()) return feeds;
+        Set<String> liked = likedFeedIds(requesterUid);
+        if (liked.isEmpty()) return feeds;
+        List<com.howmuch.dto.FeedResponseDto> personalized = new ArrayList<>(feeds.size());
+        for (com.howmuch.dto.FeedResponseDto feed : feeds) {
+            personalized.add(liked.contains(feed.getId()) ? feed.toBuilder().likedByMe(true).build() : feed);
+        }
+        return personalized;
+    }
+
+    private Set<String> likedFeedIds(String uid) {
+        try {
+            Set<String> ids = new HashSet<>();
+            for (DocumentSnapshot like : db.collection("feed_likes")
+                    .whereEqualTo("userId", uid).get().get().getDocuments()) {
+                String postId = like.getString("postId");
+                if (postId != null && !postId.isBlank()) ids.add(postId);
+            }
+            return ids;
+        } catch (Exception e) {
+            // 좋아요 표시는 보조 정보라, 조회 실패가 피드 목록 전체를 막지 않게 합니다.
+            log.warn("피드 목록 좋아요 표시 조회 실패: {}", e.getMessage());
+            return Set.of();
+        }
+    }
+
     public List<com.howmuch.dto.FeedResponseDto> getCommunityFeeds() throws Exception {
         long now = System.currentTimeMillis();
         List<com.howmuch.dto.FeedResponseDto> cached = cachedFeeds;
@@ -2812,34 +3776,14 @@ public class FirebaseService {
                     .get().get().getDocuments();
 
             List<com.howmuch.dto.FeedResponseDto> feeds = new ArrayList<>();
-            Map<String, String> authorCache = new HashMap<>();
+            Map<String, AuthorSnapshot> authorCache = new HashMap<>();
 
             for (DocumentSnapshot doc : documents) {
                 Map<String, Object> data = doc.getData();
                 if (data == null) continue;
                 if (!isFeedVisible(data)) continue; // REJECTED 제외
 
-                String reporterId = (String) data.get("reporterId");
-                String author = "알 수 없음";
-                String authorProfileImageUrl = (String) data.get("reporterProfileImageUrl");
-                if (reporterId != null) {
-                    if (authorCache.containsKey(reporterId)) {
-                        author = authorCache.get(reporterId);
-                    } else {
-                        try {
-                            com.howmuch.dto.UserProfileResponse user = getUserProfile(reporterId);
-                            if (user != null) {
-                                if (user.getNickname() != null) author = user.getNickname();
-                                if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isBlank()) {
-                                    authorProfileImageUrl = user.getProfileImageUrl();
-                                }
-                            }
-                        } catch (Exception e) {
-                            // Ignore
-                        }
-                        authorCache.put(reporterId, author);
-                    }
-                }
+                AuthorSnapshot authorInfo = feedAuthor(data, authorCache);
 
                 String storeName = (String) data.get("storeName");
                 String menu1 = (String) data.get("menu1");
@@ -2863,8 +3807,8 @@ public class FirebaseService {
                         .id(doc.getId())
                         .location(location)
                         .title(title.trim())
-                        .author(author)
-                        .authorProfileImageUrl(authorProfileImageUrl)
+                        .author(authorInfo.nickname())
+                        .authorProfileImageUrl(authorInfo.profileImageUrl())
                         .likes(data.get("likes") != null ? Integer.parseInt(data.get("likes").toString()) : 0)
                         .comments(data.get("comments") != null ? Integer.parseInt(data.get("comments").toString()) : 0)
                         .status(status)
@@ -2874,6 +3818,9 @@ public class FirebaseService {
                         .menu(menu1)
                         .price(price1)
                         .free(Boolean.TRUE.equals(data.get("free1")))
+                        .changeType(feedChangeType(data.get("changeType")))
+                        .reportType(blankToNull(data.get("reportType")))
+                        .cityProvince(blankToNull(data.get("cityProvince")))
                         .build();
                 feeds.add(dto);
             }
@@ -2887,10 +3834,6 @@ public class FirebaseService {
     }
 
     // 💡 커뮤니티 피드 상세 조회 (REJECTED는 404, rejectReason 비공개)
-    public com.howmuch.dto.FeedDetailResponseDto getCommunityFeedDetail(String id) throws Exception {
-        return getCommunityFeedDetail(id, null);
-    }
-
     public com.howmuch.dto.FeedDetailResponseDto getCommunityFeedDetail(String id, String requesterUid) throws Exception {
         DocumentSnapshot doc = db.collection("stores_user").document(id).get().get();
         if (!doc.exists()) {
@@ -2901,22 +3844,7 @@ public class FirebaseService {
         if (data == null) return null;
         if (!isFeedVisible(data)) return null; // REJECTED는 상세도 비공개
 
-        String reporterId = (String) data.get("reporterId");
-        String author = "알 수 없음";
-        String authorProfileImageUrl = (String) data.get("reporterProfileImageUrl");
-        if (reporterId != null) {
-            try {
-                com.howmuch.dto.UserProfileResponse user = getUserProfile(reporterId);
-                if (user != null) {
-                    if (user.getNickname() != null) author = user.getNickname();
-                    if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isBlank()) {
-                        authorProfileImageUrl = user.getProfileImageUrl();
-                    }
-                }
-            } catch (Exception e) {
-                // Ignore
-            }
-        }
+        AuthorSnapshot authorInfo = feedAuthor(data, new HashMap<>());
 
         String storeName = (String) data.get("storeName");
         String menu1 = (String) data.get("menu1");
@@ -2940,8 +3868,8 @@ public class FirebaseService {
                 .id(doc.getId())
                 .location(location)
                 .title(title.trim())
-                .author(author)
-                .authorProfileImageUrl(authorProfileImageUrl)
+                .author(authorInfo.nickname())
+                .authorProfileImageUrl(authorInfo.profileImageUrl())
                 .likes(data.get("likes") != null ? Integer.parseInt(data.get("likes").toString()) : 0)
                 .comments(data.get("comments") != null ? Integer.parseInt(data.get("comments").toString()) : 0)
                 .likedByMe(isFeedLikedBy(id, requesterUid))
@@ -2967,6 +3895,9 @@ public class FirebaseService {
                 .free4(Boolean.TRUE.equals(data.get("free4")))
                 .visitedRecently(data.get("visitedRecently") != null && Boolean.parseBoolean(data.get("visitedRecently").toString()))
                 .checkedMenuPrice(data.get("checkedMenuPrice") != null && Boolean.parseBoolean(data.get("checkedMenuPrice").toString()))
+                .changeType(feedChangeType(data.get("changeType")))
+                .reportType(blankToNull(data.get("reportType")))
+                .cityProvince(blankToNull(data.get("cityProvince")))
                 .build();
     }
 
@@ -3053,6 +3984,16 @@ public class FirebaseService {
         return inquiries;
     }
 
+    /**
+     * WEB-ADM-15: 첨부 사진 작성자를 알 수 없어 사진을 안전하게 지울 수 없는 문의입니다.
+     * 저장소 장애(503)와 구분해 관리자에게 정확한 이유를 알립니다.
+     */
+    public static class InquiryImageOwnerUnknownException extends IllegalStateException {
+        public InquiryImageOwnerUnknownException(String message) {
+            super(message);
+        }
+    }
+
     /** 어드민: 문의와 첨부 이미지, 답변 알림을 한 건 단위로 정리합니다. */
     public Map<String, Object> deleteInquiryAsAdmin(String inquiryId) throws Exception {
         if (inquiryId == null || inquiryId.isBlank()) {
@@ -3068,7 +4009,7 @@ public class FirebaseService {
         String ownerUid = inquiry.getString("userId");
         List<String> imageUrls = stringList(inquiry.get("imageUrls"));
         if (!imageUrls.isEmpty() && (ownerUid == null || ownerUid.isBlank())) {
-            throw new IllegalStateException("첨부 이미지 소유자 정보를 확인할 수 없습니다.");
+            throw new InquiryImageOwnerUnknownException("첨부 이미지 소유자 정보를 확인할 수 없습니다.");
         }
         List<String> ownedImageUrls = imageUrls.stream()
                         .filter(url -> reportImageStorage.isOwnedBy(ownerUid, url))
@@ -3169,15 +4110,14 @@ public class FirebaseService {
 
     /** 최종 추천 개수 */
     private static final int MAX_PICKS = 3;
+    private static final double EARTH_RADIUS_METERS = 6_371_000.0;
+    private final Object pickThemePresenceLock = new Object();
+    private volatile PickThemePresence pickThemePresence;
+    private record PickThemePresence(List<Map<String, Object>> catalog,
+                                     java.util.concurrent.ConcurrentHashMap<PickTheme, Boolean> values) {}
 
    /** 위치 기반 후보군 크기 (이 안에서 날짜 시드 셔플로 최대 3곳 선정) */
    private static final int CANDIDATE_POOL_SIZE = 20;
-
-    /**
-     * 추천 허용 기본 최대 반경 (미터).
-     * 가까운 동네 추천에 원거리 매장이 혼입되는 것을 방지한다.
-     */
-    public static final double MAX_RECOMMENDATION_RADIUS_METERS = 3000.0;
 
    /**
      * 오늘의 픽 추천 — 날씨 기반 추천 룰 + 공공데이터 인메모리 캐시에서 매장 선별.
@@ -3189,10 +4129,6 @@ public class FirebaseService {
      * @param lng     사용자 경도 (거리 계산용, null 가능)
      * @return 추천 매장 리스트 (최대 3개)
      */
-    public List<Map<String, Object>> getTodaysPicks(String weather, Integer temp, Double lat, Double lng) {
-        return getTodaysPicks(weather, temp, lat, lng, 3000);
-    }
-
     public List<Map<String, Object>> getTodaysPicks(String weather, Integer temp, Double lat, Double lng, int radiusMeters) {
         validateRecommendationRadius(radiusMeters);
         boolean locationAvailable = isValidCoordinate(lat, lng);
@@ -3205,20 +4141,19 @@ public class FirebaseService {
 
         // 💡 식당(요식업)만 추천 대상 — 공공데이터엔 미용업·세탁업·목욕업 등 비요식업이 섞여 있어
         //    매칭 실패 폼백에서 미용실이 추천되던 문제 방지
-        List<Map<String, Object>> foodStores = new ArrayList<>();
-        for (Map<String, Object> store : getAllStores()) {
-            String industry = strOrNull(store.get("industry"));
-            if (industry != null && FOOD_INDUSTRIES.contains(industry)
-                    && hasValidStoreCoordinate(store) && firstPricedMenu(store) != null) {
-                foodStores.add(store);
-            }
-        }
+        List<Map<String, Object>> catalog = getAllStores();
+        // Reject distant stores before parsing menus/prices or matching themes. The cheap
+        // spherical bounding box is conservative; exact haversine still enforces the radius.
+        Map<Map<String, Object>, Double> distances = new java.util.IdentityHashMap<>();
+        List<Map<String, Object>> foodStores = nearbyPickStores(catalog, lat, lng, radiusMeters, distances);
+        if (foodStores.isEmpty()) return List.of();
 
         // 테마별 매칭 (매장 → 실제 매칭된 메뉴 추적). 대안 테마는 메인과 겹치지 않게 제외.
         long dailySeed = java.time.LocalDate.now(ZoneId.of("Asia/Seoul")).toEpochDay();
         Map<String, String> matchedMenuByStore = new HashMap<>();
         Map<String, String> themeByStore = new HashMap<>();
         Map<String, String> reasonByStore = new HashMap<>();
+        // All pools reuse the exact distances populated by the nearby-candidate pass.
 
         List<Map<String, Object>> mainMatched = matchTheme(foodStores, mainTheme,
                 matchedMenuByStore, themeByStore, reasonByStore, Set.of());
@@ -3229,21 +4164,25 @@ public class FirebaseService {
                 : List.of();
 
         // 메인이 0건이면 식당 전체 풀을 메인으로 사용 (폼백도 식당만)
-        List<Map<String, Object>> mainPool = mainMatched.isEmpty() ? foodStores : mainMatched;
+        // Preserve the previous global fallback policy: a main theme that exists only
+        // outside this radius must not change local alternative-theme priority. The rare
+        // existence check is short-circuited and cached per immutable catalog/theme.
+        List<Map<String, Object>> mainPool = !mainMatched.isEmpty() ? mainMatched
+                : globalPickThemeExists(catalog, mainTheme) ? List.of() : foodStores;
 
        // 위치가 있으면 가까운 순으로 후보를 유지한다. 예전에는 상위 20곳을
        // 다시 섞어 10km 이상 먼 매장이 앞 순위에 올라가는 문제가 있었다.
        List<Map<String, Object>> mainCandidates = nearestShuffled(
-                mainPool, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE, dailySeed, radiusMeters);
+                mainPool, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE, dailySeed, radiusMeters, distances);
        List<Map<String, Object>> altCandidates = nearestShuffled(
-                altMatched, effectiveLat, effectiveLng, ALT_CANDIDATE_POOL_SIZE, dailySeed + 1, radiusMeters);
+                altMatched, effectiveLat, effectiveLng, ALT_CANDIDATE_POOL_SIZE, dailySeed + 1, radiusMeters, distances);
 
        // 날씨 테마 후보를 먼저 유지하되, 3km 안에서 식사 2곳 + 디저트/카페 1곳을
        // 우선 구성한다. 한쪽이 부족하면 다른 쪽으로만 채우고, 먼 매장까지 범위를
        // 확장하지 않는다.
        List<Map<String, Object>> nearbyFood = nearestShuffled(
                foodStores, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE,
-               dailySeed + 2, radiusMeters);
+               dailySeed + 2, radiusMeters, distances);
        List<Map<String, Object>> preferred = new ArrayList<>();
        Set<String> preferredNames = new HashSet<>();
        addUnique(preferred, mainCandidates, CANDIDATE_POOL_SIZE, preferredNames);
@@ -3318,6 +4257,65 @@ public class FirebaseService {
 
     /** 대안 테마 후보군 크기 */
     private static final int ALT_CANDIDATE_POOL_SIZE = 10;
+
+    /**
+     * FE-STORE-13: 추천 루트는 출발지에서 모든 매장을 한 번씩 들르는 총거리가 가장 짧은 순서로 정렬합니다.
+     * 추천 매장은 최대 몇 곳뿐이라 모든 순서를 비교합니다. 위치나 매장 좌표가 없으면 원래 순서를 유지합니다.
+     */
+    public List<Map<String, Object>> orderRouteStops(List<Map<String, Object>> picks, Double lat, Double lng) {
+        if (picks == null || picks.size() < 2 || picks.size() > 6
+                || lat == null || lng == null || !isValidCoordinate(lat, lng)) {
+            return picks;
+        }
+        int size = picks.size();
+        double[][] points = new double[size][2];
+        for (int i = 0; i < size; i++) {
+            double pointLat = parseLat(picks.get(i));
+            double pointLng = parseLng(picks.get(i));
+            if (!isValidCoordinate(pointLat, pointLng)) return picks;
+            points[i][0] = pointLat;
+            points[i][1] = pointLng;
+        }
+        int[] order = java.util.stream.IntStream.range(0, size).toArray();
+        int[] best = order.clone();
+        double bestDistance = routeDistance(order, points, lat, lng);
+        while (nextPermutation(order)) {
+            double distance = routeDistance(order, points, lat, lng);
+            if (distance + 1e-6 < bestDistance) {
+                bestDistance = distance;
+                best = order.clone();
+            }
+        }
+        List<Map<String, Object>> ordered = new ArrayList<>(size);
+        for (int index : best) ordered.add(picks.get(index));
+        return ordered;
+    }
+
+    private double routeDistance(int[] order, double[][] points, double startLat, double startLng) {
+        double total = 0;
+        double currentLat = startLat;
+        double currentLng = startLng;
+        for (int index : order) {
+            total += haversine(currentLat, currentLng, points[index][0], points[index][1]);
+            currentLat = points[index][0];
+            currentLng = points[index][1];
+        }
+        return total;
+    }
+
+    /** 사전순 다음 순열로 바꿉니다. 마지막 순열이면 false입니다. */
+    private static boolean nextPermutation(int[] values) {
+        int pivot = values.length - 2;
+        while (pivot >= 0 && values[pivot] >= values[pivot + 1]) pivot--;
+        if (pivot < 0) return false;
+        int successor = values.length - 1;
+        while (values[successor] <= values[pivot]) successor--;
+        int swap = values[pivot]; values[pivot] = values[successor]; values[successor] = swap;
+        for (int left = pivot + 1, right = values.length - 1; left < right; left++, right--) {
+            swap = values[left]; values[left] = values[right]; values[right] = swap;
+        }
+        return true;
+    }
 
     private boolean isDessertStore(Map<String, Object> store) {
         StringBuilder searchable = new StringBuilder();
@@ -3396,6 +4394,52 @@ public class FirebaseService {
         }
     }
 
+    private List<Map<String, Object>> nearbyPickStores(List<Map<String, Object>> catalog,
+            double lat, double lng, int radiusMeters, Map<Map<String, Object>, Double> distances) {
+        double angular = radiusMeters / EARTH_RADIUS_METERS;
+        double latitudeDelta = Math.toDegrees(angular) + 1e-9;
+        double absoluteLatitude = Math.abs(Math.toRadians(lat));
+        double longitudeDelta = absoluteLatitude + angular >= Math.PI / 2 - 1e-12
+                ? 180.0 : Math.toDegrees(Math.asin(Math.min(1.0, Math.sin(angular) / Math.cos(Math.toRadians(lat))))) + 1e-9;
+        List<Map<String, Object>> nearby = new ArrayList<>();
+        for (Map<String, Object> store : catalog) {
+            String industry = strOrNull(store.get("industry"));
+            if (industry == null || !FOOD_INDUSTRIES.contains(industry)) continue;
+            double storeLat = parseLat(store);
+            double storeLng = parseLng(store);
+            if (!isValidCoordinate(storeLat, storeLng) || Math.abs(storeLat - lat) > latitudeDelta) continue;
+            double delta = Math.abs(storeLng - lng);
+            if (Math.min(delta, 360.0 - delta) > longitudeDelta) continue;
+            double distance = haversine(lat, lng, storeLat, storeLng);
+            if (!Double.isFinite(distance) || distance > radiusMeters) continue;
+            if (firstPricedMenu(store) == null) continue;
+            distances.put(store, distance);
+            nearby.add(store);
+        }
+        return nearby;
+    }
+
+    private boolean globalPickThemeExists(List<Map<String, Object>> catalog, PickTheme theme) {
+        PickThemePresence cached = pickThemePresence;
+        if (cached == null || cached.catalog() != catalog) {
+            synchronized (pickThemePresenceLock) {
+                cached = pickThemePresence;
+                if (cached == null || cached.catalog() != catalog) {
+                    cached = new PickThemePresence(catalog, new java.util.concurrent.ConcurrentHashMap<>());
+                    pickThemePresence = cached;
+                }
+            }
+        }
+        return cached.values().computeIfAbsent(theme, key -> {
+            for (Map<String, Object> store : catalog) {
+                String industry = strOrNull(store.get("industry"));
+                if (industry != null && FOOD_INDUSTRIES.contains(industry)
+                        && hasValidStoreCoordinate(store) && findMatchedMenu(store, key) != null) return true;
+            }
+            return false;
+        });
+    }
+
     /** 테마 키워드와 매칭되는 매장 수집 + 매장별 매칭 메뉴/테마/이유 기록 (제외 매장명 스킵) */
     private List<Map<String, Object>> matchTheme(List<Map<String, Object>> foodStores, PickTheme theme,
                                                  Map<String, String> matchedMenuByStore,
@@ -3420,18 +4464,18 @@ public class FirebaseService {
     /** 가까운 순 상위 limit개를 반환한다. 위치가 있을 때는 maxRadiusMeters 이내 매장만 필터링한다. */
    private List<Map<String, Object>> nearestShuffled(List<Map<String, Object>> pool,
                                                       Double lat, Double lng, int limit, long seed,
-                                                      double maxRadiusMeters) {
+                                                      double maxRadiusMeters,
+                                                      Map<Map<String, Object>, Double> distances) {
         List<Map<String, Object>> scored = new ArrayList<>();
        if (lat != null && lng != null) {
             for (Map<String, Object> store : pool) {
-                double distance = haversine(lat, lng, parseLat(store), parseLng(store));
+                double distance = distances.computeIfAbsent(store,
+                        value -> haversine(lat, lng, parseLat(value), parseLng(value)));
                 if (Double.isFinite(distance) && distance <= maxRadiusMeters) {
                     scored.add(store);
                 }
             }
-           scored.sort((a, b) -> Double.compare(
-                   haversine(lat, lng, parseLat(a), parseLng(a)),
-                   haversine(lat, lng, parseLat(b), parseLng(b))));
+           scored.sort(java.util.Comparator.comparingDouble(distances::get));
        }
         else {
             scored.addAll(pool);
@@ -3539,22 +4583,9 @@ public class FirebaseService {
         }
     }
 
-    /** 작성자 uid → 닉네임 해결 (실패 시 '알 수 없음') */
-    private String resolveAuthor(String uid) {
-        if (uid == null) return "알 수 없음";
-        try {
-            com.howmuch.dto.UserProfileResponse user = getUserProfile(uid);
-            if (user != null && user.getNickname() != null && !user.getNickname().isBlank()) {
-                return user.getNickname();
-            }
-        } catch (Exception e) {
-            // ignore
-        }
-        return "알 수 없음";
-    }
-
     /** 게시글의 comments/likes 카운터를 실제 컬렉션 기준으로 다시 계산해 저장 (요청 #6 최신화) */
     private void syncFeedCounts(String postId) {
+        boolean cacheUpdated = false;
         try {
             long commentCount = db.collection("comments")
                     .whereEqualTo("postId", postId).count().get().get().getCount();
@@ -3564,32 +4595,89 @@ public class FirebaseService {
             updates.put("comments", Math.toIntExact(commentCount));
             updates.put("likes", Math.toIntExact(likeCount));
             db.collection("stores_user").document(postId).update(updates).get();
+            cacheUpdated = updateCachedFeedCounts(postId, Math.toIntExact(likeCount), Math.toIntExact(commentCount));
         } catch (Exception e) {
             log.warn("커뮤니티 카운터 동기화 실패: postId={}", postId, e);
         } finally {
-            invalidateCommunityFeedCache();
+            // 숫자를 확정하지 못했을 때만 캐시 전체를 버립니다.
+            if (!cacheUpdated) invalidateCommunityFeedCache();
         }
     }
 
-    private record AuthorSnapshot(String nickname, String profileImageUrl) {}
+    /**
+     * 좋아요·댓글 수만 바뀐 경우 피드 캐시 전체를 버리지 않고 그 글의 숫자만 고칩니다(BE-CORE-16).
+     * 캐시를 버리면 다음 피드 조회가 최대 수백 건의 제보와 작성자 정보를 다시 읽기 때문입니다.
+     */
+    private boolean updateCachedFeedCounts(String postId, int likes, int comments) {
+        synchronized (feedsCacheLock) {
+            List<com.howmuch.dto.FeedResponseDto> cached = cachedFeeds;
+            if (cached == null) return true;
+            List<com.howmuch.dto.FeedResponseDto> next = new ArrayList<>(cached.size());
+            for (com.howmuch.dto.FeedResponseDto feed : cached) {
+                next.add(postId.equals(feed.getId())
+                        ? feed.toBuilder().likes(likes).comments(comments).build()
+                        : feed);
+            }
+            cachedFeeds = List.copyOf(next);
+            return true;
+        }
+    }
 
+    private static final String COMMUNITY_AUTHOR_UNKNOWN = "알 수 없음";
+    private static final String COMMUNITY_AUTHOR_ANONYMOUS = "익명";
+
+    /** publicProfile은 닉네임 공개 회원이라 프로필 사진을 보여도 되는지를 뜻합니다. */
+    private record AuthorSnapshot(String nickname, String profileImageUrl, boolean publicProfile) {
+        static AuthorSnapshot unknown() { return new AuthorSnapshot(COMMUNITY_AUTHOR_UNKNOWN, null, false); }
+    }
+
+    /**
+     * 계약 C8: 닉네임 비공개(nicknamePublic=false) 회원은 커뮤니티 글·댓글·답글에서 "익명"으로,
+     * 프로필 사진 없이 보입니다. 회원 정보가 없거나 조회에 실패하면 "알 수 없음"입니다.
+     */
     private AuthorSnapshot resolveAuthorSnapshot(String uid) {
-        if (uid == null) return new AuthorSnapshot("알 수 없음", null);
+        if (uid == null || uid.isBlank()) return AuthorSnapshot.unknown();
         try {
             com.howmuch.dto.UserProfileResponse user = getUserProfile(uid);
             if (user != null) {
+                if (Boolean.FALSE.equals(user.getNicknamePublic())) {
+                    return new AuthorSnapshot(COMMUNITY_AUTHOR_ANONYMOUS, null, false);
+                }
                 String nickname = (user.getNickname() != null && !user.getNickname().isBlank())
                         ? user.getNickname()
-                        : "알 수 없음";
+                        : COMMUNITY_AUTHOR_UNKNOWN;
                 String img = (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isBlank())
                         ? user.getProfileImageUrl()
                         : null;
-                return new AuthorSnapshot(nickname, img);
+                return new AuthorSnapshot(nickname, img, true);
             }
         } catch (Exception e) {
             // ignore
         }
-        return new AuthorSnapshot("알 수 없음", null);
+        return AuthorSnapshot.unknown();
+    }
+
+    /** 피드 작성자 표시. 공개 회원이 프로필 사진이 없을 때만 예전 제보에 남은 사진을 씁니다. */
+    private AuthorSnapshot feedAuthor(Map<String, Object> data, Map<String, AuthorSnapshot> authorCache) {
+        String reporterId = strOrNull(data.get("reporterId"));
+        AuthorSnapshot author = reporterId == null || reporterId.isBlank()
+                ? AuthorSnapshot.unknown()
+                : authorCache.computeIfAbsent(reporterId, this::resolveAuthorSnapshot);
+        if (author.publicProfile() && author.profileImageUrl() == null) {
+            String legacyImage = strOrNull(data.get("reporterProfileImageUrl"));
+            if (legacyImage != null && !legacyImage.isBlank()) {
+                return new AuthorSnapshot(author.nickname(), legacyImage, true);
+            }
+        }
+        return author;
+    }
+
+    /** 계약 C2: 피드 가격 변동 유형은 rise·drop·new·delete만 내보내고 나머지는 null입니다. */
+    private static String feedChangeType(Object value) {
+        String changeType = blankToNull(value);
+        if (changeType == null) return null;
+        String normalized = changeType.toLowerCase(java.util.Locale.ROOT);
+        return List.of("rise", "drop", "new", "delete").contains(normalized) ? normalized : null;
     }
 
     /** 문서 스냅샷 → CommentResponse 변환 */
@@ -3609,7 +4697,7 @@ public class FirebaseService {
             try { replyCount = Integer.parseInt(rc.toString()); } catch (NumberFormatException ignored) {}
         }
         AuthorSnapshot authorInfo = uid == null
-                ? new AuthorSnapshot("알 수 없음", null)
+                ? AuthorSnapshot.unknown()
                 : authorCache.computeIfAbsent(uid, this::resolveAuthorSnapshot);
         return com.howmuch.dto.CommentResponse.builder()
                 .id(doc.getId())
@@ -3729,6 +4817,26 @@ public class FirebaseService {
                 .isMine(true)
                 .replyCount(0)
                 .build();
+    }
+
+    /**
+     * 요청한 계정이 작성한 댓글이나 답글만 삭제합니다.
+     * 최상위 댓글이면 기존 관리자 삭제와 같은 방식으로 연결된 답글과 알림도 함께 정리합니다.
+     * 존재하지 않는 문서와 다른 사용자의 문서는 같은 응답으로 처리해 소유 관계를 노출하지 않습니다.
+     */
+    public List<String> deleteOwnedComment(String commentId, String requesterUid) throws Exception {
+        DocumentSnapshot snapshot = db.collection("comments").document(commentId).get().get();
+        if (!snapshot.exists()
+                || requesterUid == null
+                || !requesterUid.equals(snapshot.getString("userId"))) {
+            throw new NoSuchElementException("댓글을 찾을 수 없습니다.");
+        }
+        try {
+            return deleteComment(commentId);
+        } catch (IllegalArgumentException e) {
+            // 소유자 확인 직후 다른 요청이 먼저 지운 경우에도 존재 여부를 구분해 노출하지 않습니다.
+            throw new NoSuchElementException("댓글을 찾을 수 없습니다.");
+        }
     }
 
     // 💡 좋아요 추가 (멱등: uid_postId docId로 중복 방지). 최신 likes/likedByMe 반환
@@ -3872,6 +4980,9 @@ public class FirebaseService {
                     .type(data.get("type") != null ? data.get("type").toString() : "")
                     .isRead(isRead != null ? isRead : false)
                     .createdAt(data.get("createdAt") != null ? data.get("createdAt").toString() : "")
+                    .relatedPostId(blankToNull(data.get("relatedPostId")))
+                    .relatedReportId(blankToNull(data.get("relatedReportId")))
+                    .storeId(blankToNull(data.get("storeId")))
                     .build());
         }
 
@@ -3906,6 +5017,34 @@ public class FirebaseService {
             throw new IllegalArgumentException("본인 알림만 읽음 처리할 수 있습니다.");
         }
         docRef.update("isRead", true).get();
+    }
+
+    private static final int MAX_MARK_ALL_READ = 500;
+
+    /**
+     * 계약 C3: 본인의 읽지 않은 알림을 한 번에 읽음 처리합니다(한 번에 최대 500건, 단일 배치).
+     * 남은 알림이 있으면 앱이 다시 호출하면 됩니다.
+     */
+    public int markAllNotificationsAsRead(String firebaseUid) throws Exception {
+        if (firebaseUid == null || firebaseUid.isBlank()) {
+            throw new IllegalArgumentException("인증 정보가 유효하지 않습니다.");
+        }
+        var unread = db.collection("notifications")
+                .whereEqualTo("userId", firebaseUid)
+                .whereEqualTo("isRead", false)
+                .limit(MAX_MARK_ALL_READ)
+                .get().get().getDocuments();
+        if (unread.isEmpty()) return 0;
+        WriteBatch batch = db.batch();
+        int updated = 0;
+        for (DocumentSnapshot notification : unread) {
+            // 쿼리 결과라도 소유자를 다시 확인해 다른 사용자의 알림은 건드리지 않습니다.
+            if (!firebaseUid.equals(notification.getString("userId"))) continue;
+            batch.update(notification.getReference(), "isRead", true);
+            updated++;
+        }
+        if (updated > 0) batch.commit().get();
+        return updated;
     }
 
     /** 로그인한 기기의 FCM 토큰을 사용자에게 연결합니다. 토큰은 SHA-256 문서 ID로 저장합니다. */
@@ -4052,7 +5191,11 @@ public class FirebaseService {
     // ==================== 어드민: 댓글·알림·통계 ====================
 
     // 💡 [어드민] 전체 댓글/답글 목록 (최신순) — 부적절 댓글 모더레이션용
+    // QA 2026-10-07 #48: 문서 ID 대신 알아볼 수 있게 게시글(제보) 매장명·메뉴와 작성자 닉네임을 함께 내려 줍니다.
+    // 게시글은 메모리 캐시에서 먼저 찾고, 닉네임은 작성자마다 한 번만 조회합니다.
     public List<Map<String, Object>> getAllComments() throws Exception {
+        Map<String, Map<String, Object>> posts = new HashMap<>();
+        Map<String, String> authorNames = new HashMap<>();
         List<Map<String, Object>> comments = new ArrayList<>(db.collection("comments")
                 .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
                 .limit(adminListLimit()).get().get().getDocuments().stream()
@@ -4066,14 +5209,58 @@ public class FirebaseService {
                     item.put("createdAt", data.get("createdAt"));
                     item.put("parentId", data.get("parentId"));
                     item.put("isReply", data.get("parentId") != null);
+                    String authorName = adminCommentAuthorName(strOrNull(data.get("userId")), authorNames);
+                    if (!authorName.isEmpty()) item.put("authorName", authorName);
+                    Map<String, Object> post = adminCommentPost(strOrNull(data.get("postId")), posts);
+                    if (!post.isEmpty()) {
+                        item.put("postStoreName", post.get("storeName"));
+                        item.put("postMenu", post.get("menu1"));
+                        item.put("postPrice", post.get("price1"));
+                        item.put("postFree", Boolean.TRUE.equals(post.get("free1")));
+                    }
                     return item;
                 })
                 .toList());
         return comments;
     }
 
+    /** 관리자 화면용 작성자 닉네임입니다. 회원 문서가 없으면 그렇게 표시하고, 조회에 실패하면 빈 값(화면은 계정 ID만 표시)입니다. */
+    private String adminCommentAuthorName(String uid, Map<String, String> cache) {
+        if (uid == null || uid.isBlank()) return "";
+        return cache.computeIfAbsent(uid, key -> {
+            try {
+                UserProfileResponse user = getUserProfile(key);
+                if (user == null) return "회원 정보 없음";
+                String nickname = user.getNickname();
+                return nickname == null || nickname.isBlank() ? "(닉네임 없음)" : nickname.trim();
+            } catch (Exception exception) {
+                if (exception instanceof InterruptedException) Thread.currentThread().interrupt();
+                return "";
+            }
+        });
+    }
+
+    /** 댓글이 달린 게시글(동네 제보)입니다. 캐시에 없으면 문서를 한 번 읽고, 지워졌으면 빈 맵입니다. */
+    private Map<String, Object> adminCommentPost(String postId, Map<String, Map<String, Object>> cache) {
+        if (postId == null || postId.isBlank()) return Map.of();
+        return cache.computeIfAbsent(postId, key -> {
+            for (Map<String, Object> report : cachedUserStores) {
+                if (key.equals(report.get("id"))) return report;
+            }
+            try {
+                DocumentSnapshot snapshot = db.collection("stores_user").document(key).get().get();
+                Map<String, Object> data = snapshot.exists() ? snapshot.getData() : null;
+                return data == null ? Map.of() : data;
+            } catch (Exception exception) {
+                if (exception instanceof InterruptedException) Thread.currentThread().interrupt();
+                return Map.of();
+            }
+        });
+    }
+
     // 💡 [어드민] 댓글/답글 삭제 — 답글이면 부모 댓글 replyCount 감소, 댓글이면 답글도 함께 삭제 + 게시글 카운터 갱신
-    public void deleteComment(String commentId) throws Exception {
+    /** 함께 지운 답글까지 지운 댓글 ID 전체를 돌려줍니다(QA 2026-10-07 #57: 관리자 목록에서 바로 빼기 위함). */
+    public List<String> deleteComment(String commentId) throws Exception {
         DocumentReference docRef = db.collection("comments").document(commentId);
         DocumentSnapshot doc = docRef.get().get();
         if (!doc.exists()) {
@@ -4084,40 +5271,41 @@ public class FirebaseService {
         Object parentId = data != null ? data.get("parentId") : null;
 
         // 댓글이면 소속 답글 전부 삭제
+        List<String> deletedCommentIds = new ArrayList<>();
+        deletedCommentIds.add(commentId);
         if (parentId == null) {
             var replies = db.collection("comments").whereEqualTo("parentId", commentId).get().get().getDocuments();
             for (DocumentSnapshot reply : replies) {
                 reply.getReference().delete().get();
+                deletedCommentIds.add(reply.getId());
             }
         }
         docRef.delete().get();
 
-        // 답글이면 부모 댓글 replyCount 감소
-        if (parentId != null) {
-            try {
-                DocumentReference parentRef = db.collection("comments").document(parentId.toString());
-                DocumentSnapshot parent = parentRef.get().get();
-                if (parent.exists()) {
-                    Object rc = parent.get("replyCount");
-                    int count = 0;
-                    if (rc != null) { try { count = Integer.parseInt(rc.toString()); } catch (NumberFormatException ignored) {} }
-                    parentRef.update("replyCount", Math.max(0, count - 1)).get();
-                }
-            } catch (Exception e) { /* 카운터 감소 실패는 무시 */ }
-        }
+        // BE-CORE-11: 답글이면 부모 댓글 답글 수를 읽고-쓰기 대신 실제 개수로 다시 세어 동시 작성과 경쟁하지 않게 합니다.
+        if (parentId != null) recountReplies(parentId.toString());
+        deleteCommentNotifications(deletedCommentIds);
         // 게시글 comments/likes 카운터 갱신
         if (postId != null) syncFeedCounts(postId);
+        return List.copyOf(deletedCommentIds);
     }
 
     // 💡 [어드민] 알림 발송 — 특정 유저 1명 또는 전체 유저에게 notifications 문서 생성
-    public Map<String, Object> sendAdminNotification(String targetUid, String title, String body, String type) throws Exception {
+    /** requestId가 있으면 같은 요청을 다시 보내도 회원마다 한 번만 알림이 생깁니다(WEB-ADM-2). */
+    public Map<String, Object> sendAdminNotification(
+            String targetUid, String title, String body, String type, String requestId) throws Exception {
         return sendAdminMessage(targetUid, title, body,
-                type != null && !type.isBlank() ? type : "general", true);
+                type != null && !type.isBlank() ? type : "general", true, requestId);
     }
 
     // 공지는 전체 회원의 알림함/웹 접속 팝업에만 등록하고 기기 푸시는 보내지 않습니다.
-    public Map<String, Object> publishAdminNotice(String title, String body) throws Exception {
-        return sendAdminMessage(null, title, body, "notice", false);
+    public Map<String, Object> publishAdminNotice(String title, String body, String requestId) throws Exception {
+        return sendAdminMessage(null, title, body, "notice", false, requestId);
+    }
+
+    /** 관리자 발송 요청 ID 형식(재시도 시 같은 값을 다시 보냅니다). */
+    public static boolean isValidAdminRequestId(String requestId) {
+        return requestId != null && requestId.matches("[A-Za-z0-9_-]{8,64}");
     }
 
     private Map<String, Object> sendAdminMessage(
@@ -4125,9 +5313,14 @@ public class FirebaseService {
             String title,
             String body,
             String type,
-            boolean deliverPush) throws Exception {
-        String createdAt = java.time.Instant.now().toString();
+            boolean deliverPush,
+            String requestId) throws Exception {
+        if (requestId != null && !isValidAdminRequestId(requestId)) {
+            throw new IllegalArgumentException("요청 ID 형식이 올바르지 않습니다.");
+        }
+        String createdAt = resolveOrRegisterBroadcastCreatedAt(requestId, type, title, body);
         int sent = 0;
+        int skipped = 0;
         List<String> targetUids = new ArrayList<>();
         if (targetUid != null && !targetUid.isBlank()) {
             String normalizedTargetUid = targetUid.trim();
@@ -4145,19 +5338,119 @@ public class FirebaseService {
             }
         }
         for (String uid : targetUids) {
-            createNotificationForUser(
-                    uid,
-                    title,
-                    body,
-                    type,
-                    createdAt,
-                    deliverPush);
-            sent++;
+            if (requestId == null) {
+                createNotificationForUser(uid, title, body, type, createdAt, deliverPush);
+                sent++;
+                continue;
+            }
+            // BE-CORE-23: 요청 ID와 회원으로 정한 문서 ID라 시간 초과 뒤 재요청해도 이미 받은 회원은 건너뜁니다.
+            String notificationId = "admin_" + requestId + "_" + sha256Hex(uid).substring(0, 24);
+            String existingCreatedAt = createNotificationIfAbsentReturningExistingCreatedAt(
+                    notificationId, uid, title, body, type, createdAt, deliverPush, requestId);
+            if (existingCreatedAt == null) {
+                sent++;
+            } else {
+                skipped++;
+                if (!existingCreatedAt.isBlank()) {
+                    createdAt = existingCreatedAt;
+                }
+            }
         }
         Map<String, Object> result = new HashMap<>();
         result.put("sent", sent);
+        result.put("skipped", skipped);
         result.put("broadcast", targetUid == null || targetUid.isBlank());
+        if (requestId != null) result.put("requestId", requestId);
         return result;
+    }
+
+    /** 결정적 문서 ID로 알림을 한 번만 만듭니다. 이미 있으면 false입니다. */
+    private boolean createNotificationIfAbsent(
+            String notificationId,
+            String userId,
+            String title,
+            String body,
+            String type,
+            String createdAt,
+            boolean deliverPush,
+            String requestId) throws Exception {
+        return createNotificationIfAbsentReturningExistingCreatedAt(
+                notificationId, userId, title, body, type, createdAt, deliverPush, requestId) == null;
+    }
+
+    /** 새 문서를 만들면 null, 이미 있으면 기존 문서의 createdAt(없으면 빈 문자열)을 돌려줍니다. */
+    private String createNotificationIfAbsentReturningExistingCreatedAt(
+            String notificationId,
+            String userId,
+            String title,
+            String body,
+            String type,
+            String createdAt,
+            boolean deliverPush,
+            String requestId) throws Exception {
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", userId);
+        data.put("title", title);
+        data.put("body", body);
+        data.put("type", type);
+        data.put("isRead", false);
+        data.put("createdAt", createdAt);
+        if (requestId != null && !requestId.isBlank()) {
+            data.put("requestId", requestId);
+        }
+        DocumentReference docRef = db.collection("notifications").document(notificationId);
+        try {
+            docRef.create(data).get();
+        } catch (ExecutionException exception) {
+            if (isAlreadyExists(exception)) {
+                try {
+                    var snapFuture = docRef.get();
+                    if (snapFuture != null) {
+                        DocumentSnapshot existing = snapFuture.get();
+                        if (existing != null && existing.exists() && existing.getString("createdAt") != null) {
+                            return existing.getString("createdAt");
+                        }
+                    }
+                } catch (Exception ignored) {}
+                return "";
+            }
+            throw exception;
+        }
+        if (deliverPush) dispatchPushNotification(userId, notificationId, title, body, type);
+        return null;
+    }
+
+    private String resolveOrRegisterBroadcastCreatedAt(
+            String requestId, String type, String title, String body) throws Exception {
+        String now = java.time.Instant.now().toString();
+        if (requestId == null || requestId.isBlank()) return now;
+        var broadcasts = db.collection("admin_broadcasts");
+        if (broadcasts == null) return now;
+        DocumentReference ref = broadcasts.document(requestId);
+        if (ref == null) return now;
+        var snapFuture = ref.get();
+        if (snapFuture != null) {
+            DocumentSnapshot existing = snapFuture.get();
+            if (existing != null && existing.exists()) {
+                if (Boolean.TRUE.equals(existing.getBoolean("recalled"))) {
+                    throw new IllegalStateException("이미 회수된 발송 요청입니다. 새 내용으로 다시 발송해주세요.");
+                }
+                String existingCreatedAt = existing.getString("createdAt");
+                if (existingCreatedAt != null && !existingCreatedAt.isBlank()) {
+                    return existingCreatedAt;
+                }
+            }
+        }
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("requestId", requestId);
+        meta.put("createdAt", now);
+        meta.put("type", type);
+        meta.put("title", title);
+        meta.put("body", body);
+        meta.put("recalled", false);
+        var setFuture = ref.set(meta);
+        if (setFuture != null) setFuture.get();
+        return now;
     }
 
     private void createNotificationForUser(
@@ -4178,6 +5471,247 @@ public class FirebaseService {
         notification.set(data).get();
         if (deliverPush) {
             dispatchPushNotification(userId, notification.getId(), title, body, type);
+        }
+    }
+
+    // ==================== 어드민: 보낸 공지·알림 목록과 회수 (QA 2026-10-07 #3) ====================
+
+    /**
+     * 관리자 화면별로 관리하는 알림 유형입니다. admin은 공지 분리(2026-09-10) 전 알림 발송이 쓰던 유형으로
+     * 앱에서 공지사항으로 보이고, admin_message는 앱이 일반 알림으로 분류하는 예전 이름입니다.
+     */
+    public enum AdminMessageKind {
+        NOTICE(List.of("notice", "admin")),
+        GENERAL(List.of("general", "admin_message"));
+
+        private final List<String> types;
+
+        AdminMessageKind(List<String> types) { this.types = types; }
+
+        public List<String> types() { return types; }
+    }
+
+    /** 목록 한 번에 읽는 알림 문서 상한입니다. 넘으면 truncated로 알립니다. */
+    private static final int ADMIN_MESSAGE_SCAN_LIMIT = 5000;
+    /** 회수 ID: 발송 시각(createdAt) ~ 유형·제목·내용 해시 16자리. */
+    private static final java.util.regex.Pattern ADMIN_MESSAGE_ID =
+            java.util.regex.Pattern.compile("([0-9][0-9T:.+\\-]{8,38}Z?)~([0-9a-f]{16})");
+    private static final java.util.regex.Pattern ADMIN_NOTIFICATION_DOC_ID =
+            java.util.regex.Pattern.compile("^admin_([A-Za-z0-9_-]{8,64})_[0-9a-f]{24}$");
+
+    private static String extractAdminRequestId(String docId, Map<String, Object> data) {
+        if (data != null && data.get("requestId") instanceof String reqId && !reqId.isBlank()) {
+            return reqId.trim();
+        }
+        if (docId != null) {
+            java.util.regex.Matcher m = ADMIN_NOTIFICATION_DOC_ID.matcher(docId);
+            if (m.matches()) return m.group(1);
+        }
+        return null;
+    }
+
+    /**
+     * 관리자가 보낸 공지·알림 목록입니다. 공지·알림은 별도 원본 없이 회원마다 notifications 문서로 복제되고,
+     * 한 번의 발송은 모든 문서가 같은 createdAt·제목·내용을 가지므로 그 묶음을 한 건으로 보여 줍니다.
+     */
+    public Map<String, Object> listAdminMessages(AdminMessageKind kind) throws Exception {
+        List<? extends DocumentSnapshot> documents = db.collection("notifications")
+                .whereIn("type", kind.types())
+                .limit(ADMIN_MESSAGE_SCAN_LIMIT)
+                .get().get().getDocuments();
+        Map<String, AdminMessageGroup> groups = new LinkedHashMap<>();
+        Map<String, String> requestGroupIdByKey = new HashMap<>();
+        for (DocumentSnapshot document : documents) {
+            Map<String, Object> data = document.getData();
+            if (data == null || !(data.get("createdAt") instanceof String createdAt) || createdAt.isBlank()) continue;
+            String type = String.valueOf(data.get("type"));
+            if (!kind.types().contains(type)) continue;
+            String title = data.get("title") == null ? "" : data.get("title").toString();
+            String body = data.get("body") == null ? "" : data.get("body").toString();
+            String requestId = extractAdminRequestId(document.getId(), data);
+            String id;
+            if (requestId != null) {
+                String reqKey = requestId + "\n" + type + "\n" + title + "\n" + body;
+                id = requestGroupIdByKey.computeIfAbsent(
+                        reqKey, k -> adminMessageId(createdAt, type, title, body));
+            } else {
+                id = adminMessageId(createdAt, type, title, body);
+            }
+            groups.computeIfAbsent(id, key -> new AdminMessageGroup(key, type, title, body, createdAt))
+                    .add(strOrNull(data.get("userId")), Boolean.TRUE.equals(parseBooleanSafely(data.get("isRead"))));
+        }
+        List<Map<String, Object>> items = new ArrayList<>();
+        groups.values().stream()
+                .sorted(Comparator.comparing((AdminMessageGroup group) -> group.createdAt).reversed())
+                .limit(adminListLimit())
+                .forEach(group -> items.add(group.toMap(this::adminRecipientName)));
+        Map<String, Object> result = new HashMap<>();
+        result.put("items", items);
+        result.put("truncated", documents.size() >= ADMIN_MESSAGE_SCAN_LIMIT);
+        return result;
+    }
+
+    /**
+     * 보낸 공지·알림을 모든 회원 알림함에서 지웁니다. 같은 발송 시각에 만든 문서 중 유형·제목·내용까지 같은
+     * 것만 지우므로 다른 알림은 건드리지 않습니다. 이미 기기에 도착한 푸시는 회수할 수 없습니다.
+     */
+    public Map<String, Object> recallAdminMessage(AdminMessageKind kind, String messageId) throws Exception {
+        java.util.regex.Matcher matcher = ADMIN_MESSAGE_ID.matcher(messageId == null ? "" : messageId);
+        if (!matcher.matches()) throw new IllegalArgumentException("회수할 공지·알림 ID 형식이 올바르지 않습니다.");
+        String createdAt = matcher.group(1);
+        List<DocumentReference> anchorTargets = new ArrayList<>();
+        List<DocumentReference> extraTargets = new ArrayList<>();
+        Set<String> targetDocIds = new LinkedHashSet<>();
+        Set<String> matchedRequestIds = new LinkedHashSet<>();
+        String matchedType = null;
+        String matchedTitle = null;
+        String matchedBody = null;
+        for (DocumentSnapshot document : db.collection("notifications")
+                .whereEqualTo("createdAt", createdAt).get().get().getDocuments()) {
+            Map<String, Object> data = document.getData();
+            if (data == null) continue;
+            String type = String.valueOf(data.get("type"));
+            if (!kind.types().contains(type)) continue;
+            String title = data.get("title") == null ? "" : data.get("title").toString();
+            String body = data.get("body") == null ? "" : data.get("body").toString();
+            if (messageId.equals(adminMessageId(createdAt, type, title, body))) {
+                anchorTargets.add(document.getReference());
+                if (document.getId() != null) targetDocIds.add(document.getId());
+                String reqId = extractAdminRequestId(document.getId(), data);
+                if (reqId != null) matchedRequestIds.add(reqId);
+                matchedType = type;
+                matchedTitle = title;
+                matchedBody = body;
+            }
+        }
+        var broadcasts = db.collection("admin_broadcasts");
+        if (broadcasts != null) {
+            var byTime = broadcasts.whereEqualTo("createdAt", createdAt);
+            if (byTime != null && byTime.get() != null) {
+                for (DocumentSnapshot bDoc : byTime.get().get().getDocuments()) {
+                    String type = String.valueOf(bDoc.getString("type"));
+                    if (!kind.types().contains(type)) continue;
+                    String title = bDoc.getString("title") == null ? "" : bDoc.getString("title");
+                    String body = bDoc.getString("body") == null ? "" : bDoc.getString("body");
+                    if (messageId.equals(adminMessageId(createdAt, type, title, body))) {
+                        String reqId = bDoc.getString("requestId") != null ? bDoc.getString("requestId") : bDoc.getId();
+                        if (reqId != null && !reqId.isBlank()) matchedRequestIds.add(reqId);
+                        matchedType = type;
+                        matchedTitle = title;
+                        matchedBody = body;
+                    }
+                }
+            }
+        }
+        for (String reqId : matchedRequestIds) {
+            if (broadcasts != null) {
+                DocumentReference bRef = broadcasts.document(reqId);
+                if (bRef != null) {
+                    var setFuture = bRef.set(Map.of(
+                            "requestId", reqId,
+                            "createdAt", createdAt,
+                            "type", matchedType == null ? "" : matchedType,
+                            "title", matchedTitle == null ? "" : matchedTitle,
+                            "body", matchedBody == null ? "" : matchedBody,
+                            "recalled", true,
+                            "recalledAt", java.time.Instant.now().toString()), com.google.cloud.firestore.SetOptions.merge());
+                    if (setFuture != null) setFuture.get();
+                }
+            }
+            var byReqQuery = db.collection("notifications").whereEqualTo("requestId", reqId);
+            if (byReqQuery == null) continue;
+            var byReqFuture = byReqQuery.get();
+            if (byReqFuture == null) continue;
+            for (DocumentSnapshot document : byReqFuture.get().getDocuments()) {
+                if (document.getId() != null && !targetDocIds.add(document.getId())) continue;
+                Map<String, Object> data = document.getData();
+                if (data == null) continue;
+                String type = String.valueOf(data.get("type"));
+                String title = data.get("title") == null ? "" : data.get("title").toString();
+                String body = data.get("body") == null ? "" : data.get("body").toString();
+                if (java.util.Objects.equals(matchedType, type)
+                        && java.util.Objects.equals(matchedTitle, title)
+                        && java.util.Objects.equals(matchedBody, body)) {
+                    extraTargets.add(document.getReference());
+                }
+            }
+        }
+        // 다른 시각(재시도) 문서를 먼저 지우고 기준 시각(anchor) 문서를 마지막 배치에서 지워,
+        // 중간 배치 실패 후 같은 messageId로 재시도해도 기준 문서로 나머지 문서를 끝까지 찾아 지울 수 있게 합니다.
+        List<DocumentReference> targets = new ArrayList<>(extraTargets);
+        targets.addAll(anchorTargets);
+        if (targets.isEmpty()) throw new NoSuchElementException("이미 회수했거나 찾을 수 없는 공지·알림입니다.");
+        // 한 배치는 500건까지라 나눠 지웁니다. 중간에 실패하면 남은 문서는 같은 ID로 다시 회수할 수 있습니다.
+        for (int start = 0; start < targets.size(); start += 400) {
+            WriteBatch batch = db.batch();
+            for (DocumentReference target : targets.subList(start, Math.min(targets.size(), start + 400))) {
+                batch.delete(target);
+            }
+            batch.commit().get();
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("id", messageId);
+        result.put("deleted", targets.size());
+        return result;
+    }
+
+    private String adminMessageId(String createdAt, String type, String title, String body) {
+        return createdAt + "~" + sha256Hex(type + "\n" + title + "\n" + body).substring(0, 16);
+    }
+
+    /** 한 명에게만 간 알림은 받은 회원의 닉네임을 보여 줍니다. 조회에 실패하면 null(화면은 계정 ID만 표시)입니다. */
+    private String adminRecipientName(String uid) {
+        try {
+            UserProfileResponse user = getUserProfile(uid);
+            if (user == null) return "회원 정보 없음";
+            String nickname = user.getNickname();
+            return nickname == null || nickname.isBlank() ? "(닉네임 없음)" : nickname.trim();
+        } catch (Exception exception) {
+            if (exception instanceof InterruptedException) Thread.currentThread().interrupt();
+            return null;
+        }
+    }
+
+    private static final class AdminMessageGroup {
+        private final String id;
+        private final String type;
+        private final String title;
+        private final String body;
+        private final String createdAt;
+        private int recipients;
+        private int readCount;
+        private String firstRecipient;
+
+        private AdminMessageGroup(String id, String type, String title, String body, String createdAt) {
+            this.id = id;
+            this.type = type;
+            this.title = title;
+            this.body = body;
+            this.createdAt = createdAt;
+        }
+
+        private void add(String userId, boolean read) {
+            recipients++;
+            if (read) readCount++;
+            if (firstRecipient == null) firstRecipient = userId;
+        }
+
+        private Map<String, Object> toMap(java.util.function.Function<String, String> recipientName) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", id);
+            item.put("type", type);
+            item.put("title", title);
+            item.put("body", body);
+            item.put("createdAt", createdAt);
+            item.put("recipients", recipients);
+            item.put("readCount", readCount);
+            if (recipients == 1 && firstRecipient != null && !firstRecipient.isBlank()) {
+                item.put("targetUid", firstRecipient);
+                String name = recipientName.apply(firstRecipient);
+                if (name != null) item.put("targetName", name);
+            }
+            return item;
         }
     }
 
@@ -4248,13 +5782,13 @@ public class FirebaseService {
 
     private boolean isPushTypeEnabled(NotificationSettingsDto settings, String type) {
         String normalizedType = type == null ? "" : type.toUpperCase();
-        if (normalizedType.contains("REVIEW")) {
+        // 계약 C3: 댓글·답글(FEED_COMMENT)과 리뷰 반응은 '리뷰 반응' 토글을 따릅니다.
+        if (normalizedType.contains("FEED") || normalizedType.contains("COMMENT")
+                || normalizedType.contains("REVIEW")) {
             return Boolean.TRUE.equals(settings.getReview());
         }
+        // 제보 승인·반려(REPORT_*)와 문의 답변(INQUIRY_ANSWER)은 '제보 상태' 토글을 따릅니다.
         if (normalizedType.contains("REPORT") || normalizedType.contains("INQUIRY")) {
-            return Boolean.TRUE.equals(settings.getReport());
-        }
-        if (normalizedType.contains("FEED") || normalizedType.contains("COMMENT")) {
             return Boolean.TRUE.equals(settings.getReport());
         }
         if (normalizedType.contains("PRICE")) {

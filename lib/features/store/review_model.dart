@@ -1,4 +1,5 @@
 import 'package:howmuch/core/utils/price_formatter.dart';
+import 'package:howmuch/core/utils/text_initial.dart';
 
 /// 매장 리뷰 모델.
 /// 백엔드 /api/review 응답 필드와 매칭됩니다.
@@ -32,7 +33,7 @@ class Review {
   });
 
   /// 아바타에 표시할 작성자 이니셜
-  String get initial => authorName.isNotEmpty ? authorName[0] : '?';
+  String get initial => displayInitial(authorName);
 
   /// "n분 전 / n일 전" 형태의 상대 시간
   String get timeAgo {

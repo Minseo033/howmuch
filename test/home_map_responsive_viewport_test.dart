@@ -1,8 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:howmuch/features/home/home_map_store_loader.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/store/store_catalog_loader.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,6 +18,7 @@ void main() {
     HomeMapScreen.globalAllStores = [];
     HomeMapScreen.globalUserPosition = null;
     HomeMapScreen.hasRequestedLocationWeb = true;
+    HomeMapScreen.clearSavedMapState();
   });
 
   for (final size in [const Size(320, 568), const Size(393, 852)]) {
@@ -42,6 +45,7 @@ void main() {
               storeIds: ['s'],
               stores: [store],
             ),
+            catalogLoader: _testCatalogLoader,
           ),
         ),
       );
@@ -100,7 +104,12 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        const MaterialApp(home: HomeMapScreen(showAiSpotlight: false)),
+        const MaterialApp(
+          home: HomeMapScreen(
+            showAiSpotlight: false,
+            catalogLoader: _testCatalogLoader,
+          ),
+        ),
       );
       await tester.pump();
 
@@ -136,7 +145,12 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
 
         await tester.pumpWidget(
-          const MaterialApp(home: HomeMapScreen(showAiSpotlight: false)),
+          const MaterialApp(
+            home: HomeMapScreen(
+              showAiSpotlight: false,
+              catalogLoader: _testCatalogLoader,
+            ),
+          ),
         );
         await tester.pump();
 
@@ -182,7 +196,12 @@ void main() {
     addTearDown(tester.view.resetViewPadding);
 
     await tester.pumpWidget(
-      const MaterialApp(home: HomeMapScreen(showAiSpotlight: false)),
+      const MaterialApp(
+        home: HomeMapScreen(
+          showAiSpotlight: false,
+          catalogLoader: _testCatalogLoader,
+        ),
+      ),
     );
     await tester.pump();
 
@@ -208,7 +227,12 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     tester.view.physicalSize = const Size(393, 800);
     await tester.pumpWidget(
-      const MaterialApp(home: HomeMapScreen(showAiSpotlight: false)),
+      const MaterialApp(
+        home: HomeMapScreen(
+          showAiSpotlight: false,
+          catalogLoader: _testCatalogLoader,
+        ),
+      ),
     );
     for (var index = 0; index < 20; index++) {
       tester.view.physicalSize = Size(393, index.isEven ? 213 : 800);
@@ -228,7 +252,12 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        const MaterialApp(home: HomeMapScreen(showAiSpotlight: false)),
+        const MaterialApp(
+          home: HomeMapScreen(
+            showAiSpotlight: false,
+            catalogLoader: _testCatalogLoader,
+          ),
+        ),
       );
       await tester.pump();
 
@@ -263,19 +292,39 @@ void main() {
       'longitude': 126.98,
     });
     SharedPreferences.setMockInitialValues({
-      homeMapStoreCacheKey: encodeHomeMapStoreCache([cachedStore]),
+      storeCatalogCacheKey: jsonEncode([cachedStore.toJson()]),
+      storeCatalogCachedAtKey: DateTime.now().millisecondsSinceEpoch,
     });
 
+    // Await real isolate work outside the widget test's fake async zone,
+    // then verify home shares the restored catalog with recommendations.
+    final restoredCatalog = await tester.runAsync(() => loadStoreCatalog());
     await tester.pumpWidget(
-      const MaterialApp(home: HomeMapScreen(showAiSpotlight: false)),
+      MaterialApp(
+        home: HomeMapScreen(
+          showAiSpotlight: false,
+          catalogLoader: () async => restoredCatalog!,
+        ),
+      ),
     );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 20));
 
     expect(HomeMapScreen.globalAllStores, hasLength(1));
     expect(HomeMapScreen.globalAllStores.single.id, 'cached-store');
   });
 }
+
+Future<List<Store>> _testCatalogLoader() async => [
+  Store.fromJson({
+    'id': 'layout-store',
+    'storeName': '레이아웃 테스트 매장',
+    'address': '서울시 중구',
+    'menu1': '백반',
+    'price1': '7000',
+    'latitude': 37.56,
+    'longitude': 126.98,
+  }),
+];
 
 class _FakeWebViewPlatform extends WebViewPlatform {
   @override
@@ -287,6 +336,11 @@ class _FakeWebViewPlatform extends WebViewPlatform {
   PlatformWebViewWidget createPlatformWebViewWidget(
     PlatformWebViewWidgetCreationParams params,
   ) => _FakePlatformWebViewWidget(params);
+
+  @override
+  PlatformNavigationDelegate createPlatformNavigationDelegate(
+    PlatformNavigationDelegateCreationParams params,
+  ) => _FakePlatformNavigationDelegate(params);
 }
 
 class _FakePlatformWebViewController extends PlatformWebViewController {
@@ -298,6 +352,11 @@ class _FakePlatformWebViewController extends PlatformWebViewController {
 
   @override
   Future<void> setBackgroundColor(Color color) async {}
+
+  @override
+  Future<void> setPlatformNavigationDelegate(
+    PlatformNavigationDelegate handler,
+  ) async {}
 
   @override
   Future<void> addJavaScriptChannel(JavaScriptChannelParams params) async {
@@ -316,4 +375,13 @@ class _FakePlatformWebViewWidget extends PlatformWebViewWidget {
 
   @override
   Widget build(BuildContext context) => const SizedBox();
+}
+
+class _FakePlatformNavigationDelegate extends PlatformNavigationDelegate {
+  _FakePlatformNavigationDelegate(super.params) : super.implementation();
+
+  @override
+  Future<void> setOnWebResourceError(
+    WebResourceErrorCallback onWebResourceError,
+  ) async {}
 }

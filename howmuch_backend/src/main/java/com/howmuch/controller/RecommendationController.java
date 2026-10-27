@@ -69,10 +69,12 @@ public class RecommendationController {
         try { radius = RecommendationRadius.resolve(radiusMeters); }
         catch (IllegalArgumentException exception) { return radiusError(exception); }
         try {
-            // 사용자 위치를 기상청 격자로 변환해 현재 지역의 예보를 조회합니다.
-            Map<String, Object> weather = weatherService.getCurrentWeather(lat, lng);
-            String weatherText = (String) weather.getOrDefault("weather", "알 수 없음");
-            Integer temp = (Integer) weather.get("temp");
+            // Weather is optional: a cold/expired lookup refreshes in the background,
+            // while nearby recommendations can be returned immediately.
+            Map<String, Object> weather = readyWeatherOrUnavailable(lat, lng);
+            boolean weatherAvailable = Boolean.TRUE.equals(weather.get("available"));
+            String weatherText = weatherAvailable ? (String) weather.getOrDefault("weather", "알 수 없음") : "알 수 없음";
+            Integer temp = weatherAvailable ? (Integer) weather.get("temp") : null;
 
             List<Map<String, Object>> picks = firebaseService.getTodaysPicks(weatherText, temp, lat, lng, radius);
 
@@ -80,7 +82,9 @@ public class RecommendationController {
             result.put("weather", weatherText);
             result.put("temp", temp);
             result.put("fcstTime", weather.get("fcstTime"));
-            result.put("weatherAvailable", weather.getOrDefault("available", false));
+            result.put("weatherAvailable", weatherAvailable);
+            result.put("weatherRefreshing", Boolean.TRUE.equals(weather.get("refreshing")));
+            result.put("recommendationBasis", weatherAvailable ? "weather" : "nearby");
             result.put("picks", picks);
             result.put("radiusMeters", radius);
             return ResponseEntity.ok(result);
@@ -115,11 +119,14 @@ public class RecommendationController {
             ));
         }
         try {
-            Map<String, Object> weather = weatherService.getCurrentWeather(lat, lng);
+            Map<String, Object> weather = currentWeatherOrUnavailable(lat, lng);
             String weatherText = (String) weather.getOrDefault("weather", "알 수 없음");
             Integer temp = (Integer) weather.get("temp");
 
+            // FE-STORE-13: 루트는 출발지에서 총거리가 가장 짧은 방문 순서로 바꿉니다(오늘의 픽 목록 순서는 그대로).
             List<Map<String, Object>> picks = firebaseService.getTodaysPicks(weatherText, temp, lat, lng, radius);
+            List<Map<String, Object>> orderedStops = firebaseService.orderRouteStops(picks, lat, lng);
+            if (orderedStops != null) picks = orderedStops;
             String routeText = geminiService.getRouteRecommendation(picks);
 
             Map<String, Object> result = new HashMap<>();
@@ -127,6 +134,7 @@ public class RecommendationController {
             result.put("weather", weatherText);
             result.put("temp", temp);
             result.put("fcstTime", weather.get("fcstTime"));
+            result.put("weatherAvailable", weather.getOrDefault("available", false));
             result.put("picks", picks);
             result.put("radiusMeters", radius);
             return ResponseEntity.ok(result);
@@ -139,18 +147,41 @@ public class RecommendationController {
         }
     }
 
-    // Keep source compatibility for callers that used the previous signatures.
-    public ResponseEntity<?> getTodaysPick(Double lat, Double lng) {
-        return getTodaysPick(lat, lng, null);
-    }
-
-    public ResponseEntity<?> getRoute(Double lat, Double lng, HttpServletRequest request) {
-        return getRoute(lat, lng, null, request);
-    }
-
     private ResponseEntity<?> radiusError(IllegalArgumentException exception) {
         return ResponseEntity.badRequest().body(Map.of(
                 "success", false, "message", exception.getMessage()));
+    }
+
+    private Map<String, Object> readyWeatherOrUnavailable(Double lat, Double lng) {
+        try {
+            Map<String, Object> weather = weatherService.getCurrentWeatherIfReady(lat, lng);
+            if (weather != null) return weather;
+        } catch (Exception exception) {
+            log.warn("[RecommendationController] 날씨 캐시 확인 실패로 주변 추천을 반환합니다: {}",
+                    exception.getClass().getSimpleName());
+        }
+        Map<String, Object> unavailable = new HashMap<>();
+        unavailable.put("weather", "알 수 없음");
+        unavailable.put("temp", null);
+        unavailable.put("available", false);
+        unavailable.put("refreshing", false);
+        return unavailable;
+    }
+
+    /** 계약 C5: 날씨 조회가 실패해도 추천은 날씨 없이 바로 돌려줍니다. */
+    private Map<String, Object> currentWeatherOrUnavailable(Double lat, Double lng) {
+        try {
+            Map<String, Object> weather = weatherService.getCurrentWeather(lat, lng);
+            if (weather != null) return weather;
+        } catch (Exception exception) {
+            log.warn("[RecommendationController] 날씨 조회 실패로 날씨 없이 추천합니다: {}",
+                    exception.getClass().getSimpleName());
+        }
+        Map<String, Object> unavailable = new HashMap<>();
+        unavailable.put("weather", "알 수 없음");
+        unavailable.put("temp", null);
+        unavailable.put("available", false);
+        return unavailable;
     }
 
     private ResponseEntity<?> validateCoordinates(Double lat, Double lng) {

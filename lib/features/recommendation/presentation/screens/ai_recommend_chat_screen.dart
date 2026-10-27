@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,6 +57,19 @@ final aiChatHistoryProvider = StateProvider<List<_ChatMessage>>((ref) {
   return [];
 });
 
+/// Non-null while an AI reply for the current conversation is pending. It
+/// outlives the chat screen, so a reopened screen still shows the typing
+/// indicator and blocks a second question until the first answer lands.
+/// Resetting the conversation (or switching accounts) clears it.
+final aiChatPendingRequestProvider = StateProvider<Object?>((ref) {
+  ref.watch(aiChatHistoryProvider.notifier);
+  return null;
+});
+
+/// Same limit as the server (AiController rejects longer messages). Counted
+/// in UTF-16 code units like Java's String.length().
+const aiChatMaxMessageLength = 1000;
+
 @visibleForTesting
 Future<List<Store>> loadAiFallbackCandidates({
   StoreCatalogLoader catalogLoader = loadStoreCatalog,
@@ -84,8 +98,6 @@ Future<List<Store>> loadAiFallbackCandidates({
 class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
-  bool _isTyping = false;
-  int _chatGeneration = 0;
 
   static const _quickPrompts = [
     _QuickPrompt(
@@ -101,6 +113,14 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
   void initState() {
     super.initState();
     _controller.addListener(() => setState(() {}));
+    // A reopened conversation (possibly with a reply that arrived while the
+    // screen was closed) starts at the latest message.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ref.read(aiChatHistoryProvider).isEmpty) return;
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
   }
 
   @override
@@ -123,34 +143,85 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
       loadAiFallbackCandidates();
 
   Future<void> _sendMessage() async {
-    if (_isTyping) return;
+    if (ref.read(aiChatPendingRequestProvider) != null) return;
 
     final messageText = _controller.text.trim();
     if (messageText.isEmpty) return;
-    final generation = ++_chatGeneration;
+    if (messageText.length > aiChatMaxMessageLength) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          HowmuchSnackBar(content: Text('메시지는 1000자 이내로 입력해주세요.')),
+        );
+      return;
+    }
 
     final userMessage = _ChatMessage(text: messageText, isBot: false);
+    // Everything the request needs is captured now: the reply must still be
+    // recorded if the user leaves this screen while waiting.
     final historyNotifier = ref.read(aiChatHistoryProvider.notifier);
+    final pendingNotifier = ref.read(aiChatPendingRequestProvider.notifier);
+    final radiusNotifier = ref.read(recommendationRadiusProvider.notifier);
+    final aiService = ref.read(aiChatServiceProvider);
+    final pendingToken = Object();
 
-    ref
-        .read(aiChatHistoryProvider.notifier)
-        .update((list) => [...list, userMessage]);
-    setState(() {
-      _controller.clear();
-      _isTyping = true;
-    });
+    historyNotifier.update((list) => [...list, userMessage]);
+    pendingNotifier.state = pendingToken;
+    setState(_controller.clear);
 
     FocusManager.instance.primaryFocus?.unfocus();
-    _scrollToLatest();
 
     // 💡 최근 대화 내역 추출 (최대 6개, 방금 추가한 본인 메시지 제외)
-    final allMessages = ref.read(aiChatHistoryProvider);
+    final allMessages = historyNotifier.state;
     final previousMessages = allMessages.take(allMessages.length - 1).toList();
     final history = previousMessages
         .skip(previousMessages.length > 6 ? previousMessages.length - 6 : 0)
         .map((m) => {'role': m.isBot ? 'model' : 'user', 'text': m.text})
         .toList();
 
+    try {
+      final reply = await _replyTo(
+        messageText,
+        history: history,
+        historyNotifier: historyNotifier,
+        radiusNotifier: radiusNotifier,
+        aiService: aiService,
+      );
+      // The conversation outlives this screen; only a reset discards the reply.
+      if (reply != null && historyNotifier.mounted) {
+        historyNotifier.update((list) => [...list, reply]);
+      }
+    } catch (error) {
+      // Never leave the question unanswered or the composer locked.
+      debugPrint('AI 답변 처리 오류: $error');
+      if (historyNotifier.mounted) {
+        historyNotifier.update(
+          (list) => [
+            ...list,
+            const _ChatMessage(
+              text: '답변을 불러오지 못했어요. 잠시 후 다시 질문해주세요.',
+              isBot: true,
+            ),
+          ],
+        );
+      }
+    } finally {
+      if (pendingNotifier.mounted &&
+          identical(pendingNotifier.state, pendingToken)) {
+        pendingNotifier.state = null;
+      }
+    }
+  }
+
+  /// Builds the bot reply for [messageText]. Returns null when the
+  /// conversation was reset (or the account changed) while waiting.
+  Future<_ChatMessage?> _replyTo(
+    String messageText, {
+    required List<Map<String, String>> history,
+    required StateController<List<_ChatMessage>> historyNotifier,
+    required RecommendationRadiusNotifier radiusNotifier,
+    required AiChatService aiService,
+  }) async {
     // 서버가 실제 매장 정보를 다시 확인할 수 있도록 ID와 현재 위치만 전달합니다.
     var position = HomeMapScreen.globalUserPosition;
     if (position == null) {
@@ -164,9 +235,10 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
         /* Missing location is handled without inventing a city. */
       }
     }
-    await ref.read(recommendationRadiusProvider.notifier).ready;
-    if (!mounted || generation != _chatGeneration) return;
-    final radiusMeters = ref.read(recommendationRadiusProvider);
+    await radiusNotifier.ready;
+    // A reset or account switch disposes the conversation; drop this request.
+    if (!historyNotifier.mounted || !radiusNotifier.mounted) return null;
+    final radiusMeters = radiusNotifier.radiusMeters;
     final nearbyStoreIds = buildNearbyStoreIds(
       stores: HomeMapScreen.globalAllStores,
       lat: position?.latitude,
@@ -176,16 +248,14 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     );
 
     // 💡 Gemini API 호출
-    final aiReply = await ref
-        .read(aiChatServiceProvider)
-        .getGeminiResponse(
-          messageText,
-          history: history,
-          nearbyStoreIds: nearbyStoreIds,
-          latitude: position?.latitude,
-          longitude: position?.longitude,
-          radiusMeters: radiusMeters,
-        );
+    final aiReply = await aiService.getGeminiResponse(
+      messageText,
+      history: history,
+      nearbyStoreIds: nearbyStoreIds,
+      latitude: position?.latitude,
+      longitude: position?.longitude,
+      radiusMeters: radiusMeters,
+    );
     var botResponse = aiReply.text;
     List<Store> recommendedStores = const [];
     List<RecommendationMenuSelection> menuSelections = const [];
@@ -213,7 +283,6 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
       final verified = resolveVerifiedAiRecommendations(
         recommendations: aiReply.recommendations,
         catalog: candidateStores,
-        query: messageText,
         latitude: position?.latitude,
         longitude: position?.longitude,
         radiusMeters: radiusMeters,
@@ -226,34 +295,18 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
         .where((id) => id.isNotEmpty)
         .toList();
 
-    if (mounted && generation == _chatGeneration) {
-      if (identical(
-        historyNotifier,
-        ref.read(aiChatHistoryProvider.notifier),
-      )) {
-        historyNotifier.update(
-          (list) => [
-            ...list,
-            _ChatMessage(
-              text: botResponse,
-              isBot: true,
-              recommendedStores: recommendedStores,
-              recommendedStoreIds: recommendedStoreIds,
-              menuSelections: menuSelections,
-            ),
-          ],
-        );
-      }
-      setState(() {
-        _isTyping = false;
-      });
-      _scrollToLatest();
-    }
+    return _ChatMessage(
+      text: botResponse,
+      isBot: true,
+      recommendedStores: recommendedStores,
+      recommendedStoreIds: recommendedStoreIds,
+      menuSelections: menuSelections,
+    );
   }
 
   void _scrollToLatest() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
+      if (!mounted || !_scrollController.hasClients) return;
       if (MediaQuery.disableAnimationsOf(context)) {
         _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
         return;
@@ -268,7 +321,16 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Follow new messages, including a reply to a question sent from an
+    // earlier visit to this screen.
+    ref.listen<List<_ChatMessage>>(aiChatHistoryProvider, (previous, next) {
+      if (next.length > (previous?.length ?? 0)) _scrollToLatest();
+    });
+    ref.listen<Object?>(aiChatPendingRequestProvider, (previous, next) {
+      if (next != null) _scrollToLatest();
+    });
     final messages = ref.watch(aiChatHistoryProvider);
+    final isTyping = ref.watch(aiChatPendingRequestProvider) != null;
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final isKeyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
@@ -279,7 +341,11 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     final contentTop = topOffset + 57;
     final contentBottomPadding = composerHeight + 12.0;
 
+    // Tapping outside the composer closes the keyboard. Kept out of the
+    // semantics tree: as a tap action it merged the header text into one
+    // tappable element that held the whole screen.
     return GestureDetector(
+      excludeFromSemantics: true,
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: FigmaMobileCanvas(
         backgroundColor: const Color(0xFFF9FAFB),
@@ -294,11 +360,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                 topPadding: topOffset,
                 onResetChat: messages.isEmpty
                     ? null
-                    : () {
-                        _chatGeneration++;
-                        ref.invalidate(aiChatHistoryProvider);
-                        setState(() => _isTyping = false);
-                      },
+                    : () => ref.invalidate(aiChatHistoryProvider),
               ),
             ),
             Positioned(
@@ -382,13 +444,14 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                     else
                       _UserMessageBubble(message: message),
                   ],
-                  if (_isTyping) ...[
+                  if (isTyping) ...[
                     const SizedBox(height: 14),
                     const Row(
                       children: [
                         SizedBox(width: 34, height: 34, child: _BotAvatar()),
                         SizedBox(width: 10),
-                        _TypingIndicator(),
+                        // Narrow phones wrap the status text instead of overflowing.
+                        Flexible(child: _TypingIndicator()),
                       ],
                     ),
                   ],
@@ -403,7 +466,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                 controller: _controller,
                 onSend: _sendMessage,
                 hasText: _controller.text.trim().isNotEmpty,
-                isSending: _isTyping,
+                isSending: isTyping,
                 bottomPadding: bottomOffset,
               ),
             ),
@@ -432,6 +495,8 @@ class _ChatHeader extends StatelessWidget {
             width: 40,
             height: 40,
             child: IconButton(
+              // Unnamed before (QA 10/7 #50); same name as the app bars.
+              tooltip: '뒤로가기',
               onPressed: () {
                 if (context.canPop()) {
                   context.pop();
@@ -673,42 +738,47 @@ class _PromptChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width ?? 163.5,
-      height: 52,
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(999),
-        child: InkWell(
-          onTap: onTap,
+    // Read as a button rather than text with a tap action (QA 10/7 #54).
+    return Semantics(
+      container: true,
+      button: true,
+      child: SizedBox(
+        width: width ?? 163.5,
+        height: 52,
+        child: Material(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(999),
-          child: Container(
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFEEF2FF)),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(prompt.icon, color: const Color(0xFF2563EB), size: 16),
-                const SizedBox(width: 7),
-                Flexible(
-                  child: Text(
-                    prompt.label,
-                    maxLines: 2,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: _AiUi.ink,
-                      fontFamily: _AiUi.fontFamily,
-                      fontFamilyFallback: _AiUi.fontFallback,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1.25,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFEEF2FF)),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(prompt.icon, color: const Color(0xFF2563EB), size: 16),
+                  const SizedBox(width: 7),
+                  Flexible(
+                    child: Text(
+                      prompt.label,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: _AiUi.ink,
+                        fontFamily: _AiUi.fontFamily,
+                        fontFamilyFallback: _AiUi.fontFallback,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        height: 1.25,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -750,47 +820,59 @@ class _Composer extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: TextField(
-              controller: controller,
-              onSubmitted: (_) {
-                if (hasText && !isSending) onSend();
-              },
-              cursorColor: const Color(0xFF2563EB),
-              decoration: InputDecoration(
-                hintText: '메시지를 입력하세요',
-                labelText: 'AI에게 질문',
-                hintStyle: const TextStyle(
-                  color: Color(0xFFCBD5E1),
+            // Screen readers get the field's name here. As a labelText it
+            // floated up and cut a notch into the pill outline.
+            child: Semantics(
+              label: 'AI에게 질문',
+              child: TextField(
+                controller: controller,
+                // Matches the server limit; the send path re-checks UTF-16
+                // length.
+                inputFormatters: [
+                  LengthLimitingTextInputFormatter(aiChatMaxMessageLength),
+                ],
+                onSubmitted: (_) {
+                  if (hasText && !isSending) onSend();
+                },
+                cursorColor: AppColors.primary,
+                decoration: InputDecoration(
+                  hintText: '메시지를 입력하세요',
+                  hintStyle: const TextStyle(
+                    color: AppColors.muted,
+                    fontFamily: _AiUi.fontFamily,
+                    fontFamilyFallback: _AiUi.fontFallback,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(999),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(999),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(999),
+                    borderSide: const BorderSide(
+                      color: AppColors.primary,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+                style: const TextStyle(
+                  color: _AiUi.ink,
                   fontFamily: _AiUi.fontFamily,
                   fontFamilyFallback: _AiUi.fontFallback,
                   fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: Color(0xFFEEF2FF)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: Color(0xFFEEF2FF)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: Color(0xFF2563EB)),
-                ),
-              ),
-              style: const TextStyle(
-                color: _AiUi.ink,
-                fontFamily: _AiUi.fontFamily,
-                fontFamilyFallback: _AiUi.fontFallback,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -912,47 +994,53 @@ class _BotMessageBubble extends StatelessWidget {
               if (structured != null) ...[
                 const SizedBox(height: 12),
                 for (final item in structured.$2) ...[
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(11),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF6F8FC),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.$1,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: _AiUi.ink,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
+                  // Each store card is its own element. Before, the cards,
+                  // the summary and the copy chip were one tappable element,
+                  // so a double tap on the answer copied it (QA 10/7 #54).
+                  Semantics(
+                    container: true,
+                    child: Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(11),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF6F8FC),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.$1,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: _AiUi.ink,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 7,
-                          runSpacing: 5,
-                          children: [
-                            for (final detail
-                                in item.$2
-                                    .split(' · ')
-                                    .where((value) => value.isNotEmpty))
-                              Text(
-                                detail,
-                                style: const TextStyle(
-                                  color: Color(0xFF475569),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 7,
+                            runSpacing: 5,
+                            children: [
+                              for (final detail
+                                  in item.$2
+                                      .split(' · ')
+                                      .where((value) => value.isNotEmpty))
+                                Text(
+                                  detail,
+                                  style: const TextStyle(
+                                    color: Color(0xFF475569),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -1017,34 +1105,40 @@ class _MessageActionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0xFFEEF2FF)),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 12, color: const Color(0xFF64748B)),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Color(0xFF64748B),
-                  fontFamily: _AiUi.fontFamily,
-                  fontFamilyFallback: _AiUi.fontFallback,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+    // Its own button: before, a single chip ('복사') merged into the whole
+    // answer, which a double tap then copied (QA 10/7 #54).
+    return Semantics(
+      container: true,
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFEEF2FF)),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 12, color: const Color(0xFF64748B)),
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontFamily: _AiUi.fontFamily,
+                    fontFamilyFallback: _AiUi.fontFallback,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1076,14 +1170,16 @@ class _TypingIndicator extends StatelessWidget {
             ),
           ),
           SizedBox(width: 8),
-          Text(
-            '고미가 착한가격 매장을 찾고 있어요...',
-            style: TextStyle(
-              color: Color(0xFF64748B),
-              fontFamily: _AiUi.fontFamily,
-              fontFamilyFallback: _AiUi.fontFallback,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              '고미가 착한가격 매장을 찾고 있어요...',
+              style: TextStyle(
+                color: Color(0xFF64748B),
+                fontFamily: _AiUi.fontFamily,
+                fontFamilyFallback: _AiUi.fontFallback,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

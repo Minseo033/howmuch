@@ -63,7 +63,7 @@ class FirebaseServiceReviewIdentityTest {
         when(document.set(anyMap())).thenReturn(ApiFutures.immediateFuture(null));
         when(document.getId()).thenReturn("new-review");
 
-        assertThat(service.saveReview("user-1", request("고유식당", "고유식당")))
+        assertThat(service.createReview("user-1", request("고유식당", "고유식당")).reviewId())
                 .isEqualTo("new-review");
 
         @SuppressWarnings("unchecked")
@@ -80,7 +80,7 @@ class FirebaseServiceReviewIdentityTest {
 
         for (ReviewRequest request : List.of(request("경남식당", "경남식당"),
                 request("store_unknown", "경남식당"), request("store_a", "다른식당"))) {
-            assertThatThrownBy(() -> service.saveReview("user-1", request))
+            assertThatThrownBy(() -> service.createReview("user-1", request))
                     .isInstanceOf(IllegalArgumentException.class);
         }
         verifyNoInteractions(db);
@@ -92,7 +92,7 @@ class FirebaseServiceReviewIdentityTest {
                 "storeId", "store_pending", "storeName", "대기식당", "address", "서울",
                 "status", "PENDING")));
         assertThat(service.getReviews("store_pending")).isEmpty();
-        assertThatThrownBy(() -> service.saveReview("user-1", request("store_pending", "대기식당")))
+        assertThatThrownBy(() -> service.createReview("user-1", request("store_pending", "대기식당")))
                 .isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(db);
     }

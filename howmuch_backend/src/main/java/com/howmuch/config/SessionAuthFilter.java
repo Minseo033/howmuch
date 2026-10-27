@@ -42,11 +42,16 @@ public class SessionAuthFilter extends OncePerRequestFilter {
         try {
             uid = token == null ? null : sessionTokenService.verifyAndGetUid(token);
         } catch (SessionRevocationStore.UnavailableException e) {
-            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-            response.setHeader("Retry-After", "5");
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"success\":false,\"message\":\"인증 서비스를 잠시 이용할 수 없습니다. 잠시 후 다시 시도해주세요.\"}");
-            return;
+            if (requiresAuth(request)) {
+                response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+                response.setHeader("Retry-After", "5");
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"success\":false,\"message\":\"인증 서비스를 잠시 이용할 수 없습니다. 잠시 후 다시 시도해주세요.\"}");
+                return;
+            }
+            // Public reads (map, store detail, feed) must not go down with the revocation store.
+            // Without a verified identity the request continues like a signed-out visitor.
+            uid = null;
         }
 
         if (requiresAuth(request)) {
@@ -72,6 +77,9 @@ public class SessionAuthFilter extends OncePerRequestFilter {
         // CORS preflight(OPTIONS)는 크리덴셜 없이 오므로 항상 통과시킵니다.
         // 막으면 웹 브라우저가 인증 API 호출 자체를 차단합니다.
         if ("OPTIONS".equalsIgnoreCase(method)) return false;
+
+        // This status-only receipt remains usable after withdrawal revokes the session.
+        if (path.equals("/api/user/withdrawal-status") && "GET".equalsIgnoreCase(method)) return false;
 
         if (path.equals("/api/user") || path.startsWith("/api/user/")) return true;
         // 문의는 작성자 본인의 내역과 답변만 다루므로 세션 인증이 필수입니다.

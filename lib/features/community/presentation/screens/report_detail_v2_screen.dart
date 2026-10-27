@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
@@ -8,9 +9,19 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:howmuch/features/community/presentation/state/report_service.dart';
+import 'package:howmuch/features/community/presentation/state/report_edit_route.dart';
+import 'package:howmuch/features/store/store_model.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_action_bar.dart';
+
+/// 가격 변동 제보 대상 매장의 현재 정보입니다. 제보 수정 화면과 같은 조회를 쓰며,
+/// 조회하지 못하면 null이라 기존 가격 줄을 숨깁니다.
+final reportTargetStoreProvider = FutureProvider.autoDispose
+    .family<Store?, String>(
+      (ref, storeId) => ref.watch(reportServiceProvider).fetchStore(storeId),
+    );
 
 class ReportDetailV2Screen extends ConsumerStatefulWidget {
   const ReportDetailV2Screen({super.key, this.reportId, this.initialReport});
@@ -46,13 +57,40 @@ class ReportDetailV2Screen extends ConsumerStatefulWidget {
 
 class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
   String? _alertedRejectReportId;
+  bool _refreshing = true;
+  bool _refreshFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_refreshReport);
+  }
+
+  Future<void> _refreshReport() async {
+    if (!mounted) return;
+    setState(() {
+      _refreshing = true;
+      _refreshFailed = false;
+    });
+    final reports = await ref.read(reportServiceProvider).fetchMyReports();
+    if (!mounted) return;
+    setState(() {
+      _refreshing = false;
+      _refreshFailed = reports == null;
+    });
+    if (reports == null) return;
+    // Re-entry must not retain a pending snapshot after administrator review.
+    // Failed reads retain the existing record; this never repeats a write.
+    ref.read(userReportsProvider.notifier).mergeFetchedReports(reports);
+  }
 
   @override
   Widget build(BuildContext context) {
     final reports = ref.watch(userReportsProvider);
+    final identity = widget.reportId ?? widget.initialReport?.id;
     final report =
-        widget.initialReport ??
-        reports.where((item) => item.id == widget.reportId).firstOrNull;
+        reports.where((item) => item.id == identity).firstOrNull ??
+        widget.initialReport;
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     const actionHeight = 45.994;
@@ -72,17 +110,39 @@ class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
     if (report == null) {
       return FigmaMobileCanvas(
         backgroundColor: ReportDetailV2Screen._surface,
-        child: Center(
-          child: Text(
-            '제보 정보를 찾을 수 없어요.',
-            style: const TextStyle(
-              color: ReportDetailV2Screen._muted,
-              fontFamily: ReportDetailV2Screen._fontFamily,
-              fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              top: 0,
+              right: 0,
+              height: topOffset,
+              child: const ColoredBox(color: Colors.white),
             ),
-          ),
+            Positioned(
+              left: 0,
+              top: topOffset,
+              right: 0,
+              height: HowmuchTopBar.height,
+              child: _Header(onBack: goBack),
+            ),
+            Positioned(
+              left: 0,
+              top: topOffset + HowmuchTopBar.height,
+              right: 0,
+              bottom: 0,
+              child: Center(
+                child: _refreshing
+                    ? const CircularProgressIndicator(
+                        color: ReportDetailV2Screen._blue,
+                      )
+                    : _MissingReportState(
+                        failed: _refreshFailed,
+                        onRetry: _refreshReport,
+                      ),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -226,117 +286,133 @@ class _RejectReasonDialog extends StatelessWidget {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(22),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 18),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        alignment: Alignment.center,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFFF3EA),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.warning_amber_rounded,
-                          color: ReportDetailV2Screen._orange,
-                          size: 25,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        '반려 사유를 확인해주세요',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: ReportDetailV2Screen._ink,
-                          fontFamily: ReportDetailV2Screen._fontFamily,
-                          fontFamilyFallback:
-                              ReportDetailV2Screen._fontFallback,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: ReportDetailV2Screen._muted,
-                          fontFamily: ReportDetailV2Screen._fontFamily,
-                          fontFamilyFallback:
-                              ReportDetailV2Screen._fontFallback,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        width: double.infinity,
-                        constraints: const BoxConstraints(maxHeight: 132),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF3EA),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: const Color(0xFFFDE68A),
-                            width: .909,
+            // Without its own node, the dialog merged the title and the
+            // confirm button into one label, so screen readers could not
+            // reach '확인' (QA 10/7 #55). Each part now gets its own node.
+            child: Semantics(
+              container: true,
+              explicitChildNodes: true,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 28, 20, 18),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFFF3EA),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.warning_amber_rounded,
+                            color: ReportDetailV2Screen._orange,
+                            size: 25,
                           ),
                         ),
-                        child: SingleChildScrollView(
-                          child: Text(
-                            reason,
-                            style: const TextStyle(
-                              color: ReportDetailV2Screen._black,
+                        const SizedBox(height: 16),
+                        // Names the dialog like AlertDialog's title; iOS
+                        // focuses the title itself, so it is not read twice.
+                        Semantics(
+                          namesRoute:
+                              defaultTargetPlatform != TargetPlatform.iOS,
+                          child: const Text(
+                            '반려 사유를 확인해주세요',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: ReportDetailV2Screen._ink,
                               fontFamily: ReportDetailV2Screen._fontFamily,
                               fontFamilyFallback:
                                   ReportDetailV2Screen._fontFallback,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              height: 1.6,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              height: 1.5,
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(
-                  height: .909,
-                  thickness: .909,
-                  color: ReportDetailV2Screen._border,
-                ),
-                Material(
-                  color: Colors.white,
-                  child: InkWell(
-                    onTap: onConfirm,
-                    child: const SizedBox(
-                      height: 55,
-                      child: Center(
-                        child: Text(
-                          '확인',
-                          style: TextStyle(
-                            color: ReportDetailV2Screen._orange,
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: ReportDetailV2Screen._muted,
                             fontFamily: ReportDetailV2Screen._fontFamily,
                             fontFamilyFallback:
                                 ReportDetailV2Screen._fontFallback,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
                             height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          constraints: const BoxConstraints(maxHeight: 132),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF3EA),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: const Color(0xFFFDE68A),
+                              width: .909,
+                            ),
+                          ),
+                          child: SingleChildScrollView(
+                            child: Text(
+                              reason,
+                              style: const TextStyle(
+                                color: ReportDetailV2Screen._black,
+                                fontFamily: ReportDetailV2Screen._fontFamily,
+                                fontFamilyFallback:
+                                    ReportDetailV2Screen._fontFallback,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                height: 1.6,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(
+                    height: .909,
+                    thickness: .909,
+                    color: ReportDetailV2Screen._border,
+                  ),
+                  Semantics(
+                    button: true,
+                    child: Material(
+                      color: Colors.white,
+                      child: InkWell(
+                        onTap: onConfirm,
+                        child: const SizedBox(
+                          height: 55,
+                          child: Center(
+                            child: Text(
+                              '확인',
+                              style: TextStyle(
+                                color: ReportDetailV2Screen._orange,
+                                fontFamily: ReportDetailV2Screen._fontFamily,
+                                fontFamilyFallback:
+                                    ReportDetailV2Screen._fontFallback,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                height: 1.5,
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -401,7 +477,25 @@ class _ReportInfoCard extends StatelessWidget {
             valueColor: ReportDetailV2Screen._ink,
           ),
           const SizedBox(height: AppSizes.smallSpacing),
-          _PriceLine(report: report),
+          if (report.isPriceChangeReport)
+            _PriceChangeLines(report: report)
+          else
+            _PriceLine(report: report),
+          if (report.isInformationReport) ...[
+            const SizedBox(height: AppSizes.smallSpacing),
+            _InfoLine(
+              label: '신고 유형',
+              value: report.informationTypeLabel,
+              valueWeight: FontWeight.w600,
+            ),
+            const SizedBox(height: AppSizes.smallSpacing),
+            _InfoLine(
+              label: '신고 내용',
+              value: report.description.isEmpty ? '입력 없음' : report.description,
+              valueWeight: FontWeight.w400,
+              wrap: true,
+            ),
+          ],
           const SizedBox(height: AppSizes.itemSpacing),
           _PhotoSection(imageUrls: report.imageUrls),
         ],
@@ -431,9 +525,9 @@ class _UserBadgeRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            const Text(
-              '사용자 제보',
-              style: TextStyle(
+            Text(
+              report.kindLabel,
+              style: const TextStyle(
                 color: ReportDetailV2Screen._orange,
                 fontFamily: ReportDetailV2Screen._fontFamily,
                 fontFamilyFallback: ReportDetailV2Screen._fontFallback,
@@ -450,7 +544,7 @@ class _UserBadgeRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(999),
           ),
           child: Text(
-            report.status,
+            report.processingLabel,
             style: TextStyle(
               color: Color(report.textColor),
               fontFamily: ReportDetailV2Screen._fontFamily,
@@ -471,16 +565,21 @@ class _InfoLine extends StatelessWidget {
     required this.value,
     required this.valueWeight,
     this.valueColor,
+    this.wrap = false,
   });
 
   final String label;
   final String value;
   final FontWeight valueWeight;
   final Color? valueColor;
+  final bool wrap;
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: wrap
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
       children: [
         Text(
           label,
@@ -498,7 +597,7 @@ class _InfoLine extends StatelessWidget {
           child: Text(
             value,
             textAlign: TextAlign.right,
-            overflow: TextOverflow.ellipsis,
+            overflow: wrap ? TextOverflow.clip : TextOverflow.ellipsis,
             style: TextStyle(
               color: valueColor ?? ReportDetailV2Screen._ink,
               fontFamily: ReportDetailV2Screen._fontFamily,
@@ -598,6 +697,87 @@ class _PriceLine extends StatelessWidget {
   }
 }
 
+/// 가격 변동 제보의 변동 유형·메뉴·가격입니다. 승인 전에는 대상 매장에 아직
+/// 반영되지 않았으므로 지금 등록된 가격을 기존 가격으로 보여 줍니다. 승인된 제보는
+/// 매장에 이미 새 가격이 반영돼 있어 조회하지 않고, 서버가 보낸 반영 전 가격을
+/// 씁니다. 이 값이 없는 옛 승인 건은 기존 가격 줄을 숨깁니다.
+class _PriceChangeLines extends ConsumerWidget {
+  const _PriceChangeLines({required this.report});
+
+  final UserReportStatus report;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reported = report.menuPrices.firstOrNull;
+    final menuName = reported?.menu.trim() ?? '';
+    final storeId = report.storeId.trim();
+    final store =
+        !report.isApproved && storeId.isNotEmpty && menuName.isNotEmpty
+        ? ref.watch(reportTargetStoreProvider(storeId)).valueOrNull
+        : null;
+    final existingPrice = report.isApproved
+        ? _previousPrice(report)
+        : store == null
+        ? null
+        : _registeredPrice(store, menuName);
+    final reportedPrice =
+        report.changeType != 'delete' &&
+            reported != null &&
+            (reported.price.trim().isNotEmpty || reported.free)
+        ? formatMenuPrice(reported.price, free: reported.free)
+        : null;
+
+    return Column(
+      children: [
+        _InfoLine(
+          label: '변동 유형',
+          value: report.priceChangeTypeLabel,
+          valueWeight: FontWeight.w600,
+        ),
+        const SizedBox(height: AppSizes.smallSpacing),
+        _InfoLine(
+          label: '메뉴',
+          value: menuName.isEmpty ? '입력 없음' : menuName,
+          valueWeight: FontWeight.w600,
+        ),
+        if (existingPrice != null) ...[
+          const SizedBox(height: AppSizes.smallSpacing),
+          _InfoLine(
+            label: '기존 가격',
+            value: existingPrice,
+            valueWeight: FontWeight.w600,
+          ),
+        ],
+        if (reportedPrice != null) ...[
+          const SizedBox(height: AppSizes.smallSpacing),
+          _InfoLine(
+            label: '제보한 가격',
+            value: reportedPrice,
+            valueWeight: FontWeight.w700,
+            valueColor: ReportDetailV2Screen._orange,
+          ),
+        ],
+      ],
+    );
+  }
+
+  static String? _registeredPrice(Store store, String menuName) {
+    for (var slot = 1; slot <= 4; slot++) {
+      if (store.menuAt(slot).trim() != menuName) continue;
+      final price = store.priceAt(slot).trim();
+      final free = store.freeAt(slot);
+      if (price.isEmpty && !free) return null;
+      return formatMenuPrice(price, free: free);
+    }
+    return null;
+  }
+
+  static String? _previousPrice(UserReportStatus report) =>
+      report.previousPrice.isEmpty && !report.previousFree
+      ? null
+      : formatMenuPrice(report.previousPrice, free: report.previousFree);
+}
+
 class _ProgressCard extends StatelessWidget {
   const _ProgressCard({required this.report});
 
@@ -671,7 +851,7 @@ class _InfoMessageCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  report.status,
+                  report.processingLabel,
                   style: TextStyle(
                     color: hasNotice
                         ? ReportDetailV2Screen._orange
@@ -685,9 +865,7 @@ class _InfoMessageCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  hasNotice
-                      ? report.rejectReason.trim()
-                      : '현재 가격과 위치 정보를 확인하고 있어요.',
+                  report.processingNotice,
                   style: const TextStyle(
                     color: ReportDetailV2Screen._black,
                     fontFamily: ReportDetailV2Screen._fontFamily,
@@ -712,7 +890,7 @@ class _ProgressSteps extends StatelessWidget {
   final UserReportStatus report;
 
   int get _currentIndex {
-    if (report.status.contains('승인')) return 3;
+    if (report.isApproved) return 3;
     if (report.status.contains('반려') || report.status.contains('보완')) {
       return 2;
     }
@@ -728,7 +906,7 @@ class _ProgressSteps extends StatelessWidget {
   String get _reviewResultLabel {
     if (report.status.contains('반려')) return '반려';
     if (report.status.contains('보완')) return '보완 요청';
-    if (report.status.contains('승인')) return '승인 완료';
+    if (report.isApproved) return '검토 완료';
     return '검토 결과';
   }
 
@@ -752,7 +930,13 @@ class _ProgressSteps extends StatelessWidget {
         currentIndex > 2,
       ),
       _StepData(
-        '지도 반영',
+        report.hasAppliedChanges
+            ? '지도 반영'
+            : report.resolution == 'NO_CHANGE'
+            ? '수정 없음'
+            : report.isApproved
+            ? '승인 완료'
+            : '처리 확인',
         3,
         currentIndex >= 3
             ? ReportDetailV2Screen._green
@@ -1011,42 +1195,47 @@ class _OutlineActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: () => context.push(AppRoutes.reportDeleteConfirm, extra: report),
+    // An InkWell alone reads as plain text on iOS (QA 10/7 #54).
+    return Semantics(
+      button: true,
+      child: Material(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: ReportDetailV2Screen._border,
-              width: .909,
+        child: InkWell(
+          onTap: () =>
+              context.push(AppRoutes.reportDeleteConfirm, extra: report),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: ReportDetailV2Screen._border,
+                width: .909,
+              ),
             ),
-          ),
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.delete_outline_rounded,
-                size: 14,
-                color: Color(0xFFEF4444),
-              ),
-              const SizedBox(width: 6),
-              const Text(
-                '삭제하기',
-                style: TextStyle(
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.delete_outline_rounded,
+                  size: 14,
                   color: Color(0xFFEF4444),
-                  fontFamily: ReportDetailV2Screen._fontFamily,
-                  fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
                 ),
-              ),
-            ],
+                const SizedBox(width: 6),
+                const Text(
+                  '삭제하기',
+                  style: TextStyle(
+                    color: Color(0xFFEF4444),
+                    fontFamily: ReportDetailV2Screen._fontFamily,
+                    fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1062,20 +1251,86 @@ class _PrimaryActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FilledButton(
-      onPressed: () => context.push(AppRoutes.reportCreate, extra: report),
+      onPressed: report.isApproved
+          ? null
+          : () => openReportEditor(context, report),
       style: FilledButton.styleFrom(
         backgroundColor: ReportDetailV2Screen._blue,
+        foregroundColor: Colors.white,
+        // A reviewed report cannot be edited: the button greys out and its
+        // label stays readable on the grey.
+        disabledBackgroundColor: ReportDetailV2Screen._border,
+        disabledForegroundColor: const Color(0xFF6B7280),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.edit_outlined, size: 14, color: Colors.white),
+          Icon(
+            report.isApproved
+                ? Icons.lock_outline_rounded
+                : Icons.edit_outlined,
+            size: 14,
+          ),
           const SizedBox(width: 6),
-          const Text(
-            '제보 수정하기',
-            style: TextStyle(
+          Flexible(
+            child: Text(
+              !report.isApproved
+                  ? '제보 수정하기'
+                  : report.isResolvedWithoutChange
+                  ? '검토 완료 · 수정 불가'
+                  : '승인된 제보 · 수정 불가',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: ReportDetailV2Screen._fontFamily,
+                fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown in place of the report when it could not be loaded or found, laid
+/// out like the My reports states.
+class _MissingReportState extends StatelessWidget {
+  const _MissingReportState({required this.failed, required this.onRetry});
+
+  final bool failed;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
               color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: ReportDetailV2Screen._border),
+            ),
+            child: Icon(
+              failed ? Icons.cloud_off_outlined : Icons.search_off_rounded,
+              size: 26,
+              color: ReportDetailV2Screen._muted,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            failed ? '제보 정보를 불러오지 못했어요.' : '제보 정보를 찾을 수 없어요.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: ReportDetailV2Screen._ink,
               fontFamily: ReportDetailV2Screen._fontFamily,
               fontFamilyFallback: ReportDetailV2Screen._fontFallback,
               fontSize: 13,
@@ -1083,6 +1338,41 @@ class _PrimaryActionButton extends StatelessWidget {
               height: 1.5,
             ),
           ),
+          const SizedBox(height: 4),
+          Text(
+            failed ? '잠시 후 다시 시도해 주세요.' : '삭제되었거나 다른 계정의 제보일 수 있어요.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: ReportDetailV2Screen._muted,
+              fontFamily: ReportDetailV2Screen._fontFamily,
+              fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+          if (failed) ...[
+            const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: onRetry,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: ReportDetailV2Screen._blue,
+                backgroundColor: Colors.white,
+                minimumSize: const Size(0, 40),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                side: const BorderSide(color: ReportDetailV2Screen._border),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: const TextStyle(
+                  fontFamily: ReportDetailV2Screen._fontFamily,
+                  fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              child: const Text('다시 불러오기'),
+            ),
+          ],
         ],
       ),
     );

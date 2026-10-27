@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/store/store_catalog_loader.dart';
 import 'package:howmuch/features/home/home_map_store_loader.dart';
+import 'package:howmuch/features/home/home_map_viewport_policy.dart';
 import 'kakao_web_helper_stub.dart'
-    if (dart.library.js) 'kakao_web_helper.dart'
+    if (dart.library.js_interop) 'kakao_web_helper.dart'
     as web_helper;
 
 import 'package:flutter/material.dart';
@@ -16,6 +18,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/app/app_route_observer.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_price.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
@@ -24,6 +28,7 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:howmuch/core/constants/kakao_map_constants.dart';
+import 'package:howmuch/core/theme/app_tokens.dart' show AppTextScale;
 import 'package:howmuch/core/location/browser_location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart'
@@ -31,6 +36,9 @@ import 'package:permission_handler/permission_handler.dart'
 
 const Duration maxHomeLocationCacheAge = Duration(minutes: 2);
 const double maxHomeMapBoundsSpanDegrees = 10;
+
+/// The complete catalog supports nationwide zoom without another API query.
+const int maxHomeMapLevel = 14;
 
 bool isHomeMapBoundsWithinBackendLimit(Map<String, double> bounds) {
   return bounds['maxLat']! - bounds['minLat']! <= maxHomeMapBoundsSpanDegrees &&
@@ -40,6 +48,55 @@ bool isHomeMapBoundsWithinBackendLimit(Map<String, double> bounds) {
 bool isFreshHomeLocation(DateTime timestamp, DateTime now) {
   final age = now.toUtc().difference(timestamp.toUtc());
   return !age.isNegative && age <= maxHomeLocationCacheAge;
+}
+
+/// A marker tap from the native map WebView. [index] is the position in the
+/// rendered marker list, which can differ from the card list (search draws at
+/// most 100 markers inside the viewport), so callers resolve [storeId].
+typedef MobileMarkerClick = ({int index, String storeId});
+
+/// Parses CLICK payloads such as {"index":3,"storeId":"abc"}, or a bare index
+/// from an older page that has not been reloaded yet.
+MobileMarkerClick? parseMobileMarkerClick(String payload) {
+  final legacyIndex = int.tryParse(payload.trim());
+  if (legacyIndex != null) return (index: legacyIndex, storeId: '');
+  try {
+    final decoded = jsonDecode(payload);
+    if (decoded is! Map) return null;
+    final index = decoded['index'];
+    if (index is! num || !index.isFinite || index != index.roundToDouble()) {
+      return null;
+    }
+    final storeId = decoded['storeId'];
+    return (index: index.toInt(), storeId: storeId is String ? storeId : '');
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Center and zoom level reported with native map bounds. A reloaded WebView
+/// (for example after iOS ends its content process) starts from here.
+typedef MobileMapViewport = ({double lat, double lng, int level});
+
+MobileMapViewport? parseMobileMapViewport(String raw) {
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return null;
+    final lat = decoded['centerLat'];
+    final lng = decoded['centerLng'];
+    final level = decoded['level'];
+    if (lat is! num || lng is! num || level is! num) return null;
+    if (!lat.isFinite || !lng.isFinite || lat.abs() > 90 || lng.abs() > 180) {
+      return null;
+    }
+    return (
+      lat: lat.toDouble(),
+      lng: lng.toDouble(),
+      level: level.toInt().clamp(1, 14),
+    );
+  } catch (_) {
+    return null;
+  }
 }
 
 /// Kakao WebView bounds can briefly be null or out of range while the map is
@@ -156,15 +213,16 @@ class HomeMapScreen extends StatefulWidget {
     this.showAiSpotlight = false,
     this.initialRecommendation,
     this.initialSearchResult,
+    this.storeLoader,
+    this.catalogLoader,
   });
 
-  // `globalAllStores` is the current map/viewport result. It must not be used
-  // as the nationwide search catalog: the bounds endpoint intentionally
-  // returns only a subset of stores.
+  // Stores that can be drawn on the map. Production keeps the complete
+  // visible catalog here; injected viewport loaders retain the legacy subset.
   static List<Store> globalAllStores = [];
   static List<Store> _globalSearchCatalog = [];
 
-  /// Full nationwide catalog loaded by search (never a map-bounds response).
+  /// Full nationwide catalog shared with search and recommendation flows.
   static List<Store> get globalSearchCatalog => _globalSearchCatalog;
 
   static void setMapStores(List<Store> stores) {
@@ -179,9 +237,28 @@ class HomeMapScreen extends StatefulWidget {
   static bool hasRequestedLocationWeb = false;
   static bool hasDismissedLocationNotice = false;
 
+  // A tab switch replaces this screen. The next one reopens the spot and the
+  // store card the user left instead of jumping back to the user's position
+  // (QA 10/7 #7). Store detail keeps this screen alive and needs neither.
+  static MobileMapViewport? _savedViewport;
+  static Store? _savedSelectedStore;
+
+  @visibleForTesting
+  static void clearSavedMapState() {
+    _savedViewport = null;
+    _savedSelectedStore = null;
+  }
+
   final bool showAiSpotlight;
   final AiMapRecommendationResult? initialRecommendation;
   final Map<String, dynamic>? initialSearchResult;
+
+  /// Optional legacy viewport loader used by focused tests.
+  /// When omitted, the production map loads the complete catalog once.
+  final HomeMapStoreLoader? storeLoader;
+
+  /// Loads the complete catalog once so moving the map never waits on HTTP.
+  final StoreCatalogLoader? catalogLoader;
 
   static const blue = Color(0xFF2563EB);
   static const orange = Color(0xFFF97316);
@@ -217,6 +294,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   bool _isMapReady = false;
   String? _mapErrorMessage;
   Position? _pendingMapPosition;
+  int? _pendingMapCenterGeneration;
+  final _viewportPolicy = HomeMapViewportPolicy();
   StreamSubscription<Position>? _positionStream;
   StreamSubscription<CompassEvent>? _compassStream;
   Position? _lastKnownPosition;
@@ -234,6 +313,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   String? _pendingBoundsJson;
   int _boundsRequestGeneration = 0;
   String _lastRenderedMarkerSignature = '';
+  List<Store>? _lastFullCatalogMarkerSource;
+  bool _fullCatalogRenderPending = false;
   bool _isCenteringLocation = false;
   _LocationNoticeData? _locationNotice;
   Future<void>? _freshLocationRequest;
@@ -246,8 +327,46 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   AiMapRecommendationResult? _activeAiRecommendation;
   AiMapRecommendationResult? _pendingAiResult;
   Map<String, dynamic>? _pendingSearchResult;
+  // Native map bookkeeping.
+  MobileMapViewport? _lastMobileViewport;
+  Timer? _markerTapGuard;
+  double? _lastSentHeading;
+  double? _pendingHeading;
+  Timer? _headingThrottle;
+  // Location tracking runs only while this route is visible in the foreground.
+  bool _routeIsCurrent = true;
+  GoRouter? _visibilityRouter;
+  bool _visibilitySyncScheduled = false;
+  bool _appInForeground = true;
+  bool _trackingSuspended = false;
+  bool _awaitingLocationSettingsReturn = false;
+  // Non-blocking map notices are shown once per streak.
+  bool _boundsFailureNoticeShown = false;
+  bool _truncationNoticeShown = false;
+  // The viewport whose stores are loading right now.
+  String? _inFlightBoundsKey;
+  int? _inFlightBoundsGeneration;
+  // The viewport became the user's: they moved the map, chose a store or a
+  // result was shown. Only then is it kept for the next home screen.
+  bool _keepsViewport = false;
+  // Where the previous home screen left the map. It opens there instead of
+  // at the user's position.
+  MobileMapViewport? _restoredViewport;
+
+  bool get _usesFullCatalog => widget.storeLoader == null;
 
   Future<void> _openAiRecommend() async {
+    // The coach mark has done its job once the AI control is tapped.
+    if (_showAiSpotlight) setState(() => _showAiSpotlight = false);
+    // The server answers AI questions only for an account, so a guest is
+    // asked before the chat opens instead of after the first question.
+    final loggedIn = await requireLogin(
+      context,
+      // Guests browse freely; the prompt speaks of the extra features an
+      // account opens rather than of AI alone.
+      message: '추가 기능을 사용하려면 로그인해 주세요.',
+    );
+    if (!loggedIn || !mounted) return;
     final result = await context.push<dynamic>(AppRoutes.aiRecommend);
     if (result is AiMapRecommendationResult && mounted) {
       _applyAiRecommendationResult(result);
@@ -289,11 +408,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
 
     _invalidatePendingMapRequest();
-    if (kIsWeb) web_helper.setKakaoMapSearchModeWeb(_viewId, false);
+    _setMapSearchMode(false);
+    _keepViewport();
 
     setState(() {
       _isAiRecommendationActive = true;
+      // The AI result replaces any search. Its query and filters no longer
+      // describe the cards and must not filter the map once AI is cleared.
+      _searchQuery = '';
+      _searchFilter = const SearchFilter();
       _searchResultStores = null;
+      _searchViewportCount = 0;
       _activeAiRecommendation = result;
       _aiRecommendedStores = matchingStores;
       _currentStores = matchingStores;
@@ -302,43 +427,30 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     });
     _resetStoreCarouselToFirst();
 
-    final first = matchingStores.first;
-    if (kIsWeb) {
-      web_helper.setKakaoMapCenterFromSwipeWeb(
-        _viewId,
-        first.latitude,
-        first.longitude,
-      );
-    } else if (_webViewController != null) {
-      _safeRunJavaScript(
-        'setMapCenterFromSwipe(${first.latitude}, ${first.longitude}); highlightMarker(0);',
-      );
-    }
-
-    final markerList = matchingStores
-        .map((store) => _storeMarker(store, result.selectionFor(store)))
-        .toList();
-
-    if (kIsWeb) {
-      _renderedMarkerStoreIds = markerList
-          .map((marker) => marker['storeId'] as String)
-          .toList();
-      web_helper.addMobileMarkersWeb(_viewId, jsonEncode(markerList));
-      _lastRenderedMarkerSignature = _markerListSignature(markerList);
-    } else if (_webViewController != null) {
-      final jsStringLiteral = jsonEncode(jsonEncode(markerList));
-      _safeRunJavaScript('addMobileMarkers($jsStringLiteral);');
-    }
+    _renderMarkers(
+      matchingStores
+          .map((store) => _storeMarker(store, result.selectionFor(store)))
+          .toList(),
+    );
+    // The AI screen is still covering home when its result arrives. The web
+    // bridge keeps this move until the map is visible again (P1-19).
+    _panMapTo(matchingStores.first);
   }
 
   void _clearAiRecommendation() {
+    _invalidatePendingMapRequest();
+    _lastRenderedMarkerSignature = '';
     setState(() {
       _isAiRecommendationActive = false;
       _activeAiRecommendation = null;
       _aiRecommendedStores = [];
+      // The next viewport response replaces the AI cards and markers.
+      _currentStores = const [];
       _showStoreSummary = false;
       _selectedStore = null;
     });
+    _resetStoreCarouselToFirst();
+    _setMapSearchMode(false);
     _searchInCurrentArea();
   }
 
@@ -392,6 +504,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         'query': _searchQuery,
         'openFilter': openFilter,
         'filter': _searchFilter,
+        // Search pops its result back to this map instead of opening a new one.
+        'returnToMap': true,
       },
     );
 
@@ -404,6 +518,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _pendingSearchResult = result;
       return;
     }
+    _keepViewport();
     setState(() {
       _isAiRecommendationActive = false;
       _activeAiRecommendation = null;
@@ -425,9 +540,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _showStoreSummary = false;
     });
     _invalidatePendingMapRequest();
-    if (kIsWeb) {
-      web_helper.setKakaoMapSearchModeWeb(_viewId, _searchResultStores != null);
-    }
+    _setMapSearchMode(_searchResultStores != null);
     _resetStoreCarouselToFirst();
     final validStores =
         _searchResultStores
@@ -458,7 +571,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (_searchResultStores == null) return;
     if (_searchQuery.isEmpty && _searchFilter.activeLabels.isEmpty) {
       _searchResultStores = null;
-      if (kIsWeb) web_helper.setKakaoMapSearchModeWeb(_viewId, false);
+      _setMapSearchMode(false);
       return;
     }
     final distanceLimit = switch (_searchFilter.distance) {
@@ -501,7 +614,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }).toList();
     if (_searchFilter.sortOrder == '저렴한순') {
       results.sort(
-        (a, b) => SearchFilterPolicy.compareByPrice(a, b, query: _searchQuery),
+        (a, b) => SearchFilterPolicy.compareByPrice(
+          a,
+          b,
+          query: _searchQuery,
+          distanceOf: _priceTieDistance,
+        ),
       );
     } else {
       results.sort(
@@ -516,10 +634,43 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   void _onWebMapIdle() {
     _webBoundsRetryTimer?.cancel();
     _webBoundsRetryCount = 0;
+    if (_usesFullCatalog) {
+      _rememberViewport(_currentViewport());
+      return;
+    }
     unawaited(_searchInCurrentArea());
   }
 
+  /// The user dragged or zoomed the map (or a result zoomed it).
+  void _onMapMoveStart() {
+    _keepViewport();
+    _invalidatePendingMapRequest();
+  }
+
+  /// From now on the viewport is the user's choice. Keep it for the next home
+  /// screen, starting with the viewport shown right now.
+  void _keepViewport() {
+    if (_keepsViewport) return;
+    _keepsViewport = true;
+    _rememberViewport(_currentViewport());
+  }
+
+  MobileMapViewport? _currentViewport() {
+    if (!kIsWeb) return _lastMobileViewport;
+    final boundsJson = web_helper.getKakaoMapBoundsWeb(_viewId);
+    return boundsJson == null ? null : parseMobileMapViewport(boundsJson);
+  }
+
+  /// Keeps the user's latest valid viewport for the next home screen.
+  void _rememberViewport(MobileMapViewport? viewport) {
+    if (viewport == null || !_keepsViewport) return;
+    if (viewport.level > maxHomeMapLevel) return;
+    HomeMapScreen._savedViewport = viewport;
+  }
+
   void _invalidatePendingMapRequest() {
+    _viewportPolicy.invalidate();
+    _pendingMapCenterGeneration = null;
     _boundsRequestGeneration++;
     _pendingBoundsJson = null;
     _webBoundsRetryTimer?.cancel();
@@ -551,6 +702,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!mounted) return;
     if (_isCenteringLocation ||
         DateTime.now().millisecondsSinceEpoch < _suppressMarkerClicksUntil) {
+      // The map raised the tapped marker before asking. Put the highlight
+      // back on the store that is actually selected.
+      _restoreMarkerHighlight();
       return;
     }
     if (index == -1) {
@@ -560,7 +714,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       });
       _highlightMapMarker(-1);
     } else if (index >= 0 && index < _currentStores.length) {
+      _viewportPolicy.invalidate();
       final store = _currentStores[index];
+      _keepViewport();
       setState(() {
         _selectedStore = store;
         _showStoreSummary = true;
@@ -571,44 +727,106 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           _isAiRecommendationActive ||
           _searchQuery.trim().isNotEmpty ||
           _searchFilter.activeLabels.isNotEmpty;
+      final currentPage = _pageController.hasClients
+          ? _pageController.page?.round()
+          : null;
       if (hasStoreCarousel &&
           _pageController.hasClients &&
-          _pageController.page?.round() != index) {
-        unawaited(
-          _pageController.animateToPage(
-            index,
-            duration: const Duration(milliseconds: 240),
-            curve: Curves.easeOutCubic,
-          ),
-        );
+          currentPage != index) {
+        if (currentPage == null || (index - currentPage).abs() > 1) {
+          // Animating across several cards reports every card in between,
+          // and each report would pan the map to that store.
+          _pageController.jumpToPage(index);
+        } else {
+          unawaited(
+            _pageController.animateToPage(
+              index,
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+            ),
+          );
+        }
       }
+    } else {
+      _restoreMarkerHighlight();
     }
   }
 
-  void _onWebMarkerClicked(int index, String storeId) {
+  /// Resolves a tapped marker to its card. Filtered search results can contain
+  /// stores without markers, so the store ID identifies the card reliably.
+  void _onRenderedMarkerClicked(int markerIndex, String storeId) {
     if (!mounted) return;
-    if (index < 0) {
+    if (markerIndex < 0) {
       _onMarkerClicked(-1);
       return;
     }
-    final currentIndex = _currentStores.indexWhere(
-      (store) => _mapStoreKey(store) == storeId,
+    var key = storeId;
+    if (key.isEmpty && markerIndex < _renderedMarkerStoreIds.length) {
+      key = _renderedMarkerStoreIds[markerIndex];
+    }
+    final storeIndex = key.isEmpty
+        ? -1
+        : _currentStores.indexWhere((store) => _mapStoreKey(store) == key);
+    if (storeIndex < 0) {
+      _restoreMarkerHighlight();
+      return;
+    }
+    _onMarkerClicked(storeIndex);
+  }
+
+  /// Card index to the index in the marker list last sent to the map, or -1.
+  int _renderedMarkerIndexOf(int storeIndex) {
+    if (storeIndex < 0 || storeIndex >= _currentStores.length) return -1;
+    return _renderedMarkerStoreIds.indexOf(
+      _mapStoreKey(_currentStores[storeIndex]),
     );
-    if (currentIndex >= 0) _onMarkerClicked(currentIndex);
   }
 
   void _highlightMapMarker(int index) {
+    final markerIndex = _renderedMarkerIndexOf(index);
     if (kIsWeb) {
-      final markerIndex = index >= 0 && index < _currentStores.length
-          ? _renderedMarkerStoreIds.indexOf(_mapStoreKey(_currentStores[index]))
-          : -1;
       web_helper.highlightKakaoMapMarkerWeb(_viewId, markerIndex);
-    } else if (_webViewController != null) {
-      _safeRunJavaScript('highlightMarker($index);');
+    } else {
+      _safeRunJavaScript('highlightMarker($markerIndex);');
     }
   }
 
-  void _centerMapOnStore(Store store, int index) {
+  void _restoreMarkerHighlight() {
+    final selected = _selectedStore;
+    final selectedKey = selected == null ? null : _mapStoreKey(selected);
+    _highlightMapMarker(
+      selectedKey == null
+          ? -1
+          : _currentStores.indexWhere(
+              (store) => _mapStoreKey(store) == selectedKey,
+            ),
+    );
+  }
+
+  void _renderMarkers(List<Map<String, dynamic>> markerList) {
+    _lastFullCatalogMarkerSource = null;
+    _renderedMarkerStoreIds = markerList
+        .map((marker) => marker['storeId'] as String)
+        .toList(growable: false);
+    _lastRenderedMarkerSignature = _markerListSignature(markerList);
+    final markersJson = jsonEncode(markerList);
+    if (kIsWeb) {
+      web_helper.addMobileMarkersWeb(_viewId, markersJson);
+    } else {
+      _safeRunJavaScript('addMobileMarkers(${jsonEncode(markersJson)});');
+    }
+  }
+
+  /// Search mode still controls result fitting; all modes can zoom nationwide.
+  void _setMapSearchMode(bool enabled) {
+    if (kIsWeb) {
+      web_helper.setKakaoMapSearchModeWeb(_viewId, enabled);
+    } else {
+      _safeRunJavaScript('setSearchMode($enabled);');
+    }
+  }
+
+  void _panMapTo(Store store) {
     if (!store.hasValidCoordinates) return;
     if (kIsWeb) {
       web_helper.setKakaoMapCenterFromSwipeWeb(
@@ -616,17 +834,24 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         store.latitude,
         store.longitude,
       );
-      _highlightMapMarker(index);
-    } else if (_webViewController != null) {
+    } else {
       _safeRunJavaScript(
-        'setMapCenterFromSwipe(${store.latitude}, ${store.longitude}); highlightMarker($index);',
+        'setMapCenterFromSwipe(${store.latitude}, ${store.longitude});',
       );
     }
+  }
+
+  void _centerMapOnStore(Store store, int index) {
+    if (!store.hasValidCoordinates) return;
+    _viewportPolicy.invalidate();
+    _panMapTo(store);
+    _highlightMapMarker(index);
   }
 
   void _onStorePageChanged(int index) {
     if (index < 0 || index >= _currentStores.length) return;
     final store = _currentStores[index];
+    _keepViewport();
     if (!identical(_selectedStore, store)) {
       setState(() => _selectedStore = store);
     }
@@ -647,10 +872,28 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     super.initState();
     _pendingAiResult = widget.initialRecommendation;
     _pendingSearchResult = widget.initialSearchResult;
-    unawaited(_restoreCachedStores());
+    // A result handed over by another screen moves the map itself.
+    if (_pendingAiResult == null && _pendingSearchResult == null) {
+      final viewport = HomeMapScreen._savedViewport;
+      if (viewport != null) {
+        _restoredViewport = viewport;
+        _keepsViewport = true;
+        final selected = HomeMapScreen._savedSelectedStore;
+        if (selected != null) {
+          _selectedStore = selected;
+          _showStoreSummary = true;
+        }
+      }
+    }
+    if (_usesFullCatalog) {
+      unawaited(_loadFullStoreCatalog());
+    } else {
+      // Injected viewport loaders keep the legacy path for focused widget tests.
+      unawaited(_restoreCachedStores());
+    }
     WidgetsBinding.instance.addObserver(this); // 앱 생명주기 감지 등록
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _prepareInitialLocation(),
+      (_) => _prepareInitialLocation(initial: true),
     );
     if (kIsWeb) {
       web_helper.registerKakaoWebViewFactory(_viewId);
@@ -662,8 +905,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       web_helper.registerWebCallbacks(
         _viewId,
         _onWebMapIdle,
-        _invalidatePendingMapRequest,
-        _onWebMarkerClicked,
+        _onMapMoveStart,
+        _onRenderedMarkerClicked,
         _onMapReady,
         _onMapError,
       );
@@ -693,27 +936,156 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _positionStream?.resume();
-      _compassStream?.resume();
-      _relayoutMobileMap();
-      _prepareInitialLocation();
-    } else if (state == AppLifecycleState.paused) {
-      _positionStream?.pause();
-      _compassStream?.pause();
+  Future<void> _loadFullStoreCatalog() async {
+    try {
+      final stores = await (widget.catalogLoader ?? loadStoreCatalog)();
+      if (!mounted) return;
+      final visibleStores = stores
+          .where(isHomeMapStoreVisible)
+          .where((store) => !store.isClosed)
+          .toList(growable: false);
+      if (visibleStores.isEmpty) {
+        throw const FormatException('Empty map catalog');
+      }
+      setState(() {
+        _allStores = visibleStores;
+        _isAllStoresLoaded = true;
+        _hasLoadError = false;
+        _usingCachedStores = false;
+      });
+      HomeMapScreen.setMapStores(List<Store>.unmodifiable(visibleStores));
+      HomeMapScreen.setSearchCatalog(List<Store>.unmodifiable(stores));
+      if (_isMapReady) await _searchInCurrentArea();
+    } catch (error) {
+      if (!mounted) return;
+      debugPrint('전체 매장 카탈로그 로드 실패: $error');
+      setState(() {
+        _isAllStoresLoaded = false;
+        _hasLoadError = true;
+      });
     }
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _appInForeground = true;
+      _syncLocationTracking();
+      if (_fullCatalogRenderPending) _renderFullCatalogMarkers();
+      _relayoutMobileMap();
+      if (_awaitingLocationSettingsReturn) {
+        // Coming back from location settings is a request to use them now,
+        // including moving the map to the newly available position.
+        _awaitingLocationSettingsReturn = false;
+        unawaited(_moveToCurrentLocation());
+      } else {
+        _prepareInitialLocation();
+      }
+    } else if (state == AppLifecycleState.paused) {
+      _appInForeground = false;
+      _syncLocationTracking();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final router = GoRouter.maybeOf(context);
+    if (router != _visibilityRouter) {
+      _visibilityRouter?.routerDelegate.removeListener(
+        _scheduleRouteVisibility,
+      );
+      _visibilityRouter = router;
+      router?.routerDelegate.addListener(_scheduleRouteVisibility);
+    }
+    // A pushed screen covers this map; it does not need GPS fixes or compass
+    // headings drawn while hidden.
+    final path = router == null ? null : visibleAppPath(router);
+    final routeIsCurrent =
+        (ModalRoute.isCurrentOf(context) ?? true) &&
+        TickerMode.valuesOf(context).enabled &&
+        (path == null || path == AppRoutes.home || path == AppRoutes.homeAiFab);
+    _setRouteVisibility(routeIsCurrent);
+  }
+
+  void _scheduleRouteVisibility() {
+    if (_visibilitySyncScheduled) return;
+    _visibilitySyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _visibilitySyncScheduled = false;
+      if (!mounted) return;
+      final router = _visibilityRouter;
+      if (router == null) return;
+      final path = visibleAppPath(router);
+      _setRouteVisibility(
+        path == AppRoutes.home || path == AppRoutes.homeAiFab,
+      );
+    });
+  }
+
+  void _setRouteVisibility(bool routeIsCurrent) {
+    if (routeIsCurrent != _routeIsCurrent) {
+      _routeIsCurrent = routeIsCurrent;
+      _syncLocationTracking();
+      if (routeIsCurrent && _fullCatalogRenderPending) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _renderFullCatalogMarkers();
+        });
+      }
+    }
+  }
+
+  void _syncLocationTracking() {
+    final active = _routeIsCurrent && _appInForeground;
+    if (kIsWeb && _isMapReady) {
+      web_helper.setKakaoMapActiveWeb(_viewId, active);
+    }
+    if (!kIsWeb && _isMapReady) {
+      _safeRunJavaScript('setMapActive($active);');
+    }
+    if (kIsWeb) {
+      // Restarting a browser location watch can ask for permission again
+      // (Safari "Ask"). Keep the watch and ignore updates while hidden.
+      final subscription = _positionStream;
+      if (subscription == null) return;
+      if (active && subscription.isPaused) {
+        subscription.resume();
+      } else if (!active && !subscription.isPaused) {
+        subscription.pause();
+      }
+      return;
+    }
+    if (active) {
+      if (_trackingSuspended) {
+        _trackingSuspended = false;
+        _startLocationTracking();
+      }
+      return;
+    }
+    // Cancel rather than pause: a paused listener keeps the platform's GPS
+    // and compass running. Both start again when the map is visible.
+    if (_positionStream == null && _compassStream == null) return;
+    _positionStream?.cancel();
+    _compassStream?.cancel();
+    _positionStream = null;
+    _compassStream = null;
+    _trackingSuspended = true;
+  }
+
+  @override
   void dispose() {
+    _visibilityRouter?.routerDelegate.removeListener(_scheduleRouteVisibility);
+    HomeMapScreen._savedSelectedStore = _showStoreSummary
+        ? _selectedStore
+        : null;
     WidgetsBinding.instance.removeObserver(this);
     _positionStream?.cancel();
     _compassStream?.cancel();
     _pageController.dispose();
     _boundsDebouncer?.cancel();
     _webBoundsRetryTimer?.cancel();
+    _markerTapGuard?.cancel();
+    _headingThrottle?.cancel();
     if (kIsWeb) {
       web_helper.disposeKakaoWebMap(_viewId);
     }
@@ -721,48 +1093,117 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   void _initMobileController() {
+    final viewport = _restoredViewport;
+    _lastMobileViewport = viewport;
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0x00000000))
+      ..setNavigationDelegate(
+        NavigationDelegate(onWebResourceError: _onMobileMapResourceError),
+      )
       ..addJavaScriptChannel(
         'Print',
-        onMessageReceived: (JavaScriptMessage message) {
-          debugPrint('WebView: ${message.message}');
-          if (message.message == 'Map Initialized on Mobile') {
-            _onMapReady();
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _relayoutMobileMap();
-            });
-            unawaited(_moveToCurrentLocation());
-          }
-          if (message.message.startsWith('MAP_ERROR:')) {
-            _onMapError(message.message.substring('MAP_ERROR:'.length));
-          }
-          if (message.message.startsWith('BOUNDS:')) {
-            _boundsDebouncer?.cancel();
-            _boundsDebouncer = Timer(const Duration(milliseconds: 300), () {
-              if (mounted) {
-                _fetchAndAddMarkersForMobile(message.message.substring(7));
-              }
-            });
-          }
-          if (message.message == 'MOVE_START') {
-            _invalidatePendingMapRequest();
-          }
-          if (message.message.startsWith('CLICK:')) {
-            final indexStr = message.message.substring(6);
-            final index = int.tryParse(indexStr);
-            if (index != null) _onMarkerClicked(index);
-          }
-          if (message.message == 'MAP_CLICK') {
-            _hideStore();
-          }
-        },
+        onMessageReceived: (JavaScriptMessage message) =>
+            _onMobileMapMessage(message.message),
       )
-      ..loadHtmlString(_getMobileMapHtml(), baseUrl: kakaoMapAuthorizedOrigin);
+      ..loadHtmlString(
+        viewport == null
+            ? _getMobileMapHtml()
+            : _getMobileMapHtml(
+                initialLat: viewport.lat,
+                initialLng: viewport.lng,
+                initialLevel: viewport.level,
+              ),
+        baseUrl: kakaoMapAuthorizedOrigin,
+      );
   }
 
-  String _getMobileMapHtml() {
+  void _onMobileMapMessage(String message) {
+    if (!mounted) return;
+    if (message == 'Map Initialized on Mobile') {
+      _onMapReady();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _relayoutMobileMap();
+      });
+    } else if (message.startsWith('MAP_ERROR:')) {
+      _onMapError(message.substring('MAP_ERROR:'.length));
+    } else if (message.startsWith('BOUNDS:')) {
+      final boundsJson = message.substring('BOUNDS:'.length);
+      final viewport = parseMobileMapViewport(boundsJson);
+      _lastMobileViewport = viewport ?? _lastMobileViewport;
+      _rememberViewport(viewport);
+      if (_usesFullCatalog) return;
+      _boundsDebouncer?.cancel();
+      _boundsDebouncer = Timer(const Duration(milliseconds: 300), () {
+        if (mounted) unawaited(_fetchAndAddLatestMarkers(boundsJson));
+      });
+    } else if (message == 'MOVE_START') {
+      _onMapMoveStart();
+    } else if (message.startsWith('CLICK:')) {
+      final click = parseMobileMarkerClick(message.substring('CLICK:'.length));
+      if (click == null) return;
+      _markerTapGuard?.cancel();
+      _markerTapGuard = Timer(const Duration(milliseconds: 400), () {
+        _markerTapGuard = null;
+      });
+      _onRenderedMarkerClicked(click.index, click.storeId);
+    } else if (message == 'MAP_CLICK') {
+      // A marker tap can also reach the map as a background tap. It must not
+      // close the card that the marker has just opened.
+      final guard = _markerTapGuard;
+      if (guard != null && guard.isActive) {
+        guard.cancel();
+        _markerTapGuard = null;
+        return;
+      }
+      // So can a tap on a card or button drawn over the map (QA 10/7 #32).
+      if (DateTime.now().millisecondsSinceEpoch < _suppressMarkerClicksUntil) {
+        return;
+      }
+      _hideStore();
+    } else {
+      debugPrint('WebView: $message');
+    }
+  }
+
+  void _onMobileMapResourceError(WebResourceError error) {
+    // iOS can end the WebView content process under memory pressure, which
+    // leaves a blank map. Reload the page at the last viewport.
+    if (error.errorType != WebResourceErrorType.webContentProcessTerminated) {
+      return;
+    }
+    _reloadMobileMap();
+  }
+
+  void _reloadMobileMap() {
+    final controller = _webViewController;
+    if (!mounted || kIsWeb || controller == null) return;
+    _isMapReady = false;
+    _lastRenderedMarkerSignature = '';
+    _renderedMarkerStoreIds = const [];
+    final viewport = _lastMobileViewport;
+    final html = viewport == null
+        ? _getMobileMapHtml()
+        : _getMobileMapHtml(
+            initialLat: viewport.lat,
+            initialLng: viewport.lng,
+            initialLevel: viewport.level,
+          );
+    unawaited(
+      controller
+          .loadHtmlString(html, baseUrl: kakaoMapAuthorizedOrigin)
+          .onError(
+            (Object error, StackTrace stackTrace) =>
+                debugPrint('지도 다시 불러오기 실패: $error'),
+          ),
+    );
+  }
+
+  String _getMobileMapHtml({
+    double initialLat = 37.5665,
+    double initialLng = 126.9780,
+    int initialLevel = 3,
+  }) {
     return '''
     <!DOCTYPE html>
     <html>
@@ -772,6 +1213,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
         #kakao-map-container { width: 100%; height: 100%; }
+        .kakao-map-marker:focus-visible {
+          outline: 3px solid #0F172A;
+          outline-offset: 3px;
+        }
         .my-location-wrapper {
           width: 40px;
           height: 40px;
@@ -801,15 +1246,40 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           z-index: 1;
         }
       </style>
+      <script>
+        // Defined before the SDK tag so its onerror handler can always report.
+        function reportMapError(message) {
+          if (window.Print && typeof Print.postMessage === 'function') {
+            Print.postMessage('MAP_ERROR:' + message);
+          }
+        }
+      </script>
       <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=$_kakaoJsKey&libraries=services,clusterer" onerror="reportMapError('카카오맵 SDK를 불러오지 못했어요.')"></script>
     </head>
     <body>
-      <div id="kakao-map-container"></div>
+      <div id="kakao-map-container" aria-label="매장 지도"></div>
       <script>
         var map;
         var userLocationOverlay;
         var boundsTimer = null;
-        var ignoreBoundsUntil = 0;
+        var mapActive = true;
+        var pendingMarkerPayload = null;
+        // When the pan and zoom started by a card swipe or marker tap end.
+        var cardMoveEndsAt = 0;
+        // The complete catalog is loaded once, so every mode can zoom nationwide.
+        var searchMode = false;
+
+        function maxMapLevel() {
+          return 14;
+        }
+
+        function setSearchMode(enabled) {
+          searchMode = enabled === true;
+          if (!map) return;
+          map.setMaxLevel(maxMapLevel());
+          // Leaving a zoomed-out search: return inside the supported span.
+          if (map.getLevel() > maxMapLevel()) map.setLevel(maxMapLevel());
+        }
 
         function relayoutMap() {
           if (!map) return;
@@ -820,9 +1290,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
 
         var mapInitAttempts = 0;
-        function reportMapError(message) {
-          Print.postMessage('MAP_ERROR:' + message);
-        }
 
         function initializeMap() {
           if (typeof kakao === 'undefined' || !kakao.maps) {
@@ -836,20 +1303,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           }
           try {
           var container = document.getElementById('kakao-map-container');
-          var options = { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 3 };
+          var options = { center: new kakao.maps.LatLng($initialLat, $initialLng), level: $initialLevel };
           map = new kakao.maps.Map(container, options);
-          // Match the backend's maximum supported geographic query span.
-          map.setMaxLevel(10);
-          
+          map.setMaxLevel(maxMapLevel());
+
           kakao.maps.event.addListener(map, 'idle', function() {
-            if (Date.now() < ignoreBoundsUntil) {
-              return;
-            }
+            syncOverlaysOnViewChange();
             if (boundsTimer) clearTimeout(boundsTimer);
+            // Report the viewport after that move ends instead of dropping
+            // it: the search count must follow the zoomed map (QA 10/7 #30).
+            var wait = Math.max(600, cardMoveEndsAt - Date.now() + 100);
             boundsTimer = setTimeout(function() {
               requestBounds();
-            }, 600);
+            }, wait);
           });
+          kakao.maps.event.addListener(map, 'zoom_changed', syncOverlaysOnViewChange);
           kakao.maps.event.addListener(map, 'dragstart', function() {
             Print.postMessage('MOVE_START');
           });
@@ -880,102 +1348,364 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         var customOverlays = [];
         var markerDataCache = [];
         var selectedMarkerIndex = -1;
+        var markerClusterer = null;
+        var clusterMarkers = [];
+        var clusterHidden = {};
+        var markerLatitudeIndices = [];
+        var visibleOverlayIndices = {};
 
+        function syncOverlaysOnViewChange() {
+          var isDetail = map && typeof map.getLevel === 'function' && map.getLevel() < 4;
+          if (isDetail) clusterHidden = {};
+          syncStoreOverlays(clusterHidden);
+        }
+
+        function setMapActive(active) {
+          var wasActive = mapActive;
+          mapActive = active === true;
+          if (!mapActive || wasActive) return;
+          if (pendingMarkerPayload !== null) {
+            var payload = pendingMarkerPayload;
+            pendingMarkerPayload = null;
+            addMobileMarkers(payload);
+          }
+          syncOverlaysOnViewChange();
+        }
+
+        function clusterCountText(size) {
+          if (size >= 10000) {
+            var tenThousands = size / 10000;
+            return tenThousands.toFixed(1).replace('.0', '') + '만';
+          }
+          if (size < 1000) return String(size);
+          var thousands = size / 1000;
+          return (thousands >= 10 ? Math.round(thousands) : thousands.toFixed(1).replace('.0', '')) + '천';
+        }
+
+        function markerClusterStyles() {
+          function style(size, background, color, halo, fontSize) {
+            return {
+              width: size + 'px',
+              height: size + 'px',
+              background: background,
+              border: '4px solid ' + halo,
+              borderRadius: '999px',
+              boxShadow: '0 0 0 1px rgba(37,99,235,0.30), 0 3px 10px rgba(15,23,42,0.16)',
+              boxSizing: 'border-box',
+              color: color,
+              cursor: 'pointer',
+              fontSize: fontSize + 'px',
+              fontWeight: '800',
+              letterSpacing: '-0.2px',
+              lineHeight: (size - 8) + 'px',
+              textAlign: 'center',
+              transform: 'translateZ(0)'
+            };
+          }
+          // A quiet count badge keeps the map readable and lets store labels lead.
+          return [
+            style(44, 'rgba(255,255,255,0.97)', '#2563EB', 'rgba(37,99,235,0.11)', 12),
+            style(46, '#F8FAFF', '#1D4ED8', 'rgba(37,99,235,0.13)', 12),
+            style(48, '#EFF6FF', '#1E40AF', 'rgba(37,99,235,0.15)', 13),
+            style(50, '#E8F0FF', '#172554', 'rgba(37,99,235,0.17)', 13)
+          ];
+        }
+
+        // The complete catalog stays in the clusterer; only label lookup is indexed.
+        function buildStoreLatitudeIndex(items) {
+          return items.map(function(_, index) { return index; }).sort(function(a, b) {
+            return items[a].lat - items[b].lat;
+          });
+        }
+
+        function storeIndicesInViewport(items, indices, map) {
+          if (!map || typeof map.getBounds !== 'function') return indices;
+          var bounds = map.getBounds();
+          if (!bounds) return indices;
+          var sw = bounds.getSouthWest();
+          var ne = bounds.getNorthEast();
+          var minLat = sw.getLat(), maxLat = ne.getLat();
+          var minLng = sw.getLng(), maxLng = ne.getLng();
+          var low = 0, high = indices.length;
+          while (low < high) {
+            var middle = (low + high) >>> 1;
+            if (items[indices[middle]].lat < minLat) low = middle + 1;
+            else high = middle;
+          }
+          var visible = [];
+          for (var i = low; i < indices.length; i++) {
+            var index = indices[i], item = items[index];
+            if (item.lat > maxLat) break;
+            if (item.lng >= minLng && item.lng <= maxLng) visible.push(index);
+          }
+          return visible;
+        }
+
+        function createStoreOverlay(index) {
+          var item = markerDataCache[index];
+          if (!item) return null;
+          if (customOverlays[index]) return customOverlays[index];
+
+          var wrapper = document.createElement('div');
+          wrapper.id = 'marker-wrapper-' + index;
+          wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;transition:transform 0.2s ease;';
+
+          var bubble = document.createElement('div');
+          bubble.className = 'kakao-map-marker';
+          bubble.setAttribute('role', 'button');
+          bubble.setAttribute('tabindex', '0');
+          bubble.setAttribute('aria-label', item.title + ', ' + item.menu + ', ' + item.price);
+          bubble.setAttribute('aria-pressed', 'false');
+          var bgColor = item.source === 'USER' ? '#F97316' : '#2563EB';
+          bubble.style.cssText = [
+            'cursor:pointer', 'background:' + bgColor, 'color:#fff',
+            'border-radius:20px', 'padding:5px 10px', 'font-size:12px',
+            'font-weight:700', 'box-shadow:0 2px 8px rgba(0,0,0,0.25)',
+            'white-space:nowrap', 'display:flex', 'flex-direction:column',
+            'align-items:center', 'gap:1px', 'line-height:1.3',
+            'border:1.5px solid rgba(255,255,255,0.3)',
+            'transition:background 0.2s ease'
+          ].join(';');
+
+          var nameEl = document.createElement('span');
+          nameEl.style.cssText = 'font-size:11px;font-weight:800;letter-spacing:-0.3px;';
+          nameEl.innerText = item.title;
+          var priceEl = document.createElement('span');
+          priceEl.style.cssText = 'font-size:10px;font-weight:500;opacity:0.88;';
+          priceEl.innerText = item.menu + '  ' + item.price;
+          var tail = document.createElement('div');
+          tail.style.cssText = [
+            'width:0', 'height:0', 'border-left:5px solid transparent',
+            'border-right:5px solid transparent', 'border-top:6px solid ' + bgColor,
+            'margin-top:-1px', 'transition:border-top-color 0.2s ease'
+          ].join(';');
+
+          bubble.appendChild(nameEl);
+          bubble.appendChild(priceEl);
+          bubble.onclick = function(event) {
+            if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+            onMarkerClick(index);
+          };
+          bubble.onkeydown = function(event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              bubble.onclick(event);
+            }
+          };
+          wrapper.appendChild(bubble);
+          wrapper.appendChild(tail);
+
+          var overlay = new kakao.maps.CustomOverlay({
+            position: new kakao.maps.LatLng(item.lat, item.lng),
+            content: wrapper,
+            yAnchor: 1.0,
+            zIndex: index === selectedMarkerIndex ? 10 : 3
+          });
+          overlay._howmuchWrapper = wrapper;
+          customOverlays[index] = overlay;
+          return overlay;
+        }
+
+        function syncStoreOverlays(hidden) {
+          clusterHidden = hidden || {};
+          if (!map || !mapActive) return;
+          var candidates = storeIndicesInViewport(markerDataCache, markerLatitudeIndices, map);
+          var visible = {};
+          for (var i = 0; i < candidates.length; i++) {
+            var index = candidates[i];
+            if (!clusterHidden[index]) visible[index] = true;
+          }
+          if (selectedMarkerIndex >= 0 && markerDataCache[selectedMarkerIndex]) visible[selectedMarkerIndex] = true;
+          Object.keys(visibleOverlayIndices).forEach(function(index) {
+            var overlay = customOverlays[index];
+            if (!visible[index] && overlay && overlay._howmuchMap) {
+              overlay.setMap(null);
+              overlay._howmuchMap = null;
+            }
+          });
+          Object.keys(visible).forEach(function(index) {
+            var overlay = customOverlays[index] || createStoreOverlay(Number(index));
+            if (overlay && overlay._howmuchMap !== map) {
+              overlay.setMap(map);
+              overlay._howmuchMap = map;
+            }
+          });
+          visibleOverlayIndices = visible;
+          var cached = Object.keys(customOverlays), remaining = cached.length;
+          var keep = Math.max(512, Object.keys(visible).length);
+          for (var j = 0; j < cached.length && remaining > keep; j++) {
+            if (!visible[cached[j]]) { delete customOverlays[cached[j]]; remaining--; }
+          }
+          applyMarkerHighlight();
+        }
+
+        function clearMarkerCluster() {
+          if (markerClusterer) {
+            if (markerClusterer._howmuchClusteredHandler) {
+              kakao.maps.event.removeListener(
+                markerClusterer,
+                'clustered',
+                markerClusterer._howmuchClusteredHandler
+              );
+            }
+            if (markerClusterer._howmuchClickHandler) {
+              kakao.maps.event.removeListener(
+                markerClusterer,
+                'clusterclick',
+                markerClusterer._howmuchClickHandler
+              );
+            }
+            markerClusterer.clear();
+            markerClusterer = null;
+          }
+          for (var i = 0; i < clusterMarkers.length; i++) {
+            clusterMarkers[i].setMap(null);
+          }
+          clusterMarkers = [];
+          clusterHidden = {};
+        }
+
+        function rebuildMarkerCluster() {
+          clearMarkerCluster();
+          if (!map) return;
+          if (markerDataCache.length < 2 ||
+              typeof kakao.maps.Marker !== 'function' ||
+              typeof kakao.maps.MarkerClusterer !== 'function') {
+            syncStoreOverlays({});
+            return;
+          }
+
+          var transparentMarkerImage = (typeof kakao.maps.MarkerImage === 'function' && typeof kakao.maps.Size === 'function')
+            ? new kakao.maps.MarkerImage(
+                'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+                new kakao.maps.Size(1, 1)
+              )
+            : null;
+
+          for (var i = 0; i < markerDataCache.length; i++) {
+            var item = markerDataCache[i];
+            var markerOptions = {
+              position: new kakao.maps.LatLng(item.lat, item.lng),
+              clickable: false
+            };
+            if (transparentMarkerImage) markerOptions.image = transparentMarkerImage;
+            var marker = new kakao.maps.Marker(markerOptions);
+            marker._howmuchIndex = i;
+            clusterMarkers.push(marker);
+          }
+          if (clusterMarkers.length < 2) return;
+
+          markerClusterer = new kakao.maps.MarkerClusterer({
+            map: map,
+            averageCenter: true,
+            minLevel: 4,
+            minClusterSize: 2,
+            gridSize: 72,
+            disableClickZoom: true,
+            calculator: [10, 30, 100],
+            styles: markerClusterStyles(),
+            texts: clusterCountText
+          });
+          var clusteredHandler = function(clusters) {
+            var hidden = {};
+            clusters = clusters || [];
+            for (var i = 0; i < clusters.length; i++) {
+              var members = clusters[i].getMarkers();
+              if (members.length < 2) continue;
+              for (var j = 0; j < members.length; j++) {
+                hidden[members[j]._howmuchIndex] = true;
+              }
+            }
+            syncStoreOverlays(hidden);
+          };
+          var clickHandler = function(cluster) {
+            if (!cluster || typeof cluster.getCenter !== 'function') return;
+            var members = typeof cluster.getMarkers === 'function' ? cluster.getMarkers() : [];
+            var center = cluster.getCenter();
+            var selectedMember = null;
+            var selectedDistance = Number.POSITIVE_INFINITY;
+            for (var i = 0; i < members.length; i++) {
+              var position = typeof members[i].getPosition === 'function'
+                ? members[i].getPosition()
+                : null;
+              if (!position || !Number.isInteger(members[i]._howmuchIndex)) continue;
+              var dLat = position.getLat() - center.getLat();
+              var dLng = position.getLng() - center.getLng();
+              var distance = dLat * dLat + dLng * dLng;
+              if (distance < selectedDistance) {
+                selectedDistance = distance;
+                selectedMember = members[i];
+              }
+            }
+            var nextLevel = Math.max(1, map.getLevel() - 2);
+            map.setLevel(nextLevel, {
+              anchor: center,
+              animate: { duration: 300 }
+            });
+            if (nextLevel < 4) clusterHidden = {};
+            // Cluster expansion should leave the user with something useful,
+            // not two bare pins. Select the store nearest the cluster center.
+            if (selectedMember) onMarkerClick(selectedMember._howmuchIndex);
+            setTimeout(function() {
+              syncOverlaysOnViewChange();
+            }, 350);
+          };
+          markerClusterer._howmuchClusteredHandler = clusteredHandler;
+          markerClusterer._howmuchClickHandler = clickHandler;
+          kakao.maps.event.addListener(markerClusterer, 'clustered', clusteredHandler);
+          kakao.maps.event.addListener(markerClusterer, 'clusterclick', clickHandler);
+          markerClusterer.addMarkers(clusterMarkers);
+          if (map.getLevel() < 4) syncStoreOverlays({});
+        }
+
+        // Flutter resolves the store by its ID: markers can be a subset of the
+        // cards, so the marker position alone is not a card position.
         function onMarkerClick(index) {
+          var item = markerDataCache[index] || {};
           highlightMarker(index);
-          Print.postMessage('CLICK:' + index);
+          Print.postMessage('CLICK:' + JSON.stringify({
+            index: index,
+            storeId: String(item.storeId || '')
+          }));
         }
 
         function addMobileMarkers(markerListJson) {
+          if (!mapActive) {
+            pendingMarkerPayload = markerListJson;
+            return;
+          }
           var markerData = JSON.parse(markerListJson);
           markerDataCache = markerData;
+          markerLatitudeIndices = buildStoreLatitudeIndex(markerData);
+          visibleOverlayIndices = {};
           selectedMarkerIndex = markerData.findIndex(function(item) {
             return item.selected === true;
           });
-          
+
+          clearMarkerCluster();
           for (var i = 0; i < customOverlays.length; i++) {
-            customOverlays[i].setMap(null);
+            if (customOverlays[i]) customOverlays[i].setMap(null);
           }
           customOverlays = [];
-
-          for (var i = 0; i < markerData.length; i++) {
-            (function(idx) {
-              var item = markerData[idx];
-
-              var wrapper = document.createElement('div');
-              wrapper.id = 'marker-wrapper-' + idx;
-              wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;transition:transform 0.2s ease;';
-
-              var bubble = document.createElement('div');
-              var bgColor = item.source === 'USER' ? '#F97316' : '#2563EB';
-              bubble.style.cssText = [
-                'cursor:pointer',
-                'background:' + bgColor,
-                'color:#fff',
-                'border-radius:20px',
-                'padding:5px 10px',
-                'font-size:12px',
-                'font-weight:700',
-                'box-shadow:0 2px 8px rgba(0,0,0,0.25)',
-                'white-space:nowrap',
-                'display:flex',
-                'flex-direction:column',
-                'align-items:center',
-                'gap:1px',
-                'line-height:1.3',
-                'border:1.5px solid rgba(255,255,255,0.3)',
-                'transition:background 0.2s ease'
-              ].join(';');
-
-              var nameEl = document.createElement('span');
-              nameEl.style.cssText = 'font-size:11px;font-weight:800;letter-spacing:-0.3px;';
-              nameEl.innerText = item.title;
-
-              var priceEl = document.createElement('span');
-              priceEl.style.cssText = 'font-size:10px;font-weight:500;opacity:0.88;';
-              priceEl.innerText = item.menu + '  ' + item.price;
-
-              var tail = document.createElement('div');
-              tail.style.cssText = [
-                'width:0',
-                'height:0',
-                'border-left:5px solid transparent',
-                'border-right:5px solid transparent',
-                'border-top:6px solid ' + bgColor,
-                'margin-top:-1px',
-                'transition:border-top-color 0.2s ease'
-              ].join(';');
-
-              bubble.appendChild(nameEl);
-              bubble.appendChild(priceEl);
-              bubble.onclick = function() { onMarkerClick(idx); };
-              wrapper.appendChild(bubble);
-              wrapper.appendChild(tail);
-
-              var customOverlay = new kakao.maps.CustomOverlay({
-                  position: new kakao.maps.LatLng(item.lat, item.lng),
-                  content: wrapper,
-                  yAnchor: 1.0,
-                  zIndex: idx === selectedMarkerIndex ? 10 : 3
-              });
-              customOverlay.setMap(map);
-              customOverlays.push(customOverlay);
-            })(i);
-          }
-          highlightMarker(selectedMarkerIndex);
+          rebuildMarkerCluster();
           Print.postMessage('Markers added: ' + markerData.length);
         }
 
-        function highlightMarker(selectedIndex) {
-          selectedMarkerIndex = Number.isInteger(selectedIndex) ? selectedIndex : -1;
-          for (var i = 0; i < markerDataCache.length; i++) {
-            var wrapper = document.getElementById('marker-wrapper-' + i);
+        function applyMarkerHighlight() {
+          var indices = Object.keys(customOverlays);
+          for (var n = 0; n < indices.length; n++) {
+            var i = Number(indices[n]);
+            var overlay = customOverlays[i];
+            var isSelected = i === selectedMarkerIndex;
+            if (!overlay || overlay._howmuchSelected === isSelected) continue;
+            overlay._howmuchSelected = isSelected;
+            var wrapper = overlay._howmuchWrapper;
             if (!wrapper) continue;
             var bubble = wrapper.children[0];
             var tail = wrapper.children[1];
 
-            var isSelected = i === selectedMarkerIndex;
             var baseColor = markerDataCache[i].source === 'USER' ? '#F97316' : '#2563EB';
+            bubble.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
             if (isSelected) {
               bubble.style.background = '#C2410C'; // Selected
               tail.style.borderTopColor = '#C2410C';
@@ -990,6 +1720,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           }
         }
 
+        function highlightMarker(selectedIndex) {
+          selectedMarkerIndex = Number.isInteger(selectedIndex) ? selectedIndex : -1;
+          syncStoreOverlays(clusterHidden);
+        }
+
         function setMapCenter(lat, lng) {
           if (map) {
             var moveLatLon = new kakao.maps.LatLng(lat, lng);
@@ -1002,7 +1737,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
         function setMapCenterFromSwipe(lat, lng) {
           if (map) {
-            ignoreBoundsUntil = Date.now() + 1000;
+            cardMoveEndsAt = Date.now() + 1000;
             var moveLatLon = new kakao.maps.LatLng(lat, lng);
             map.panTo(moveLatLon);
             if (map.getLevel() !== 3) {
@@ -1013,21 +1748,35 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           }
         }
 
-        function zoomMap(delta) {
-          if (map) map.setLevel(Math.max(1, Math.min(10, map.getLevel() + delta)));
+        // Search fits keep the top search bar and the bottom cards clear.
+        // Short screens scale that padding down so it never exceeds the map.
+        function fitPadding() {
+          var container = document.getElementById('kakao-map-container');
+          var width = container && container.offsetWidth > 0 ? container.offsetWidth : 360;
+          var height = container && container.offsetHeight > 0 ? container.offsetHeight : 640;
+          var verticalScale = Math.min(1, (height * 0.7) / 410);
+          var sideScale = Math.min(1, (width * 0.5) / 80);
+          return [
+            Math.round(150 * verticalScale),
+            Math.round(40 * sideScale),
+            Math.round(260 * verticalScale),
+            Math.round(40 * sideScale)
+          ];
         }
 
         function fitMapStores(coordinatesJson) {
           if (!map) return;
           var points = JSON.parse(coordinatesJson);
           if (!points.length) return;
+          map.setMaxLevel(maxMapLevel());
           if (points.length === 1) {
             map.setCenter(new kakao.maps.LatLng(points[0].lat, points[0].lng));
             map.setLevel(4);
           } else {
             var bounds = new kakao.maps.LatLngBounds();
             points.forEach(function(point) { bounds.extend(new kakao.maps.LatLng(point.lat, point.lng)); });
-            map.setBounds(bounds, 150, 40, 260, 40);
+            var padding = fitPadding();
+            map.setBounds(bounds, padding[0], padding[1], padding[2], padding[3]);
           }
           requestBounds();
         }
@@ -1041,16 +1790,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           if (!userLocationOverlay) {
             userLocationWrapper = document.createElement('div');
             userLocationWrapper.className = 'my-location-wrapper';
-            
+
             var dot = document.createElement('div');
             dot.className = 'my-location-dot';
-            
+
             var direction = document.createElement('div');
             direction.className = 'my-location-direction';
-            
+
             userLocationWrapper.appendChild(direction);
             userLocationWrapper.appendChild(dot);
-            
+
             userLocationOverlay = new kakao.maps.CustomOverlay({
               position: position,
               content: userLocationWrapper,
@@ -1069,6 +1818,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
 
         function requestBounds() {
+          if (!mapActive) return;
           if(!map) return;
           var bounds = map.getBounds();
           var sw = bounds.getSouthWest();
@@ -1076,13 +1826,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           var values = [sw.getLat(), ne.getLat(), sw.getLng(), ne.getLng()];
           if (!values.every(Number.isFinite) ||
               values[0] < -90 || values[1] > 90 || values[0] >= values[1] ||
-              values[2] < -180 || values[3] > 180 || values[2] >= values[3] ||
-              values[1] - values[0] > 10 || values[3] - values[2] > 10) {
+              values[2] < -180 || values[3] > 180 || values[2] >= values[3]) {
             return;
           }
+          // Outside search, the backend accepts at most a 10-degree span.
+          if (!searchMode && (values[1] - values[0] > 10 || values[3] - values[2] > 10)) {
+            return;
+          }
+          var center = map.getCenter();
           var boundsData = JSON.stringify({
             minLat: values[0], maxLat: values[1],
-            minLng: values[2], maxLng: values[3]
+            minLng: values[2], maxLng: values[3],
+            centerLat: center.getLat(), centerLng: center.getLng(),
+            level: map.getLevel()
           });
           Print.postMessage('BOUNDS:' + boundsData);
         }
@@ -1097,15 +1853,41 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     try {
       // index.html의 SDK 로더가 준비되지 않았으면 JS 측 짧은 재시도가
       // 이어진다. 고정 대기 없이 플랫폼 뷰가 생긴 즉시 초기화를 요청한다.
-      web_helper.initKakaoWebMap(_viewId);
+      final viewport = _restoredViewport;
+      if (viewport == null) {
+        web_helper.initKakaoWebMap(_viewId);
+      } else {
+        web_helper.initKakaoWebMap(
+          _viewId,
+          lat: viewport.lat,
+          lng: viewport.lng,
+          level: viewport.level,
+        );
+      }
     } catch (e) {
       debugPrint('지도 초기화 에러: $e');
     }
   }
 
-  Future<void> _prepareInitialLocation() async {
+  Future<void> _prepareInitialLocation({bool initial = false}) async {
+    final centerGeneration = initial
+        ? _viewportPolicy.claimInitialCenter(
+            hasDestination:
+                _pendingAiResult != null ||
+                _pendingSearchResult != null ||
+                _activeAiRecommendation != null ||
+                _searchResultStores != null ||
+                _selectedStore != null ||
+                _restoredViewport != null,
+          )
+        : null;
+    final requestInitialPermission = initial && centerGeneration != null;
     if (!kIsWeb) {
-      await _moveToCurrentLocation();
+      await _moveToCurrentLocation(
+        centerGeneration: centerGeneration,
+        passive: true,
+        requestPermission: requestInitialPermission,
+      );
       return;
     }
 
@@ -1113,7 +1895,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     // 탭 복귀 시 안내 모달을 띄우지 않고 조용히 현재 위치로 이동/갱신한다.
     if (HomeMapScreen.globalUserPosition != null ||
         HomeMapScreen.hasRequestedLocationWeb) {
-      await _moveToCurrentLocation();
+      await _moveToCurrentLocation(
+        centerGeneration: centerGeneration,
+        passive: true,
+        requestPermission: false,
+      );
       return;
     }
 
@@ -1121,7 +1907,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       final prefs = await SharedPreferences.getInstance();
       if (prefs.getBool('web_location_granted') == true) {
         HomeMapScreen.hasRequestedLocationWeb = true;
-        await _moveToCurrentLocation();
+        await _moveToCurrentLocation(
+          centerGeneration: centerGeneration,
+          passive: true,
+          requestPermission: false,
+        );
         return;
       }
     } catch (_) {}
@@ -1140,8 +1930,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!mounted || _isCenteringLocation) return;
     if (permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse) {
-      await _moveToCurrentLocation();
-    } else if (_locationNotice == null) {
+      await _moveToCurrentLocation(
+        centerGeneration: centerGeneration,
+        passive: true,
+        requestPermission: false,
+      );
+    } else if (initial && _locationNotice == null) {
       _showLocationNotice(
         _webLocationPermissionNotice(
           title: '내 주변 매장을 찾아볼까요?',
@@ -1153,10 +1947,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  Future<void> _moveToCurrentLocation() async {
-    _suppressMarkerClicks(const Duration(milliseconds: 1200));
+  Future<void> _moveToCurrentLocation({
+    int? centerGeneration,
+    bool passive = false,
+    bool requestPermission = true,
+  }) async {
     if (_isCenteringLocation) return;
-    if (mounted) {
+    final viewportGeneration = passive
+        ? centerGeneration
+        : _viewportPolicy.beginExplicitCenter();
+    if (!passive) _suppressMarkerClicks(const Duration(milliseconds: 1200));
+    final showFailureNotice = !passive || requestPermission;
+    if (mounted && !passive) {
       setState(() {
         _isCenteringLocation = true;
         _locationNotice = null;
@@ -1174,13 +1976,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         } catch (_) {}
         if (!mounted) return;
         _storeUserPosition(position);
-        _centerMapOnPosition(position);
+        if (viewportGeneration != null &&
+            _viewportPolicy.canApply(viewportGeneration)) {
+          _centerMapOnPosition(position, generation: viewportGeneration);
+        }
         _startLocationTracking();
         return;
       }
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        if (mounted) {
+        if (mounted && showFailureNotice) {
           _showLocationNotice(
             _LocationNoticeData(
               title: '위치 서비스를 켜주세요',
@@ -1196,7 +2001,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
+        if (!requestPermission) return;
         permission = await Geolocator.requestPermission();
+        // The permission dialog can outlive this screen.
+        if (!mounted) return;
         if (permission == LocationPermission.denied) {
           if (mounted) {
             _showLocationNotice(
@@ -1211,7 +2019,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
 
       if (permission == LocationPermission.deniedForever) {
-        if (mounted) {
+        if (mounted && showFailureNotice) {
           _showLocationNotice(
             _LocationNoticeData(
               title: '위치 권한이 꺼져 있어요',
@@ -1228,39 +2036,52 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _startLocationTracking();
 
       // 이미 확보한 좌표나 OS 캐시를 먼저 사용해 지도 이동을 즉시 반응시킵니다.
-      Position? position = _lastKnownPosition;
-      if (position == null) {
+      Position? lastKnown = _lastKnownPosition;
+      if (lastKnown == null) {
         try {
-          position = await Geolocator.getLastKnownPosition();
+          lastKnown = await Geolocator.getLastKnownPosition();
         } catch (_) {
           debugPrint('마지막 위치 조회 실패');
         }
       }
 
-      if (position != null &&
-          isFreshHomeLocation(position.timestamp, DateTime.now())) {
-        _storeUserPosition(position);
-        _centerMapOnPosition(position);
-        _refreshCurrentPositionInBackground(centerMap: true);
+      if (lastKnown != null &&
+          isFreshHomeLocation(lastKnown.timestamp, DateTime.now())) {
+        _storeUserPosition(lastKnown);
+        if (viewportGeneration != null &&
+            _viewportPolicy.canApply(viewportGeneration)) {
+          _centerMapOnPosition(lastKnown, generation: viewportGeneration);
+        }
+        _refreshCurrentPositionInBackground(
+          centerGeneration: viewportGeneration,
+        );
         return;
       }
 
-      position = await _getFreshPosition();
+      // Indoors a fresh fix can time out. An older fix still centers the map
+      // near the user, and the tracking stream corrects it once GPS recovers.
+      final position = await _getFreshPosition() ?? lastKnown;
+      if (!mounted) return;
       if (position == null) {
-        if (mounted) {
+        if (showFailureNotice) {
           _showLocationNotice(
-            const _LocationNoticeData(
+            _LocationNoticeData(
               title: '현재 위치를 찾지 못했어요',
               message: '잠시 후 다시 시도하거나\n네트워크 상태를 확인해주세요.',
+              primaryLabel: '다시 시도',
+              onPrimaryPressed: _retryLocationPermission,
             ),
           );
         }
         return;
       }
       _storeUserPosition(position);
-      _centerMapOnPosition(position);
+      if (viewportGeneration != null &&
+          _viewportPolicy.canApply(viewportGeneration)) {
+        _centerMapOnPosition(position, generation: viewportGeneration);
+      }
     } on PermissionDeniedException {
-      if (mounted) {
+      if (mounted && showFailureNotice) {
         _showLocationNotice(
           kIsWeb
               ? _webLocationPermissionNotice()
@@ -1271,7 +2092,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         );
       }
     } on TimeoutException {
-      if (mounted) {
+      if (mounted && showFailureNotice) {
         _showLocationNotice(
           _LocationNoticeData(
             title: '위치 확인에 시간이 걸리고 있어요',
@@ -1283,7 +2104,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
     } catch (_) {
       debugPrint('위치 가져오기 실패');
-      if (mounted) {
+      if (mounted && showFailureNotice) {
         _showLocationNotice(
           _LocationNoticeData(
             title: '현재 위치를 찾지 못했어요',
@@ -1294,7 +2115,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         );
       }
     } finally {
-      if (mounted) {
+      if (mounted && !passive) {
         setState(() => _isCenteringLocation = false);
       }
     }
@@ -1340,7 +2161,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final opened = await openLocationSettingsForStatus(
       serviceDisabled: serviceDisabled,
     );
-    if (!opened && mounted) {
+    if (opened) {
+      // Center on the user once they come back with location available.
+      _awaitingLocationSettingsReturn = true;
+      return;
+    }
+    if (mounted) {
       _showLocationNotice(
         const _LocationNoticeData(
           title: '설정을 열지 못했어요',
@@ -1363,17 +2189,22 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  void _refreshCurrentPositionInBackground({bool centerMap = false}) {
+  void _refreshCurrentPositionInBackground({int? centerGeneration}) {
     if (_freshLocationRequest != null) return;
-    _freshLocationRequest = _refreshCurrentPosition(centerMap: centerMap);
+    _freshLocationRequest = _refreshCurrentPosition(
+      centerGeneration: centerGeneration,
+    );
   }
 
-  Future<void> _refreshCurrentPosition({required bool centerMap}) async {
+  Future<void> _refreshCurrentPosition({int? centerGeneration}) async {
     try {
       final position = await _getFreshPosition();
       if (position != null && mounted) {
         _storeUserPosition(position);
-        if (centerMap) _centerMapOnPosition(position);
+        if (centerGeneration != null &&
+            _viewportPolicy.canApply(centerGeneration)) {
+          _centerMapOnPosition(position, generation: centerGeneration);
+        }
       }
     } finally {
       _freshLocationRequest = null;
@@ -1394,6 +2225,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!mounted) return;
 
     _isMapReady = true;
+    _syncLocationTracking();
     _lastRenderedMarkerSignature = '';
     if (kIsWeb && (!_isMapInitialized || _mapErrorMessage != null)) {
       setState(() {
@@ -1401,6 +2233,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         _mapErrorMessage = null;
       });
     }
+    // A reloaded native page starts in normal mode; restore the current mode.
+    _setMapSearchMode(_searchResultStores != null);
     _flushPendingMapPosition();
     final pendingSearch = _pendingSearchResult;
     if (pendingSearch != null) {
@@ -1439,7 +2273,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (kIsWeb) {
       web_helper.recoverKakaoWebMap(_viewId);
     } else {
-      _initMobileController();
+      _reloadMobileMap();
     }
   }
 
@@ -1462,12 +2296,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
     _pendingMapPosition = null;
     _updateLocationMarker(position.latitude, position.longitude);
-    _centerMapOnPosition(position);
+    final generation = _pendingMapCenterGeneration;
+    _pendingMapCenterGeneration = null;
+    if (generation != null && _viewportPolicy.canApply(generation)) {
+      _centerMapOnPosition(position, generation: generation);
+    }
   }
 
-  void _centerMapOnPosition(Position position) {
+  void _centerMapOnPosition(Position position, {required int generation}) {
+    if (!_viewportPolicy.canApply(generation)) return;
     if (!_isMapReady) {
       _pendingMapPosition = position;
+      _pendingMapCenterGeneration = generation;
       return;
     }
 
@@ -1495,8 +2335,29 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   void _updateUserHeading(double heading) {
-    if (kIsWeb) return; // 웹에서는 나침반 제외
-    _safeRunJavaScript('updateUserHeading($heading);');
+    if (kIsWeb || !_isMapReady || !heading.isFinite) return; // 웹에서는 나침반 제외
+    // Compass events arrive many times per second. Redraw at most ten times a
+    // second, and only for a visible change.
+    if (_headingThrottle?.isActive ?? false) {
+      _pendingHeading = heading;
+      return;
+    }
+    _sendUserHeading(heading);
+  }
+
+  void _sendUserHeading(double heading) {
+    final previous = _lastSentHeading;
+    if (previous != null &&
+        (((heading - previous + 540) % 360) - 180).abs() < 3) {
+      return;
+    }
+    _lastSentHeading = heading;
+    _safeRunJavaScript('updateUserHeading(${heading.toStringAsFixed(1)});');
+    _headingThrottle = Timer(const Duration(milliseconds: 100), () {
+      final pending = _pendingHeading;
+      _pendingHeading = null;
+      if (pending != null && mounted && _isMapReady) _sendUserHeading(pending);
+    });
   }
 
   void _updateLocationMarker(double lat, double lng) {
@@ -1508,8 +2369,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   void _safeRunJavaScript(String script) {
+    final controller = _webViewController;
+    if (controller == null) return;
     try {
-      _webViewController?.runJavaScript(script);
+      // Page errors are reported asynchronously, after this call returns.
+      unawaited(
+        controller
+            .runJavaScript(script)
+            .onError(
+              (Object error, StackTrace stackTrace) =>
+                  debugPrint('WebView JS 실행 에러 (무시됨): $error'),
+            ),
+      );
     } catch (e) {
       debugPrint('WebView JS 실행 에러 (무시됨): $e');
     }
@@ -1524,9 +2395,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   void _startLocationTracking() {
-    if (_positionStream != null) return;
-
-    _positionStream =
+    // Permission prompts and position lookups can finish after this screen is
+    // disposed. A stream started then would never be cancelled.
+    if (!mounted) return;
+    _positionStream ??=
         Geolocator.getPositionStream(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.best,
@@ -1541,16 +2413,29 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           cancelOnError: true,
         );
 
-    if (!kIsWeb) {
-      _compassStream = FlutterCompass.events?.listen((CompassEvent event) {
-        if (event.heading != null) {
-          _updateUserHeading(event.heading!);
-        }
-      });
+    // Keep a single compass subscription even when the position stream ends
+    // with an error and is started again.
+    if (!kIsWeb && _compassStream == null) {
+      _compassStream = FlutterCompass.events?.listen(
+        (CompassEvent event) {
+          final heading = event.heading;
+          if (heading != null) _updateUserHeading(heading);
+        },
+        onError: (Object error) {
+          debugPrint('나침반 종료: $error');
+          _compassStream = null;
+        },
+        cancelOnError: true,
+      );
     }
+    _syncLocationTracking();
   }
 
   Future<void> _searchInCurrentArea() async {
+    if (_usesFullCatalog) {
+      _renderFullCatalogMarkers();
+      return;
+    }
     if (kIsWeb) {
       try {
         final String? boundsJson = web_helper.getKakaoMapBoundsWeb(_viewId);
@@ -1560,7 +2445,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
         _webBoundsRetryTimer?.cancel();
         _webBoundsRetryCount = 0;
-        await _fetchAndAddMarkersWeb(boundsJson);
+        _rememberViewport(parseMobileMapViewport(boundsJson));
+        await _fetchAndAddLatestMarkers(boundsJson);
       } catch (e) {
         debugPrint('웹 범위 검색 에러: $e');
       }
@@ -1569,12 +2455,49 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  Future<void> _fetchAndAddMarkersForMobile(String boundsJson) async {
-    await _fetchAndAddLatestMarkers(boundsJson);
-  }
+  void _renderFullCatalogMarkers() {
+    if (!mounted || !_isMapReady || !_isAllStoresLoaded) return;
+    if (!_routeIsCurrent || !_appInForeground) {
+      _fullCatalogRenderPending = true;
+      return;
+    }
+    _fullCatalogRenderPending = false;
 
-  Future<void> _fetchAndAddMarkersWeb(String boundsJson) async {
-    await _fetchAndAddLatestMarkers(boundsJson);
+    final List<Store> stores;
+    RecommendationMenuSelection? Function(Store) selectionFor;
+    if (_isAiRecommendationActive && _aiRecommendedStores.isNotEmpty) {
+      stores = _aiRecommendedStores;
+      selectionFor = _selectionFor;
+    } else if (_searchResultStores != null) {
+      stores = _searchResultStores!;
+      selectionFor = _searchSelectionFor;
+    } else {
+      stores = _allStores;
+      selectionFor = (_) => null;
+    }
+
+    // Re-centering schedules several viewport checks. An unchanged source
+    // needs neither 11k formatted marker maps nor a second catalog signature.
+    if (_lastRenderedMarkerSignature.isNotEmpty &&
+        identical(stores, _lastFullCatalogMarkerSource)) {
+      return;
+    }
+
+    final markerStores = stores
+        .where(isHomeMapStoreVisible)
+        .where((store) => !store.isClosed)
+        .toList(growable: false);
+    _currentStores = stores;
+    _searchViewportCount = markerStores.length;
+    final markerList = markerStores
+        .map((store) => _storeMarker(store, selectionFor(store)))
+        .toList(growable: false);
+    if (_markerListSignature(markerList) == _lastRenderedMarkerSignature) {
+      _lastFullCatalogMarkerSource = stores;
+      return;
+    }
+    _renderMarkers(markerList);
+    _lastFullCatalogMarkerSource = stores;
   }
 
   Future<void> _fetchAndAddLatestMarkers(String boundsJson) async {
@@ -1590,6 +2513,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _pendingBoundsJson = null;
       return;
     }
+    // Start-up and "my location" ask for the same viewport several times.
+    // When that viewport is already loading for the current map state, let
+    // the response finish instead of discarding it and requesting it again.
+    final boundsKey = _homeMapBoundsKey(parsedBounds);
+    if (_isFetching &&
+        _pendingBoundsJson == null &&
+        _inFlightBoundsKey == boundsKey &&
+        _inFlightBoundsGeneration == _boundsRequestGeneration) {
+      return;
+    }
     _boundsRequestGeneration++;
     _pendingBoundsJson = boundsJson;
     if (_isFetching) return;
@@ -1599,30 +2532,32 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         final requestGeneration = _boundsRequestGeneration;
         final bounds = parseKakaoMapBounds(_pendingBoundsJson!)!;
         _pendingBoundsJson = null;
+        _inFlightBoundsKey = _homeMapBoundsKey(bounds);
+        _inFlightBoundsGeneration = requestGeneration;
         final markerList = await _fetchStoresFromBackend(
           bounds,
           isCurrent: () => requestGeneration == _boundsRequestGeneration,
         );
         if (!mounted) return;
         if (requestGeneration != _boundsRequestGeneration) continue;
-        final markerSignature = _markerListSignature(markerList);
-        if (markerSignature == _lastRenderedMarkerSignature) continue;
-        if (kIsWeb) {
-          _renderedMarkerStoreIds = markerList
-              .map((marker) => marker['storeId'] as String)
-              .toList();
-          web_helper.addMobileMarkersWeb(_viewId, jsonEncode(markerList));
-          _lastRenderedMarkerSignature = markerSignature;
-        } else if (_webViewController != null) {
-          final jsStringLiteral = jsonEncode(jsonEncode(markerList));
-          _safeRunJavaScript('addMobileMarkers($jsStringLiteral);');
-          _lastRenderedMarkerSignature = markerSignature;
+        if (_markerListSignature(markerList) == _lastRenderedMarkerSignature) {
+          continue;
         }
+        _renderMarkers(markerList);
       }
     } finally {
       _isFetching = false;
+      _inFlightBoundsKey = null;
+      _inFlightBoundsGeneration = null;
     }
   }
+
+  String _homeMapBoundsKey(Map<String, double> bounds) => [
+    bounds['minLat']!,
+    bounds['maxLat']!,
+    bounds['minLng']!,
+    bounds['maxLng']!,
+  ].map((value) => value.toStringAsFixed(5)).join(':');
 
   Future<List<Map<String, dynamic>>> _fetchStoresFromBackend(
     Map<String, double> bounds, {
@@ -1671,7 +2606,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
 
     try {
-      final loadResult = await loadHomeMapStoresWithStatus(
+      final HomeMapStoreLoader loadStores =
+          widget.storeLoader ?? loadHomeMapStoresWithStatus;
+      final loadResult = await loadStores(
         bounds: bounds,
         cachedStores: _allStores,
       );
@@ -1697,6 +2634,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (loadResult.hasFreshResponse) {
         unawaited(_cacheHomeMapStores(fetchedStores));
       }
+      _reportBoundsLoadOutcome(loadResult);
 
       var stores = fetchedStores
           .where(
@@ -1772,6 +2710,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             a.store,
             b.store,
             query: _searchQuery,
+            distanceOf: _priceTieDistance,
           ),
         );
       } else {
@@ -1819,6 +2758,50 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
+  /// Non-blocking feedback for viewport loads, once per streak. A load with
+  /// no stores at all keeps the full-screen retry state instead.
+  void _reportBoundsLoadOutcome(HomeMapStoreLoadResult result) {
+    if (!mounted) return;
+    if (result.hasFreshResponse) {
+      _boundsFailureNoticeShown = false;
+      if (!result.truncated) {
+        _truncationNoticeShown = false;
+        return;
+      }
+      if (_truncationNoticeShown) return;
+      _truncationNoticeShown = true;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        HowmuchSnackBar(
+          content: const Text('지도를 확대하면 매장이 더 보여요.'),
+          aboveNavigation: true,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    if (result.stores.isEmpty || _boundsFailureNoticeShown) return;
+    _boundsFailureNoticeShown = true;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      HowmuchSnackBar.warning(
+        title: '새 매장 정보를 불러오지 못했어요',
+        aboveNavigation: true,
+        content: _MapNoticeMessage(
+          message: '저장된 매장으로 보여드리고 있어요.',
+          actionLabel: '다시 시도',
+          onAction: _retryBoundsLoad,
+        ),
+      ),
+    );
+  }
+
+  void _retryBoundsLoad() {
+    if (!mounted) return;
+    ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+    _boundsFailureNoticeShown = false;
+    _lastRenderedMarkerSignature = '';
+    _searchInCurrentArea();
+  }
+
   double? _distanceFromUser(Store store) {
     final position = _lastKnownPosition;
     if (position == null) return null;
@@ -1830,6 +2813,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     );
   }
 
+  /// '저렴한순' lists stores at the same price nearest first, like the search
+  /// screen (QA #31). Without a position they stay in name order.
+  double Function(Store store)? get _priceTieDistance =>
+      _lastKnownPosition == null
+      ? null
+      : (store) => _distanceFromUser(store) ?? double.infinity;
+
   String _markerListSignature(List<Map<String, dynamic>> markers) {
     return markers
         .map(
@@ -1837,6 +2827,20 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               '${marker['storeId']}|${marker['title']}|${marker['lat']}|${marker['lng']}|${marker['menu']}|${marker['price']}|${marker['source']}',
         )
         .join('\n');
+  }
+
+  /// A tap on a store card can also reach the map below as a background tap
+  /// and close the card (QA 10/7 #32). Like the location button, map taps
+  /// are ignored while the card is pressed and right after it is released.
+  Widget _blockMapTapsThrough(Widget child) {
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (_) =>
+          _suppressMarkerClicks(const Duration(milliseconds: 800)),
+      onPointerUp: (_) =>
+          _suppressMarkerClicks(const Duration(milliseconds: 800)),
+      child: child,
+    );
   }
 
   Widget _buildWebMap() {
@@ -1947,14 +2951,31 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final activeFilters = _searchFilter.activeLabels;
     final hasFilters = activeFilters.isNotEmpty;
     final isSearching = _searchQuery.isNotEmpty || hasFilters;
-    final isAiActive =
+    final isResultActive =
         _isAiRecommendationActive && _aiRecommendedStores.isNotEmpty;
+    final isAiActive =
+        isResultActive &&
+        _activeAiRecommendation?.origin != MapResultOrigin.approvedReport;
     final showStoreList =
-        (isSearching || isAiActive) && _currentStores.isNotEmpty;
+        (isSearching || isResultActive) && _currentStores.isNotEmpty;
     final topOffsetPush = hasFilters ? 44.0 : 0.0;
+
+    // On the app the map reaches the screen edges when the screen is wider
+    // than the shell (landscape), while every control stays in the same
+    // centered 430 column as before (QA 10/7 #45). On the web and on portrait
+    // phones the column is the whole canvas, so nothing moves.
+    Widget productColumn(List<Widget> children) => Positioned.fill(
+      child: Center(
+        child: SizedBox(
+          width: screenWidth,
+          child: Stack(children: children),
+        ),
+      ),
+    );
 
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFEFF4FF),
+      fullWidthOnApp: true,
       child: Stack(
         children: [
           Positioned.fill(
@@ -2029,344 +3050,403 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         ),
                       ),
                       const SizedBox(height: 20),
-                      Text(
-                        _hasLoadError
-                            ? '데이터를 불러오지 못했어요.\n서버 연결을 확인해주세요.'
-                            : _usingCachedStores
-                            ? '저장된 매장 데이터로 먼저 보여드리고 있어요.'
-                            : '가성비 식당 데이터를\n열심히 불러오고 있어요...',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _hasLoadError
-                              ? Colors.red
-                              : const Color(0xFF2563EB),
-                          fontFamily: 'Noto Sans KR',
-                          fontFamilyFallback: const [
-                            'Apple SD Gothic Neo',
-                            'Noto Sans KR',
-                          ],
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          height: 1.5,
+                      if (_hasLoadError) ...[
+                        // Same treatment as the map error above: a plain
+                        // title, a muted hint and the app's retry button.
+                        const Text(
+                          '데이터를 불러오지 못했어요',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: HomeMapScreen.ink,
+                            fontFamily: 'Noto Sans KR',
+                            fontFamilyFallback: [
+                              'Apple SD Gothic Neo',
+                              'Noto Sans KR',
+                            ],
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            height: 1.5,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: AppSizes.largeSpacing),
-                      if (_hasLoadError)
-                        ElevatedButton(
+                        const SizedBox(height: 4),
+                        const Text(
+                          '서버 연결을 확인해주세요.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: HomeMapScreen.muted,
+                            fontFamily: 'Noto Sans KR',
+                            fontFamilyFallback: [
+                              'Apple SD Gothic Neo',
+                              'Noto Sans KR',
+                            ],
+                            fontSize: 13,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        FilledButton.icon(
                           onPressed: () {
                             setState(() {
                               _hasLoadError = false;
                             });
-                            _searchInCurrentArea();
+                            if (_usesFullCatalog) {
+                              unawaited(_loadFullStoreCatalog());
+                            } else {
+                              unawaited(_searchInCurrentArea());
+                            }
                           },
-                          child: const Text('다시 시도'),
-                        )
-                      else
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('다시 시도'),
+                        ),
+                      ] else ...[
+                        Text(
+                          _usingCachedStores
+                              ? '저장된 매장 데이터로 먼저 보여드리고 있어요.'
+                              : '가성비 식당 데이터를\n열심히 불러오고 있어요...',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: HomeMapScreen.blue,
+                            fontFamily: 'Noto Sans KR',
+                            fontFamilyFallback: [
+                              'Apple SD Gothic Neo',
+                              'Noto Sans KR',
+                            ],
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: AppSizes.largeSpacing),
                         const CircularProgressIndicator(
                           color: Color(0xFF2563EB),
                         ),
+                      ],
                     ],
                   ),
                 ),
               ),
             ),
 
-          Positioned(
-            key: const ValueKey('home-search-control'),
-            left: horizontalPadding,
-            right: horizontalPadding,
-            top: searchTop,
-            height: searchHeight,
-            child: Opacity(
-              opacity: homeChromeOpacity,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (_) {},
-                onHorizontalDragUpdate: (_) {},
-                child: _SearchBar(
-                  query: _searchQuery,
-                  onTap: _openSearch,
-                  onFilterTap: () => _openSearch(openFilter: true),
-                ),
-              ),
-            ),
-          ),
-
-          if (hasFilters)
+          productColumn([
             Positioned(
-              left: 0,
-              right: 0,
-              top: 86 + topOffset + 52 + 10, // _SearchBar below
-              height: 32,
+              key: const ValueKey('home-search-control'),
+              left: horizontalPadding,
+              right: horizontalPadding,
+              top: searchTop,
+              height: searchHeight,
               child: Opacity(
                 opacity: homeChromeOpacity,
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSizes.horizontalPadding,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragUpdate: (_) {},
+                  onHorizontalDragUpdate: (_) {},
+                  child: _SearchBar(
+                    query: _searchQuery,
+                    onTap: _openSearch,
+                    onFilterTap: () => _openSearch(openFilter: true),
                   ),
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: activeFilters.length,
-                  separatorBuilder: (_, _) =>
-                      const SizedBox(width: AppSizes.smallSpacing),
-                  itemBuilder: (context, i) {
-                    final label = activeFilters[i];
-                    return Container(
-                      height: 32,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(
-                          color: const Color(0xFF2563EB),
-                          width: 1.2,
-                        ),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            label,
-                            style: const TextStyle(
-                              color: Color(0xFF2563EB),
-                              fontFamily: HomeMapScreen.fontFamily,
-                              fontFamilyFallback: HomeMapScreen.fontFallback,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _searchFilter = _searchFilter.remove(label);
-                                _refreshTransferredSearchResults();
-                              });
-                              _searchInCurrentArea();
-                            },
-                            child: const Icon(
-                              Icons.close_rounded,
-                              size: 14,
-                              color: Color(0xFF2563EB),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
                 ),
               ),
             ),
 
-          if (!isSearching && !isAiActive) ...[
-            if (!isCompactHeight)
+            if (hasFilters)
               Positioned(
-                left: AppSizes.horizontalPadding,
-                top: 67.98297119140625 + topOffset + topOffsetPush,
-                width: 183.67897033691406,
-                height: 28.480112075805664,
+                left: 0,
+                right: 0,
+                top: 86 + topOffset + 52 + 10, // _SearchBar below
+                height: 32,
                 child: Opacity(
                   opacity: homeChromeOpacity,
-                  child: const _SourceLegend(),
-                ),
-              ),
-            if (showCompactTodayPick)
-              Positioned(
-                key: const ValueKey('home-today-pick-card'),
-                left: horizontalPadding,
-                right: horizontalPadding,
-                top: todayPickTop + topOffsetPush,
-                height: todayPickHeight,
-                child: Opacity(
-                  opacity: homeChromeOpacity,
-                  child: _TodayPickCard(compact: isCompactHeight),
-                ),
-              ),
-          ],
-          Positioned(
-            key: const ValueKey('home-location-control'),
-            right: inlineCompactControls ? 76 : 16,
-            top: floatingLocationTop,
-            width: 52.0,
-            height: 52.0,
-            child: Opacity(
-              opacity: homeChromeOpacity,
-              child: Tooltip(
-                message: '내 위치로 이동',
-                child: Semantics(
-                  button: true,
-                  label: '내 위치로 이동',
-                  child: Listener(
-                    behavior: HitTestBehavior.opaque,
-                    onPointerDown: (_) => _suppressMarkerClicks(
-                      const Duration(milliseconds: 1000),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSizes.horizontalPadding,
                     ),
-                    child: GestureDetector(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: activeFilters.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(width: AppSizes.smallSpacing),
+                    itemBuilder: (context, i) {
+                      final label = activeFilters[i];
+                      return Container(
+                        height: 32,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(
+                            color: const Color(0xFF2563EB),
+                            width: 1.2,
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              label,
+                              style: const TextStyle(
+                                color: Color(0xFF2563EB),
+                                fontFamily: HomeMapScreen.fontFamily,
+                                fontFamilyFallback: HomeMapScreen.fontFallback,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            // The X was a nameless tap target (QA 10/7 #50);
+                            // same name as the search screen's chips.
+                            Semantics(
+                              container: true,
+                              button: true,
+                              label: '$label 필터 해제',
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _searchFilter = _searchFilter.remove(label);
+                                    _refreshTransferredSearchResults();
+                                  });
+                                  _searchInCurrentArea();
+                                },
+                                child: const Icon(
+                                  Icons.close_rounded,
+                                  size: 14,
+                                  color: Color(0xFF2563EB),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+            if (!isSearching && !isResultActive) ...[
+              if (!isCompactHeight)
+                Positioned(
+                  left: AppSizes.horizontalPadding,
+                  top: 67.98297119140625 + topOffset + topOffsetPush,
+                  width: 183.67897033691406,
+                  height: 28.480112075805664,
+                  child: Opacity(
+                    opacity: homeChromeOpacity,
+                    child: const _SourceLegend(),
+                  ),
+                ),
+              if (showCompactTodayPick)
+                Positioned(
+                  key: const ValueKey('home-today-pick-card'),
+                  left: horizontalPadding,
+                  right: horizontalPadding,
+                  top: todayPickTop + topOffsetPush,
+                  height: todayPickHeight,
+                  child: Opacity(
+                    opacity: homeChromeOpacity,
+                    child: _TodayPickCard(compact: isCompactHeight),
+                  ),
+                ),
+            ],
+            Positioned(
+              key: const ValueKey('home-location-control'),
+              right: inlineCompactControls ? 76 : 16,
+              top: floatingLocationTop,
+              width: 52.0,
+              height: 52.0,
+              child: Opacity(
+                opacity: homeChromeOpacity,
+                child: Tooltip(
+                  message: '내 위치로 이동',
+                  child: Semantics(
+                    button: true,
+                    label: '내 위치로 이동',
+                    child: Listener(
                       behavior: HitTestBehavior.opaque,
-                      onTapDown: (_) => _suppressMarkerClicks(
+                      onPointerDown: (_) => _suppressMarkerClicks(
                         const Duration(milliseconds: 1000),
                       ),
-                      onTap: () {
-                        _suppressMarkerClicks(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTapDown: (_) => _suppressMarkerClicks(
                           const Duration(milliseconds: 1000),
-                        );
-                        _moveToCurrentLocation();
-                      },
-                      child: _RoundIconButton(
-                        icon: Icons.near_me_rounded,
-                        color: HomeMapScreen.blue,
-                        isLoading: _isCenteringLocation,
+                        ),
+                        onTap: () {
+                          _suppressMarkerClicks(
+                            const Duration(milliseconds: 1000),
+                          );
+                          _moveToCurrentLocation();
+                        },
+                        child: _RoundIconButton(
+                          icon: Icons.near_me_rounded,
+                          color: HomeMapScreen.blue,
+                          isLoading: _isCenteringLocation,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-          Positioned(
-            key: const ValueKey('home-ai-control'),
-            right: 16,
-            top: floatingAiTop,
-            height: 51.9886360168457,
-            child: Opacity(
-              opacity: homeChromeOpacity,
-              child: Listener(
-                behavior: HitTestBehavior.opaque,
-                onPointerDown: (_) =>
-                    _suppressMarkerClicks(const Duration(milliseconds: 800)),
-                child: GestureDetector(
+            Positioned(
+              key: const ValueKey('home-ai-control'),
+              right: 16,
+              top: floatingAiTop,
+              height: 51.9886360168457,
+              child: Opacity(
+                opacity: homeChromeOpacity,
+                child: Listener(
                   behavior: HitTestBehavior.opaque,
-                  onTapDown: (_) =>
+                  onPointerDown: (_) =>
                       _suppressMarkerClicks(const Duration(milliseconds: 800)),
-                  onVerticalDragUpdate: (_) {},
-                  onHorizontalDragUpdate: (_) {},
-                  child: Tooltip(
-                    message: 'AI 추천받기',
-                    child: Semantics(
-                      button: true,
-                      label: 'AI 추천받기',
-                      onTap: _openAiRecommend,
-                      excludeSemantics: true,
-                      child: _AiRecommendControl(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (_) => _suppressMarkerClicks(
+                      const Duration(milliseconds: 800),
+                    ),
+                    onVerticalDragUpdate: (_) {},
+                    onHorizontalDragUpdate: (_) {},
+                    child: Tooltip(
+                      message: 'AI 추천받기',
+                      child: Semantics(
+                        button: true,
+                        label: 'AI 추천받기',
                         onTap: _openAiRecommend,
-                        compact: inlineCompactControls,
+                        excludeSemantics: true,
+                        child: _AiRecommendControl(
+                          onTap: _openAiRecommend,
+                          compact: inlineCompactControls,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-          if (isAiActive) ...[
-            Positioned(
-              left: AppSizes.horizontalPadding,
-              right: AppSizes.horizontalPadding,
-              top: 64.0 + topOffset + topOffsetPush,
-              child: Opacity(
-                opacity: homeChromeOpacity,
-                child: Center(
-                  child: _AiRecommendationBanner(
-                    count: _aiRecommendedStores.length,
-                    onReset: _clearAiRecommendation,
+            if (isAiActive) ...[
+              Positioned(
+                left: AppSizes.horizontalPadding,
+                right: AppSizes.horizontalPadding,
+                top: 64.0 + topOffset + topOffsetPush,
+                child: Opacity(
+                  opacity: homeChromeOpacity,
+                  child: Center(
+                    child: _AiRecommendationBanner(
+                      count: _aiRecommendedStores.length,
+                      origin: _activeAiRecommendation?.origin,
+                      onReset: _clearAiRecommendation,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-          if (showStoreList) ...[
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: bottomNavHeight + 10 + storeCardHeight + 4,
-              child: Opacity(
-                opacity: homeChromeOpacity,
-                child: Center(
-                  child: _FloatingSearchSummary(
-                    count: _currentStores.length,
-                    title: isAiActive ? 'AI 추천 결과 ' : null,
-                    detail: _searchResultStores == null
-                        ? null
-                        : '검색 전체 ${_searchResultStores!.length}곳 · 지도 안 $_searchViewportCount곳${_searchViewportCount > 100 ? ' (마커 100곳 표시)' : ''}${_searchResultStores!.any((store) => !store.hasValidCoordinates) ? ' · 위치 없는 매장 ${_searchResultStores!.where((store) => !store.hasValidCoordinates).length}곳' : ''}',
+            ],
+            if (showStoreList) ...[
+              if (_activeAiRecommendation?.origin !=
+                  MapResultOrigin.approvedReport)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: bottomNavHeight + 10 + storeCardHeight + 4,
+                  child: Opacity(
+                    opacity: homeChromeOpacity,
+                    child: Center(
+                      child: _FloatingSearchSummary(
+                        count: _currentStores.length,
+                        title: isAiActive
+                            ? (_activeAiRecommendation?.origin ==
+                                      MapResultOrigin.todaysPick
+                                  ? '오늘의 픽 '
+                                  : 'AI 추천 결과 ')
+                            : null,
+                        detail: _searchResultStores == null
+                            ? null
+                            : '검색 전체 ${_searchResultStores!.length}곳 · 지도 표시 $_searchViewportCount곳${_searchResultStores!.any((store) => !store.hasValidCoordinates) ? ' · 위치 없는 매장 ${_searchResultStores!.where((store) => !store.hasValidCoordinates).length}곳' : ''}',
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: bottomNavHeight + 10,
+                height: storeCardHeight,
+                child: Opacity(
+                  opacity: homeChromeOpacity,
+                  child: _blockMapTapsThrough(
+                    HomeMapStoreCarousel(
+                      controller: _pageController,
+                      itemCount: _currentStores.length,
+                      onPageChanged: _onStorePageChanged,
+                      itemBuilder: (context, index) {
+                        final store = _currentStores[index];
+                        return HomeMapStoreSummaryCard(
+                          store: store,
+                          selection: isAiActive
+                              ? _selectionFor(store)
+                              : (isSearching
+                                    ? _searchSelectionFor(store)
+                                    : null),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: bottomNavHeight + 10,
-              height: storeCardHeight,
-              child: Opacity(
-                opacity: homeChromeOpacity,
-                child: HomeMapStoreCarousel(
-                  controller: _pageController,
-                  itemCount: _currentStores.length,
-                  onPageChanged: _onStorePageChanged,
-                  itemBuilder: (context, index) {
-                    final store = _currentStores[index];
-                    return HomeMapStoreSummaryCard(
-                      store: store,
-                      selection: isAiActive
-                          ? _selectionFor(store)
-                          : (isSearching ? _searchSelectionFor(store) : null),
-                    );
-                  },
+            ] else if (isSearching && _currentStores.isEmpty) ...[
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: bottomNavHeight + 20,
+                child: Opacity(
+                  opacity: homeChromeOpacity,
+                  child: Center(child: _FloatingSearchSummary(count: 0)),
                 ),
               ),
-            ),
-          ] else if (isSearching && _currentStores.isEmpty) ...[
+            ] else if (_showStoreSummary && _selectedStore != null) ...[
+              Positioned(
+                left: AppSizes.horizontalPadding,
+                right: AppSizes.horizontalPadding,
+                top: storeCardTop,
+                height: storeCardHeight,
+                child: Opacity(
+                  opacity: homeChromeOpacity,
+                  child: _blockMapTapsThrough(
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onVerticalDragUpdate: (_) {},
+                      onHorizontalDragUpdate: (_) {},
+                      child: HomeMapStoreSummaryCard(
+                        store: _selectedStore!,
+                        selection: isAiActive
+                            ? _selectionFor(_selectedStore!)
+                            : (isSearching
+                                  ? _searchSelectionFor(_selectedStore!)
+                                  : null),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
             Positioned(
+              key: const ValueKey('home-bottom-navigation'),
               left: 0,
               right: 0,
-              bottom: bottomNavHeight + 20,
-              child: Opacity(
-                opacity: homeChromeOpacity,
-                child: Center(child: _FloatingSearchSummary(count: 0)),
-              ),
-            ),
-          ] else if (_showStoreSummary && _selectedStore != null) ...[
-            Positioned(
-              left: AppSizes.horizontalPadding,
-              right: AppSizes.horizontalPadding,
-              top: storeCardTop,
-              height: storeCardHeight,
+              bottom: 0,
+              height: bottomNavHeight,
               child: Opacity(
                 opacity: homeChromeOpacity,
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onVerticalDragUpdate: (_) {},
                   onHorizontalDragUpdate: (_) {},
-                  child: HomeMapStoreSummaryCard(
-                    store: _selectedStore!,
-                    selection: isAiActive
-                        ? _selectionFor(_selectedStore!)
-                        : (isSearching
-                              ? _searchSelectionFor(_selectedStore!)
-                              : null),
+                  child: HowmuchBottomNav(
+                    safeBottom: bottomOffset,
+                    activeTab: HowmuchBottomTab.home,
                   ),
                 ),
               ),
             ),
-          ],
-          Positioned(
-            key: const ValueKey('home-bottom-navigation'),
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: bottomNavHeight,
-            child: Opacity(
-              opacity: homeChromeOpacity,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (_) {},
-                onHorizontalDragUpdate: (_) {},
-                child: HowmuchBottomNav(
-                  safeBottom: bottomOffset,
-                  activeTab: HowmuchBottomTab.home,
-                ),
-              ),
-            ),
-          ),
+          ]),
           if (_showAiSpotlight) ...[
             Positioned.fill(
               child: GestureDetector(
@@ -2383,33 +3463,38 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 ),
               ),
             ),
-            Positioned(
-              left: (screenWidth - 265) / 2,
-              top: spotlightCoachTop,
-              width: 265,
-              height: 38,
-              child: _AiCoachTip(onTap: _openAiRecommend),
-            ),
-            Positioned(
-              right: 16,
-              top: spotlightAiTop,
-              height: 70,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (_) {},
-                onHorizontalDragUpdate: (_) {},
-                child: _AiRecommendControl(
-                  onTap: _openAiRecommend,
-                  spotlight: true,
+            productColumn([
+              Positioned(
+                left: (screenWidth - 265) / 2,
+                top: spotlightCoachTop,
+                width: 265,
+                height: 38,
+                child: _AiCoachTip(onTap: _openAiRecommend),
+              ),
+              Positioned(
+                right: 16,
+                top: spotlightAiTop,
+                height: 70,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragUpdate: (_) {},
+                  onHorizontalDragUpdate: (_) {},
+                  child: _AiRecommendControl(
+                    onTap: _openAiRecommend,
+                    spotlight: true,
+                  ),
                 ),
               ),
-            ),
+            ]),
           ],
           if (_locationNotice != null)
             Positioned.fill(
-              child: _LocationPermissionModal(
-                notice: _locationNotice!,
-                onClose: _hideLocationNotice,
+              // Screen readers must not reach the map controls behind it.
+              child: BlockSemantics(
+                child: _LocationPermissionModal(
+                  notice: _locationNotice!,
+                  onClose: _hideLocationNotice,
+                ),
               ),
             ),
         ],
@@ -2736,64 +3821,69 @@ class _TodayPickCard extends StatelessWidget {
             ),
           ],
         ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final narrow = constraints.maxWidth < 320;
-            return Row(
-              children: [
-                SizedBox(
-                  width: compact ? 44 : 55.99431610107422,
-                  height: double.infinity,
-                  child: DecoratedBox(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFFEFF4FF), Color(0xFFEFF4FF)],
+        // The banner floats over the map at a fixed height, so its text stops
+        // at the compact chrome scale (QA 10/7 #5).
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: AppTextScale.compactChrome,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 320;
+              return Row(
+                children: [
+                  SizedBox(
+                    width: compact ? 44 : 55.99431610107422,
+                    height: double.infinity,
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0xFFEFF4FF), Color(0xFFEFF4FF)],
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.thunderstorm_outlined,
+                            color: HomeMapScreen.blue,
+                            size: 20,
+                          ),
+                          const SizedBox(height: 1.989),
+                          // 기온을 확인하지 못한 경우 추정값을 표시하지 않는다.
+                          Text(
+                            '오늘',
+                            style: TextStyle(
+                              color: HomeMapScreen.blue,
+                              fontFamily: HomeMapScreen.fontFamily,
+                              fontFamilyFallback: HomeMapScreen.fontFallback,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.thunderstorm_outlined,
-                          color: HomeMapScreen.blue,
-                          size: 20,
-                        ),
-                        const SizedBox(height: 1.989),
-                        // 기온을 확인하지 못한 경우 추정값을 표시하지 않는다.
-                        Text(
-                          '오늘',
-                          style: TextStyle(
-                            color: HomeMapScreen.blue,
-                            fontFamily: HomeMapScreen.fontFamily,
-                            fontFamilyFallback: HomeMapScreen.fontFallback,
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w800,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
-                ),
-                SizedBox(width: narrow ? 8 : 11.988616943359375),
-                const Expanded(child: _TodayPickText()),
-                if (!compact) ...[
-                  const _RankDot(label: '1', color: HomeMapScreen.blue),
-                  const _RankDot(label: '2', color: HomeMapScreen.orange),
-                  const _RankDot(label: '3', color: HomeMapScreen.green),
+                  SizedBox(width: narrow ? 8 : 11.988616943359375),
+                  const Expanded(child: _TodayPickText()),
+                  if (!compact) ...[
+                    const _RankDot(label: '1', color: HomeMapScreen.blue),
+                    const _RankDot(label: '2', color: HomeMapScreen.orange),
+                    const _RankDot(label: '3', color: HomeMapScreen.green),
+                  ],
+                  SizedBox(width: narrow ? 4 : 9.985779),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: HomeMapScreen.muted,
+                    size: 17,
+                  ),
+                  SizedBox(width: narrow ? 8 : 12),
                 ],
-                SizedBox(width: narrow ? 4 : 9.985779),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: HomeMapScreen.muted,
-                  size: 17,
-                ),
-                SizedBox(width: narrow ? 8 : 12),
-              ],
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -2805,58 +3895,74 @@ class _TodayPickText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final lines = Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '오늘의 픽',
-              style: TextStyle(
-                color: Color(0xFFF59E0B),
-                fontFamily: HomeMapScreen.fontFamily,
-                fontFamilyFallback: HomeMapScreen.fontFallback,
-                fontSize: 9.5,
-                fontWeight: FontWeight.w800,
-                height: 1.5,
-                letterSpacing: .4,
-              ),
+            Row(
+              children: [
+                const Text(
+                  '오늘의 픽',
+                  style: TextStyle(
+                    color: Color(0xFFF59E0B),
+                    fontFamily: HomeMapScreen.fontFamily,
+                    fontFamilyFallback: HomeMapScreen.fontFallback,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w800,
+                    height: 1.5,
+                    letterSpacing: .4,
+                  ),
+                ),
+                const SizedBox(width: 5.994),
+                Expanded(
+                  child: Text(
+                    '· ${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().day.toString().padLeft(2, '0')} ${['월', '화', '수', '목', '금', '토', '일'][DateTime.now().weekday - 1]}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: HomeMapScreen.muted,
+                      fontFamily: HomeMapScreen.fontFamily,
+                      fontFamilyFallback: HomeMapScreen.fontFallback,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w400,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 5.994),
-            Expanded(
+            const SizedBox(height: .994),
+            // Shrinks to the space left by the rank dots instead of ending in
+            // an ellipsis when the text is enlarged.
+            const FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
               child: Text(
-                '· ${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().day.toString().padLeft(2, '0')} ${['월', '화', '수', '목', '금', '토', '일'][DateTime.now().weekday - 1]}',
+                '날씨와 거리로 매장 추천',
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: HomeMapScreen.muted,
+                  color: HomeMapScreen.ink,
                   fontFamily: HomeMapScreen.fontFamily,
                   fontFamilyFallback: HomeMapScreen.fontFallback,
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w400,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
                   height: 1.5,
+                  letterSpacing: 0,
                 ),
               ),
             ),
           ],
-        ),
-        const SizedBox(height: .994),
-        const Text(
-          '날씨와 거리로 매장 추천',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: HomeMapScreen.ink,
-            fontFamily: HomeMapScreen.fontFamily,
-            fontFamilyFallback: HomeMapScreen.fontFallback,
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            height: 1.5,
-            letterSpacing: 0,
-          ),
-        ),
-      ],
+        );
+        // The short landscape banner (44px) cannot hold both lines at the
+        // capped scale; shrink them together instead of cutting the title.
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: SizedBox(width: constraints.maxWidth, child: lines),
+        );
+      },
     );
   }
 }
@@ -2887,6 +3993,106 @@ class _RankDot extends StatelessWidget {
   }
 }
 
+const _storeNameStyle = TextStyle(
+  color: HomeMapScreen.ink,
+  fontFamily: HomeMapScreen.fontFamily,
+  fontFamilyFallback: HomeMapScreen.fontFallback,
+  fontSize: 18,
+  fontWeight: FontWeight.w700,
+  height: 1.25,
+);
+
+/// A long name on two lines, at the search list card's size.
+const _wrappedStoreNameStyle = TextStyle(
+  color: HomeMapScreen.ink,
+  fontFamily: HomeMapScreen.fontFamily,
+  fontFamilyFallback: HomeMapScreen.fontFallback,
+  fontSize: 15,
+  fontWeight: FontWeight.w700,
+  height: 1.2,
+);
+
+const _compactPriceStyle = TextStyle(
+  color: HomeMapScreen.ink,
+  fontFamily: HomeMapScreen.fontFamily,
+  fontWeight: FontWeight.w800,
+  fontSize: 18,
+  height: 1.5,
+);
+
+const _tightCompactPriceStyle = TextStyle(
+  color: HomeMapScreen.ink,
+  fontFamily: HomeMapScreen.fontFamily,
+  fontWeight: FontWeight.w800,
+  fontSize: 18,
+  height: 1.2,
+);
+
+TextPainter _layoutText(
+  String text,
+  TextStyle style,
+  TextScaler textScaler, {
+  int? maxLines,
+  double maxWidth = double.infinity,
+  TextDirection textDirection = TextDirection.ltr,
+}) => TextPainter(
+  text: TextSpan(text: text, style: style),
+  maxLines: maxLines,
+  ellipsis: maxLines == null ? null : '…',
+  textScaler: textScaler,
+  textDirection: textDirection,
+)..layout(maxWidth: maxWidth);
+
+double _textWidth(String text, TextStyle style, TextScaler textScaler) {
+  final painter = _layoutText(text, style, textScaler, maxLines: 1);
+  final width = painter.width;
+  painter.dispose();
+  return width;
+}
+
+double _textHeight(TextStyle style, TextScaler textScaler) {
+  final painter = _layoutText('0', style, textScaler, maxLines: 1);
+  final height = painter.height;
+  painter.dispose();
+  return height;
+}
+
+/// Whether a name that does not fit on one card line moves to two smaller
+/// lines, so branches of one brand stay distinguishable (QA 10/7 #29). The
+/// card height is fixed: when two lines do not fit (large text), the single
+/// line with an ellipsis stays.
+bool _storeNameWrapsInCard({
+  required String name,
+  required double width,
+  required double height,
+  required TextScaler textScaler,
+  required TextDirection textDirection,
+}) {
+  if (width <= 0 || height <= 0) return false;
+  final oneLine = _layoutText(
+    name,
+    _storeNameStyle,
+    textScaler,
+    maxLines: 1,
+    maxWidth: width,
+    textDirection: textDirection,
+  );
+  final fitsOneLine = !oneLine.didExceedMaxLines;
+  oneLine.dispose();
+  if (fitsOneLine) return false;
+  final twoLines = _layoutText(
+    name,
+    _wrappedStoreNameStyle,
+    textScaler,
+    maxLines: 2,
+    maxWidth: width,
+    textDirection: textDirection,
+  );
+  final twoLineHeight = twoLines.height;
+  twoLines.dispose();
+  return twoLineHeight <= height;
+}
+
 class HomeMapStoreSummaryCard extends StatelessWidget {
   final Store store;
   final RecommendationMenuSelection? selection;
@@ -2898,95 +4104,149 @@ class HomeMapStoreSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x240F172A),
-            blurRadius: 16,
-            offset: Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 24,
-              child: Row(
-                children: [
-                  _SourceBadge(isUserReported: store.isUserReported),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      store.address.split(' ').take(3).join(' '),
-                      style: _muted11,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
+    // The card has a fixed height on the map, so its text stops at the
+    // compact chrome scale; the full details scale on the store page
+    // (QA 10/7 #5).
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: AppTextScale.compactChrome,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x240F172A),
+              blurRadius: 16,
+              offset: Offset(0, 12),
             ),
-            const SizedBox(height: 3),
-            SizedBox(
-              height: 60,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth < 300) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _StoreInfo(store: store, compact: true),
-                            ),
-                            const SizedBox(width: 8),
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 64),
-                              child: Text(
-                                store.industry,
-                                style: _muted11,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 24,
+                child: Row(
+                  children: [
+                    _SourceBadge(isUserReported: store.isUserReported),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        store.address.split(' ').take(3).join(' '),
+                        style: _muted11,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 3),
+              SizedBox(
+                height: 60,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final textScaler = MediaQuery.textScalerOf(context);
+                    final textDirection = Directionality.of(context);
+                    if (constraints.maxWidth < 300) {
+                      final industryWidth = math.min(
+                        64.0,
+                        _textWidth(store.industry, _muted11, textScaler),
+                      );
+                      final priceLineHeight = math.max(
+                        _textHeight(_muted12, textScaler),
+                        _textHeight(_tightCompactPriceStyle, textScaler),
+                      );
+                      final wrapName = _storeNameWrapsInCard(
+                        name: store.storeName,
+                        width: constraints.maxWidth - 8 - industryWidth,
+                        height: constraints.maxHeight - 2 - priceLineHeight,
+                        textScaler: textScaler,
+                        textDirection: textDirection,
+                      );
+                      // Enlarged text also needs the tight price line, or the
+                      // name and price no longer fit the 60px row.
+                      final roomyHeight =
+                          _textHeight(_storeNameStyle, textScaler) +
+                          4 +
+                          math.max(
+                            _textHeight(_muted12, textScaler),
+                            _textHeight(_compactPriceStyle, textScaler),
+                          );
+                      final tight =
+                          wrapName || roomyHeight > constraints.maxHeight;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _StoreInfo(
+                                  store: store,
+                                  compact: true,
+                                  wrapName: wrapName,
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 64),
+                                child: Text(
+                                  store.industry,
+                                  style: _muted11,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: tight ? 2 : 4),
+                          _StorePrice(
+                            store: store,
+                            selection: selection,
+                            compact: true,
+                            tight: tight,
+                          ),
+                        ],
+                      );
+                    }
+                    final wrapName = _storeNameWrapsInCard(
+                      name: store.storeName,
+                      width: constraints.maxWidth - 12 - 144,
+                      height:
+                          constraints.maxHeight -
+                          4 -
+                          _textHeight(_muted12, textScaler),
+                      textScaler: textScaler,
+                      textDirection: textDirection,
+                    );
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: _StoreInfo(store: store, wrapName: wrapName),
                         ),
-                        const SizedBox(height: 4),
-                        _StorePrice(
-                          store: store,
-                          selection: selection,
-                          compact: true,
+                        const SizedBox(width: 12),
+                        SizedBox(
+                          width: 144,
+                          child: _StorePrice(
+                            store: store,
+                            selection: selection,
+                          ),
                         ),
                       ],
                     );
-                  }
-                  return Row(
-                    children: [
-                      Expanded(child: _StoreInfo(store: store)),
-                      const SizedBox(width: 12),
-                      SizedBox(
-                        width: 144,
-                        child: _StorePrice(store: store, selection: selection),
-                      ),
-                    ],
-                  );
-                },
+                  },
+                ),
               ),
-            ),
-            const Divider(height: 1, color: Color(0xFFE7E9E2)),
-            SizedBox(
-              height: 54,
-              child: Center(child: _DetailButton(store: store)),
-            ),
-          ],
+              const Divider(height: 1, color: Color(0xFFE7E9E2)),
+              SizedBox(
+                height: 54,
+                child: Center(child: _DetailButton(store: store)),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2996,7 +4256,12 @@ class HomeMapStoreSummaryCard extends StatelessWidget {
 class _StoreInfo extends StatelessWidget {
   final Store store;
   final bool compact;
-  const _StoreInfo({required this.store, this.compact = false});
+  final bool wrapName;
+  const _StoreInfo({
+    required this.store,
+    this.compact = false,
+    this.wrapName = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -3006,15 +4271,8 @@ class _StoreInfo extends StatelessWidget {
       children: [
         Text(
           store.storeName,
-          style: const TextStyle(
-            color: HomeMapScreen.ink,
-            fontFamily: HomeMapScreen.fontFamily,
-            fontFamilyFallback: HomeMapScreen.fontFallback,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            height: 1.25,
-          ),
-          maxLines: 1,
+          style: wrapName ? _wrappedStoreNameStyle : _storeNameStyle,
+          maxLines: wrapName ? 2 : 1,
           overflow: TextOverflow.ellipsis,
         ),
         if (!compact) ...[
@@ -3030,10 +4288,14 @@ class _StorePrice extends StatelessWidget {
   final Store store;
   final RecommendationMenuSelection? selection;
   final bool compact;
+
+  /// Drops the price line's extra leading to make room for a two-line name.
+  final bool tight;
   const _StorePrice({
     required this.store,
     this.selection,
     this.compact = false,
+    this.tight = false,
   });
 
   @override
@@ -3065,87 +4327,113 @@ class _StorePrice extends StatelessWidget {
               fit: BoxFit.scaleDown,
               child: Text(
                 priceStr,
-                style: const TextStyle(
-                  color: HomeMapScreen.ink,
-                  fontFamily: HomeMapScreen.fontFamily,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                  height: 1.5,
-                ),
+                style: tight ? _tightCompactPriceStyle : _compactPriceStyle,
               ),
             ),
           ),
         ],
       );
     }
-    return SizedBox(
-      height: 52,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            menuStr,
+    // Sized by its content and centered in the 60px row: the old 52px box
+    // overflowed by 6px at 1.3x text.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          menuStr,
+          textAlign: TextAlign.right,
+          style: _muted10.copyWith(fontSize: 11),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerRight,
+          child: Text(
+            priceStr,
             textAlign: TextAlign.right,
-            style: _muted10.copyWith(fontSize: 11),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 2),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerRight,
-            child: Text(
-              priceStr,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: HomeMapScreen.ink,
-                fontFamily: HomeMapScreen.fontFamily,
-                fontFamilyFallback: HomeMapScreen.fontFallback,
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
-                height: 1.5,
-              ),
+            style: const TextStyle(
+              color: HomeMapScreen.ink,
+              fontFamily: HomeMapScreen.fontFamily,
+              fontFamilyFallback: HomeMapScreen.fontFallback,
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              height: 1.5,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _DetailButton extends StatelessWidget {
+class _DetailButton extends StatefulWidget {
   final Store store;
   const _DetailButton({required this.store});
 
   @override
+  State<_DetailButton> createState() => _DetailButtonState();
+}
+
+class _DetailButtonState extends State<_DetailButton> {
+  bool _showFocus = false;
+
+  void _open() => context.push(AppRoutes.storeDetail, extra: widget.store);
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.push(AppRoutes.storeDetail, extra: store),
-      child: Container(
-        width: double.infinity,
-        height: 44,
-        decoration: BoxDecoration(
-          color: HomeMapScreen.blue,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '상세보기',
-              style: TextStyle(
-                color: Colors.white,
-                fontFamily: HomeMapScreen.fontFamily,
-                fontFamilyFallback: HomeMapScreen.fontFallback,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                height: 1.5,
-              ),
+    // Keyboard users reach the card action with Tab and open it with
+    // Enter or Space, like any other button.
+    return Semantics(
+      button: true,
+      child: FocusableActionDetector(
+        mouseCursor: SystemMouseCursors.click,
+        onShowFocusHighlight: (value) => setState(() => _showFocus = value),
+        actions: <Type, Action<Intent>>{
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              _open();
+              return null;
+            },
+          ),
+        },
+        child: GestureDetector(
+          onTap: _open,
+          child: Container(
+            width: double.infinity,
+            height: 44,
+            decoration: BoxDecoration(
+              color: HomeMapScreen.blue,
+              borderRadius: BorderRadius.circular(12),
+              border: _showFocus
+                  ? Border.all(color: HomeMapScreen.ink, width: 2)
+                  : null,
             ),
-            SizedBox(width: 4),
-            Icon(Icons.chevron_right_rounded, color: Colors.white, size: 13),
-          ],
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '상세보기',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: HomeMapScreen.fontFamily,
+                    fontFamilyFallback: HomeMapScreen.fontFallback,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    height: 1.5,
+                  ),
+                ),
+                SizedBox(width: 4),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.white,
+                  size: 13,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -3202,6 +4490,16 @@ class _AiRecommendControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Its label used to be clipped to 'AI 추천' at large text sizes: the pill
+    // now grows with its one-line label, which stops at the compact chrome
+    // scale like the other map controls (QA 10/7 #5).
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: AppTextScale.compactChrome,
+      child: _buildControl(),
+    );
+  }
+
+  Widget _buildControl() {
     if (spotlight) {
       return GestureDetector(
         onTap: onTap,
@@ -3209,9 +4507,8 @@ class _AiRecommendControl extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 78,
-              height: 28,
-              alignment: Alignment.center,
+              constraints: const BoxConstraints(minWidth: 78, minHeight: 28),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(999),
@@ -3223,23 +4520,31 @@ class _AiRecommendControl extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'AI',
-                      style: TextStyle(color: HomeMapScreen.blue),
-                    ),
-                    TextSpan(text: ' 추천받기'),
-                  ],
-                ),
-                style: TextStyle(
-                  color: HomeMapScreen.ink,
-                  fontFamily: HomeMapScreen.fontFamily,
-                  fontFamilyFallback: HomeMapScreen.fontFallback,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  height: 1.5,
+              // Factors of 1 keep the pill at its label size instead of
+              // stretching to the row height.
+              child: const Center(
+                widthFactor: 1,
+                heightFactor: 1,
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'AI',
+                        style: TextStyle(color: HomeMapScreen.blue),
+                      ),
+                      TextSpan(text: ' 추천받기'),
+                    ],
+                  ),
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    color: HomeMapScreen.ink,
+                    fontFamily: HomeMapScreen.fontFamily,
+                    fontFamilyFallback: HomeMapScreen.fontFallback,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    height: 1.5,
+                  ),
                 ),
               ),
             ),
@@ -3290,9 +4595,11 @@ class _AiRecommendControl extends StatelessWidget {
         children: [
           if (!compact)
             Container(
-              width: 82,
-              height: 22.982954025268555,
-              alignment: Alignment.center,
+              constraints: const BoxConstraints(
+                minWidth: 82,
+                minHeight: 22.982954025268555,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(999),
@@ -3304,23 +4611,29 @@ class _AiRecommendControl extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'AI',
-                      style: TextStyle(color: HomeMapScreen.blue),
-                    ),
-                    TextSpan(text: ' 추천받기'),
-                  ],
-                ),
-                style: TextStyle(
-                  color: HomeMapScreen.ink,
-                  fontFamily: HomeMapScreen.fontFamily,
-                  fontFamilyFallback: HomeMapScreen.fontFallback,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
+              child: const Center(
+                widthFactor: 1,
+                heightFactor: 1,
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'AI',
+                        style: TextStyle(color: HomeMapScreen.blue),
+                      ),
+                      TextSpan(text: ' 추천받기'),
+                    ],
+                  ),
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    color: HomeMapScreen.ink,
+                    fontFamily: HomeMapScreen.fontFamily,
+                    fontFamilyFallback: HomeMapScreen.fontFallback,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    height: 1.5,
+                  ),
                 ),
               ),
             ),
@@ -3533,6 +4846,41 @@ const _muted11 = TextStyle(
   height: 1.5,
 );
 
+/// Message with an inline action for non-blocking map notices.
+class _MapNoticeMessage extends StatelessWidget {
+  const _MapNoticeMessage({
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final String message;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: Text(message)),
+        TextButton(
+          onPressed: onAction,
+          style: TextButton.styleFrom(
+            foregroundColor: HomeMapScreen.blue,
+            textStyle: const TextStyle(
+              fontFamily: HomeMapScreen.fontFamily,
+              fontFamilyFallback: HomeMapScreen.fontFallback,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          child: Text(actionLabel),
+        ),
+      ],
+    );
+  }
+}
+
 // ──────────────────────────────────────────────────────────────
 //  검색 안내 칩
 // ──────────────────────────────────────────────────────────────
@@ -3617,10 +4965,15 @@ class _FloatingSearchSummary extends StatelessWidget {
 }
 
 class _AiRecommendationBanner extends StatelessWidget {
-  const _AiRecommendationBanner({required this.count, required this.onReset});
+  const _AiRecommendationBanner({
+    required this.count,
+    required this.onReset,
+    this.origin,
+  });
 
   final int count;
   final VoidCallback onReset;
+  final MapResultOrigin? origin;
 
   @override
   Widget build(BuildContext context) {
@@ -3644,7 +4997,10 @@ class _AiRecommendationBanner extends StatelessWidget {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              'AI 추천 매장 $count곳',
+              // Today's pick is not an AI result (QA #23).
+              origin == MapResultOrigin.todaysPick
+                  ? '오늘의 픽 $count곳'
+                  : 'AI 추천 매장 $count곳',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(

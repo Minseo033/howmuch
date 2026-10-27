@@ -251,6 +251,9 @@ class UserReportStatus {
     this.description = '',
     this.reportType = '',
     this.changeType = '',
+    this.resolution = '',
+    this.previousPrice = '',
+    this.previousFree = false,
   });
 
   final String id;
@@ -274,10 +277,128 @@ class UserReportStatus {
   final String description;
   final String reportType;
   final String changeType;
+  final String resolution;
+
+  /// 승인된 가격 변동 제보가 바꾸기 전 매장에 공개돼 있던 가격입니다. 서버가 보내지
+  /// 않은 제보(승인 전·반영 기록이 없는 옛 승인)는 빈 문자열입니다.
+  final String previousPrice;
+  final bool previousFree;
+
+  bool get isInformationReport => reportType.toUpperCase() == 'STORE_INFO';
+  bool get isApproved => status.contains('승인') || status == 'APPROVED';
+  bool get isExistingStoreReport =>
+      isInformationReport || changeType.isNotEmpty;
+  bool get isPriceChangeReport => !isInformationReport && changeType.isNotEmpty;
+
+  /// 검토를 마쳤지만 매장 정보를 바꾸지 않은 건(NO_CHANGE)입니다. 서버 상태는
+  /// 승인이라 수정 차단 같은 판단은 [isApproved]를 그대로 쓰고, 목록·배지에서만
+  /// 승인 완료와 따로 보여 줍니다.
+  bool get isResolvedWithoutChange => isApproved && resolution == 'NO_CHANGE';
+
+  /// 목록과 배지에 보이는 처리 상태입니다.
+  String get displayStatus => isResolvedWithoutChange ? '수정 없음' : status;
+
+  String get kindLabel => isInformationReport
+      ? '정보 오류 신고'
+      : isPriceChangeReport
+      ? '가격 변동 제보'
+      : '새 매장 제보';
+
+  String get priceChangeTypeLabel => switch (changeType) {
+    'rise' => '가격 인상',
+    'drop' => '가격 인하',
+    'delete' => '메뉴 삭제',
+    'new' || 'new_menu' => '신규 메뉴',
+    _ => '가격 변동',
+  };
+
+  /// 목록 카드 요약 줄의 이름과 값입니다. 정보 오류 신고는 신고할 때 함께 저장된
+  /// 매장 메뉴 대신 신고 유형을, 가격 변동 제보는 변동 유형과 제보한 메뉴를 보여 줍니다.
+  String get summaryLabel => isInformationReport
+      ? '신고 유형'
+      : isPriceChangeReport
+      ? priceChangeTypeLabel
+      : '대표 메뉴';
+  String get summaryValue => isInformationReport ? informationTypeLabel : menu;
+
+  /// 마이의 최근 제보처럼 한 줄로 보여 줄 때 쓰는 요약입니다.
+  String get summaryText => isInformationReport
+      ? '$kindLabel · $informationTypeLabel'
+      : isPriceChangeReport
+      ? [
+          priceChangeTypeLabel,
+          menu,
+        ].where((part) => part.isNotEmpty).join(' · ')
+      : menu;
+
+  /// 제보한 날짜(yyyy.MM.dd, 기기 시간대)입니다. 읽을 수 없으면 빈 문자열입니다.
+  String get createdDateLabel {
+    final date = DateTime.tryParse(createdAt)?.toLocal();
+    if (date == null) return '';
+    String twoDigits(int value) => value.toString().padLeft(2, '0');
+    return '${date.year}.${twoDigits(date.month)}.${twoDigits(date.day)}';
+  }
+
+  bool get hasAppliedChanges =>
+      isApproved &&
+      const ['NEW_STORE', 'PRICE', 'LOCATION', 'CLOSED'].contains(resolution);
+  // 처리 결과(resolution)가 없는 승인 건은 처리 결과를 기록하기 전에 승인된 제보라
+  // 반영 여부를 추측하지 않고, 사용자가 할 일이 남은 것처럼 읽히는 문구도 쓰지 않습니다.
+  String get processingLabel => !isApproved
+      ? status
+      : switch (resolution) {
+          'NO_CHANGE' => '검토 완료 · 수정 없음',
+          'NEW_STORE' => '승인 완료 · 매장 등록',
+          'PRICE' => '승인 완료 · 가격 반영',
+          'LOCATION' => '승인 완료 · 위치 반영',
+          'CLOSED' => '승인 완료 · 폐업 반영',
+          _ => '승인 완료',
+        };
+  String get informationTypeLabel => switch (changeType) {
+    'closed' => '폐업됐어요',
+    'price_mismatch' => '가격이 달라요',
+    'location_wrong' => '위치 정보가 틀려요',
+    'other' => '기타',
+    _ => '유형 확인 필요',
+  };
+  String get processingNotice => rejectReason.trim().isNotEmpty
+      ? rejectReason.trim()
+      : !isApproved
+      ? '현재 가격과 위치 정보를 확인하고 있어요.'
+      : switch (resolution) {
+          'NO_CHANGE' => '신고 검토를 마쳤으며 대상 매장 정보는 변경하지 않았어요.',
+          'NEW_STORE' => '승인된 매장 정보가 지도에 등록됐어요.',
+          'PRICE' => '검토된 가격 변경이 대상 매장에 반영됐어요.',
+          'LOCATION' => '검토된 위치 변경이 대상 매장에 반영됐어요.',
+          'CLOSED' => '대상 매장의 폐업 상태가 반영됐어요.',
+          _ => '검토를 마치고 승인된 제보예요.',
+        };
+
+  /// 삭제 확인창 안내입니다. 서버는 제보를 지울 때 탐색 글의 댓글·반응과
+  /// 이 제보에 연결된 알림(처리 결과·새 댓글)도 함께 지웁니다. 정보 오류 신고와
+  /// 반려된 제보는 탐색에 올라가지 않습니다.
+  String get deletionWarning {
+    final noun = isInformationReport ? '신고' : '제보';
+    final isFeedPost = !isInformationReport && !status.contains('반려');
+    final isReviewed = !status.contains('검토');
+    return [
+      if (isExistingStoreReport) ...[
+        '$noun 기록만 삭제하며 복구할 수 없어요.',
+        '대상 매장 정보는 그대로 유지돼요.',
+      ] else ...[
+        '삭제 후에는 되돌릴 수 없어요.',
+        if (isApproved) '지도에 등록된 이 매장도 함께 사라져요.',
+      ],
+      if (isFeedPost) '탐색에 올라간 글의 댓글·반응도 함께 삭제돼요.',
+      if (isFeedPost || isReviewed) '이 $noun와 관련된 알림도 알림함에서 함께 삭제돼요.',
+    ].join('\n');
+  }
 
   factory UserReportStatus.fromJson(Map<String, dynamic> json) {
     final status = _statusLabel(json['status']?.toString() ?? '');
-    final colors = _statusColors(status);
+    final resolution =
+        json['resolution']?.toString().trim().toUpperCase() ?? '';
+    final colors = _statusColors(status, resolution: resolution);
     final menuPrices = _menuPricesFromJson(json);
     final menu = menuPrices.isNotEmpty ? menuPrices.first.displayText : '';
 
@@ -307,6 +428,9 @@ class UserReportStatus {
       description: json['description']?.toString() ?? '',
       reportType: json['reportType']?.toString() ?? '',
       changeType: json['changeType']?.toString() ?? '',
+      resolution: resolution,
+      previousPrice: json['previousPrice']?.toString().trim() ?? '',
+      previousFree: json['previousFree'] == true,
     );
   }
 
@@ -332,6 +456,9 @@ class UserReportStatus {
     String? description,
     String? reportType,
     String? changeType,
+    String? resolution,
+    String? previousPrice,
+    bool? previousFree,
   }) {
     return UserReportStatus(
       id: id ?? this.id,
@@ -355,6 +482,9 @@ class UserReportStatus {
       description: description ?? this.description,
       reportType: reportType ?? this.reportType,
       changeType: changeType ?? this.changeType,
+      resolution: resolution ?? this.resolution,
+      previousPrice: previousPrice ?? this.previousPrice,
+      previousFree: previousFree ?? this.previousFree,
     );
   }
 
@@ -398,8 +528,17 @@ class UserReportStatus {
   }
 
   static ({int statusColor, int statusBg, int textColor}) _statusColors(
-    String status,
-  ) {
+    String status, {
+    String resolution = '',
+  }) {
+    if (status.contains('승인') && resolution == 'NO_CHANGE') {
+      // 수정 없음은 승인(파랑)과 구분되는 무채색 배지로 보여 줍니다.
+      return (
+        statusColor: 0xFF64748B,
+        statusBg: 0xFFE5E7EB,
+        textColor: 0xFF374151,
+      );
+    }
     if (status.contains('승인')) {
       return (
         statusColor: 0xFF2563EB,
@@ -418,7 +557,8 @@ class UserReportStatus {
       return (
         statusColor: 0xFFEF4444,
         statusBg: 0xFFFEE2E2,
-        textColor: 0xFFEF4444,
+        // AppColors.errorText: readable red text on the pale badge.
+        textColor: 0xFFB91C1C,
       );
     }
     return (
@@ -431,10 +571,6 @@ class UserReportStatus {
 
 class UserReportsNotifier extends StateNotifier<List<UserReportStatus>> {
   UserReportsNotifier(super.initialState);
-
-  void addReport(UserReportStatus report) {
-    state = [report, ...state];
-  }
 
   void updateReport(UserReportStatus report) {
     state = [
@@ -540,6 +676,12 @@ class FavoriteStoreModel {
     this.latitude = 0,
     this.longitude = 0,
     this.source = 'UNKNOWN',
+    this.free1 = false,
+    this.free2 = false,
+    this.free3 = false,
+    this.free4 = false,
+    this.isClosed = false,
+    this.correctionRevision = 0,
   });
 
   final String id;
@@ -572,14 +714,12 @@ class FavoriteStoreModel {
   final double latitude;
   final double longitude;
   final String source;
-
-  bool get hasDetailMetadata =>
-      phoneNumber.isNotEmpty ||
-      latitude != 0 ||
-      longitude != 0 ||
-      menu2.isNotEmpty ||
-      menu3.isNotEmpty ||
-      menu4.isNotEmpty;
+  final bool free1;
+  final bool free2;
+  final bool free3;
+  final bool free4;
+  final bool isClosed;
+  final int correctionRevision;
 
   /// Converts the favorite response into the detail route model.
   ///
@@ -604,6 +744,14 @@ class FavoriteStoreModel {
       latitude: latitude,
       longitude: longitude,
       source: source,
+      // Detail falls back to this model when its fresh lookup fails, so it
+      // needs the same free/closed/revision facts the favorite API returned.
+      free1: free1,
+      free2: free2,
+      free3: free3,
+      free4: free4,
+      isClosed: isClosed,
+      correctionRevision: correctionRevision,
     );
   }
 
@@ -616,6 +764,7 @@ class FavoriteStoreModel {
     final industry = json['industry']?.toString().trim();
     final menu1 = json['menu1']?.toString().trim();
     final price1 = json['price1']?.toString().trim();
+    final free1 = json['free1'] == true;
     final hasMeta = industry != null && industry.isNotEmpty;
 
     return FavoriteStoreModel(
@@ -631,11 +780,11 @@ class FavoriteStoreModel {
       menu: (menu1 != null && menu1.isNotEmpty)
           ? menu1
           : '상세 정보는 매장 화면에서 확인해 주세요',
-      price: _formatPrice(price1),
+      price: _formatPrice(price1, free: free1),
       priceColor: 0xFF2563EB,
       buttonText: '찜 해제',
       buttonColor: 0xFFFEE2E2,
-      buttonTextColor: 0xFFEF4444,
+      buttonTextColor: 0xFFB91C1C,
       createdAt: createdAtText == null
           ? null
           : DateTime.tryParse(createdAtText),
@@ -650,6 +799,12 @@ class FavoriteStoreModel {
       latitude: _coordinate(json['latitude']),
       longitude: _coordinate(json['longitude']),
       source: _source(json['source']),
+      free1: free1,
+      free2: json['free2'] == true,
+      free3: json['free3'] == true,
+      free4: json['free4'] == true,
+      isClosed: json['isClosed'] == true,
+      correctionRevision: _revision(json['correctionRevision']),
     );
   }
 
@@ -685,6 +840,12 @@ class FavoriteStoreModel {
       latitude: latitude,
       longitude: longitude,
       source: source,
+      free1: free1,
+      free2: free2,
+      free3: free3,
+      free4: free4,
+      isClosed: isClosed,
+      correctionRevision: correctionRevision,
     );
   }
 
@@ -704,14 +865,17 @@ class FavoriteStoreModel {
     return '🍽️';
   }
 
-  /// "5000" → "5,000원" (숫자 아닌 문자 제거 후 천 단위 구분. 파싱 실패 시 원문 유지)
-  static String _formatPrice(String? price1) {
-    if (price1 == null || price1.isEmpty) return '';
-    final digits = price1.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.isEmpty) return price1;
-    final value = int.tryParse(digits);
-    if (value == null) return price1;
-    return formatWon(value);
+  /// Uses the shared menu-price rules: "3,000 / 3,500" stays two prices and
+  /// "3.5~4만원" stays as written. Stripping every non-digit used to show
+  /// "30,003,500원" and "354원".
+  static String _formatPrice(String? price1, {bool free = false}) {
+    if (!free && (price1 == null || price1.isEmpty)) return '';
+    return formatMenuPrice(price1, free: free);
+  }
+
+  static int _revision(Object? value) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString().trim() ?? '') ?? 0;
   }
 
   static double _coordinate(Object? value) {
@@ -982,50 +1146,6 @@ class PriceAlertApiService {
     );
   }
 
-  Future<PriceAlertStore> saveSubscription({
-    required String storeId,
-    required bool enabled,
-    required bool notifyOnRise,
-    required bool notifyOnDrop,
-    required bool notifyOnNewMenu,
-  }) async {
-    final response = await _client
-        .put(
-          ApiClient.uri('/api/notifications/price-alerts'),
-          headers: ApiClient.jsonHeaders(auth: true),
-          body: jsonEncode({
-            'storeId': storeId,
-            'enabled': enabled,
-            'notifyOnRise': notifyOnRise,
-            'notifyOnDrop': notifyOnDrop,
-            'notifyOnNewMenu': notifyOnNewMenu,
-          }),
-        )
-        .timeout(ApiClient.defaultTimeout);
-
-    if (response.statusCode != 200) {
-      throw PriceAlertApiException(
-        response.statusCode == 401 || response.statusCode == 403
-            ? '가격 알림을 사용하려면 로그인이 필요합니다.'
-            : response.statusCode == 404
-            ? '찜한 매장을 찾을 수 없습니다.'
-            : '가격 알림 설정 저장에 실패했습니다.',
-        statusCode: response.statusCode,
-      );
-    }
-    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-    if (decoded is! Map) {
-      throw const FormatException('가격 알림 저장 응답 형식이 올바르지 않습니다.');
-    }
-    final json = Map<String, dynamic>.from(decoded);
-    return PriceAlertStore(
-      storeId: json['storeId']?.toString() ?? storeId,
-      storeName: json['storeName']?.toString() ?? '매장명 없음',
-      menuName: json['menuName']?.toString() ?? '가격 변동 알림',
-      enabled: json['enabled'] is bool ? json['enabled'] as bool : enabled,
-    );
-  }
-
   Future<PriceAlertSettings> saveSettings(PriceAlertSettings settings) async {
     final response = await _client
         .put(
@@ -1073,6 +1193,13 @@ class PriceAlertSettingsNotifier
   final PriceAlertApiService _api;
   bool _disposed = false;
 
+  /// Why the last save failed, shown by the screen. Null after a success.
+  String? lastSaveError;
+
+  /// The favorites changed on the server (409): the same request would fail
+  /// forever, so the screen reloads the list instead of letting it retry.
+  bool lastSaveNeedsReload = false;
+
   @override
   void dispose() {
     _disposed = true;
@@ -1098,11 +1225,19 @@ class PriceAlertSettingsNotifier
   }
 
   Future<bool> saveSettings(PriceAlertSettings settings) async {
+    lastSaveError = null;
+    lastSaveNeedsReload = false;
     try {
       final saved = await _api.saveSettings(settings);
       if (_disposed) return false;
       state = AsyncValue.data(saved);
       return true;
+    } on PriceAlertApiException catch (error) {
+      lastSaveNeedsReload = error.statusCode == 409;
+      lastSaveError = lastSaveNeedsReload
+          ? '찜 목록이 바뀌어 최신 목록을 다시 불러왔어요. 확인한 뒤 저장해 주세요.'
+          : error.message;
+      return false;
     } catch (_) {
       return false;
     }

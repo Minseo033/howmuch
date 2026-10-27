@@ -45,23 +45,6 @@ class MyReportsPendingTab extends ConsumerWidget {
             ),
           );
         }),
-        const SizedBox(height: 20),
-        const Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            '이전 검토 내역',
-            style: TextStyle(
-              color: MyReportsV2Screen.muted,
-              fontFamily: MyReportsV2Screen.fontFamily,
-              fontFamilyFallback: MyReportsV2Screen.fontFallback,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              height: 1.5,
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        const EmptyStateBox(),
       ],
     );
   }

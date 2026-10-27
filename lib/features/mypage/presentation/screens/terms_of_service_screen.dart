@@ -121,31 +121,58 @@ class TermsOfServiceScreen extends StatelessWidget {
         return SafeArea(
           key: const ValueKey('terms-detail-bottom-sheet'),
           top: false,
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(item.title, style: _sheetTitleText),
-                  const SizedBox(height: 8),
-                  Text(item.body, style: _sheetBodyText),
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: FilledButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(),
-                      child: const Text('확인'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _SheetHandle(),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(item.title, style: _sheetTitleText),
+                        const SizedBox(height: 8),
+                        Text(item.body, style: _sheetBodyText),
+                        const SizedBox(height: 18),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: FilledButton(
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                            child: const Text('확인'),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         );
       },
+    );
+  }
+}
+
+/// The grab handle the app's other sheets show at the top, such as the
+/// quiet-time picker in 알림 설정.
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      width: 36,
+      height: 4,
+      decoration: BoxDecoration(
+        color: AppColors.disabled,
+        borderRadius: BorderRadius.circular(2),
+      ),
     );
   }
 }
@@ -183,21 +210,26 @@ class _TermsHeader extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: 48.877838134765625,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  hoverColor: AppColors.primaryLight,
-                  onTap: onBack,
-                  child: const Padding(
-                    padding: EdgeInsets.zero,
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: Icon(
-                        key: ValueKey('terms-of-service-back-icon'),
-                        Icons.arrow_back_rounded,
-                        size: 24,
-                        color: TermsOfServiceScreen.ink,
+              // The bare icons had no name (QA 10/7 #50).
+              child: Semantics(
+                button: true,
+                label: '뒤로가기',
+                child: Material(
+                  color: AppColors.transparent,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    hoverColor: AppColors.primaryLight,
+                    onTap: onBack,
+                    child: const Padding(
+                      padding: EdgeInsets.zero,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Icon(
+                          key: ValueKey('terms-of-service-back-icon'),
+                          Icons.arrow_back_rounded,
+                          size: 24,
+                          color: TermsOfServiceScreen.ink,
+                        ),
                       ),
                     ),
                   ),
@@ -221,19 +253,23 @@ class _TermsHeader extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: 48.877838134765625,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  hoverColor: AppColors.primaryLight,
-                  onTap: onAction,
-                  child: const Align(
-                    alignment: Alignment.center,
-                    child: Icon(
-                      key: ValueKey('terms-of-service-action-icon'),
-                      Icons.content_copy_rounded,
-                      size: 22,
-                      color: TermsOfServiceScreen.ink,
+              child: Semantics(
+                button: true,
+                label: '서비스 이용약관 링크 복사',
+                child: Material(
+                  color: AppColors.transparent,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    hoverColor: AppColors.primaryLight,
+                    onTap: onAction,
+                    child: const Align(
+                      alignment: Alignment.center,
+                      child: Icon(
+                        key: ValueKey('terms-of-service-action-icon'),
+                        Icons.content_copy_rounded,
+                        size: 22,
+                        color: TermsOfServiceScreen.ink,
+                      ),
                     ),
                   ),
                 ),

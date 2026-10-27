@@ -78,18 +78,26 @@ class SearchFilterPolicy {
     return price != null && price <= maxPrice;
   }
 
-  static int compareByPrice(Store a, Store b, {String query = ''}) {
+  /// Cheapest first, unknown prices last. Stores at the same price are listed
+  /// nearest first when [distanceOf] is given, then by name (QA #31).
+  static int compareByPrice(
+    Store a,
+    Store b, {
+    String query = '',
+    double Function(Store store)? distanceOf,
+  }) {
     final aPrice = priceForResult(a, query);
     final bPrice = priceForResult(b, query);
-    if (aPrice == null && bPrice == null) {
-      return a.storeName.compareTo(b.storeName);
+    if (aPrice != bPrice) {
+      if (aPrice == null) return 1;
+      if (bPrice == null) return -1;
+      return aPrice.compareTo(bPrice);
     }
-    if (aPrice == null) return 1;
-    if (bPrice == null) return -1;
-    final priceComparison = aPrice.compareTo(bPrice);
-    return priceComparison != 0
-        ? priceComparison
-        : a.storeName.compareTo(b.storeName);
+    if (distanceOf != null) {
+      final distanceComparison = distanceOf(a).compareTo(distanceOf(b));
+      if (distanceComparison != 0) return distanceComparison;
+    }
+    return a.storeName.compareTo(b.storeName);
   }
 
   static int? priceForResult(Store store, String query) {

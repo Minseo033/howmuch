@@ -1,16 +1,23 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/community/presentation/state/community_service.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
+import 'package:howmuch/core/utils/text_initial.dart';
 
 @visibleForTesting
 List<String> communityPostImageUrls(Object? raw) {
@@ -61,6 +68,7 @@ class _CommunityPostDetailScreenState
 
   bool _isLoading = false;
   bool _hasError = false;
+  bool _notFound = false;
   bool _commentsLoading = false;
   bool _commentsUnavailable = false;
   bool _isSubmitting = false;
@@ -74,12 +82,38 @@ class _CommunityPostDetailScreenState
   CommunityComment? _replyTarget;
   final Set<String> _expandedReplyIds = <String>{};
   final Set<String> _replyLoadingIds = <String>{};
+  final Set<String> _deletingCommentIds = <String>{};
+
+  /// 댓글 목록 요청의 세대입니다. 더 최근 요청이나 방금 단 댓글보다 먼저
+  /// 시작된 응답이 늦게 도착해도 목록을 덮어쓰지 않게 합니다.
+  int _commentsGeneration = 0;
+
+  static const _lengthHintThreshold = 900;
+  int _composerLength = 0;
+
+  /// Whether the composer has something to send. An empty comment cannot be
+  /// sent, so the send button looks off like the AI chat's (QA #39).
+  bool _composerHasText = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _controller.addListener(_onComposerChanged);
     _fetchDetail();
+  }
+
+  void _onComposerChanged() {
+    final length = _controller.text.characters.length;
+    final hintWasVisible = _composerLength >= _lengthHintThreshold;
+    final hasText = _controller.text.trim().isNotEmpty;
+    final canSendChanged = hasText != _composerHasText;
+    _composerLength = length;
+    _composerHasText = hasText;
+    if ((hintWasVisible || length >= _lengthHintThreshold || canSendChanged) &&
+        mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -95,6 +129,7 @@ class _CommunityPostDetailScreenState
     setState(() {
       _isLoading = true;
       _hasError = false;
+      _notFound = false;
     });
 
     try {
@@ -119,46 +154,67 @@ class _CommunityPostDetailScreenState
       setState(() {
         _isLoading = false;
         _hasError = true;
+        _notFound = e is CommunityApiException && e.statusCode == 404;
       });
     }
   }
 
   Future<void> _fetchComments() async {
-    if (widget.postId.isEmpty || _commentsLoading || _liveRefreshInFlight) {
-      return;
-    }
+    if (widget.postId.isEmpty) return;
+    final generation = ++_commentsGeneration;
+    final firstLoad = _comments.isEmpty;
     setState(() {
-      _commentsLoading = true;
-      _commentsUnavailable = false;
+      _commentsLoading = firstLoad;
+      if (firstLoad) _commentsUnavailable = false;
     });
 
     try {
       final comments = await _service.fetchComments(widget.postId);
-      final previousById = {for (final item in _comments) item.id: item};
-      final commentsWithLoadedReplies = comments.map((comment) {
-        final previous = previousById[comment.id];
-        if (previous == null || previous.replies.isEmpty) return comment;
-        return comment.copyWith(replies: previous.replies);
-      }).toList();
-      if (!mounted) return;
+      if (!mounted || generation != _commentsGeneration) return;
       setState(() {
-        _comments = commentsWithLoadedReplies;
+        _comments = _withLoadedReplies(comments);
         _commentsLoading = false;
+        _commentsUnavailable = false;
       });
+      _refreshStaleExpandedReplies();
     } catch (e) {
       debugPrint('댓글 목록 조회 오류: $e');
-      if (!mounted) return;
+      if (!mounted || generation != _commentsGeneration) return;
       setState(() {
-        _comments = const [];
         _commentsLoading = false;
-        _commentsUnavailable = true;
+        // 이미 보이던 댓글은 그대로 두고, 처음 불러오기에 실패했을 때만 알립니다.
+        _commentsUnavailable = _comments.isEmpty;
       });
+    }
+  }
+
+  /// 새로 받은 댓글 목록에 이미 펼쳐 두었던 답글을 이어 붙입니다.
+  List<CommunityComment> _withLoadedReplies(List<CommunityComment> comments) {
+    final previousById = {for (final item in _comments) item.id: item};
+    return [
+      for (final comment in comments)
+        if (previousById[comment.id] case final previous?
+            when comment.replies.isEmpty && previous.replies.isNotEmpty)
+          comment.copyWith(replies: previous.replies)
+        else
+          comment,
+    ];
+  }
+
+  /// 펼쳐 둔 답글 수가 서버의 답글 수와 다르면 그 답글을 다시 불러옵니다.
+  void _refreshStaleExpandedReplies() {
+    for (final comment in List.of(_comments)) {
+      if (_expandedReplyIds.contains(comment.id) &&
+          comment.replies.length != comment.replyCount) {
+        _loadReplies(comment.id, quiet: true);
+      }
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _controller.removeListener(_onComposerChanged);
     _controller.dispose();
     super.dispose();
   }
@@ -176,18 +232,17 @@ class _CommunityPostDetailScreenState
     }
 
     _liveRefreshInFlight = true;
+    final generation = ++_commentsGeneration;
     try {
-      final detailFuture = _service.fetchFeedDetail(widget.postId);
-      final commentsFuture = _service.fetchComments(widget.postId);
-      final decoded = await detailFuture;
-      final comments = await commentsFuture;
-      final previousById = {for (final item in _comments) item.id: item};
-      final commentsWithLoadedReplies = comments.map((comment) {
-        final previous = previousById[comment.id];
-        if (previous == null || previous.replies.isEmpty) return comment;
-        return comment.copyWith(replies: previous.replies);
-      }).toList();
+      // 두 요청을 함께 보내되, 하나가 실패해도 나머지 요청의 오류까지 처리합니다.
+      final results = await Future.wait<Object>([
+        _service.fetchFeedDetail(widget.postId),
+        _service.fetchComments(widget.postId),
+      ]);
+      final decoded = results[0] as Map<String, dynamic>;
+      final comments = results[1] as List<CommunityComment>;
       if (!mounted) return;
+      final commentsAreCurrent = generation == _commentsGeneration;
       setState(() {
         _postData = decoded;
         _likedByMe =
@@ -199,9 +254,12 @@ class _CommunityPostDetailScreenState
               'notified',
             ]) ??
             _notificationEnabled;
-        _comments = commentsWithLoadedReplies;
-        _commentsUnavailable = false;
+        if (commentsAreCurrent) {
+          _comments = _withLoadedReplies(comments);
+          _commentsUnavailable = false;
+        }
       });
+      if (commentsAreCurrent) _refreshStaleExpandedReplies();
     } catch (e) {
       debugPrint('게시글 갱신 오류: $e');
     } finally {
@@ -214,16 +272,22 @@ class _CommunityPostDetailScreenState
     if (text.isEmpty || _isSubmitting) {
       return;
     }
-    if (!_requireAuthentication()) return;
+    final message = _replyTarget == null
+        ? '로그인하면 작성한 댓글이 바로 등록돼요.'
+        : '로그인하면 작성한 답글이 바로 등록돼요.';
+    if (!await _continueWithAccount(message, () => _isSubmitting = true)) {
+      return;
+    }
 
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _isSubmitting = true);
 
     try {
       final replyTarget = _replyTarget;
       if (replyTarget == null) {
         final created = await _service.createComment(widget.postId, text);
         if (!mounted) return;
+        // 작성 전에 시작된 목록 응답이 늦게 와도 새 댓글을 덮지 않게 합니다.
+        _commentsGeneration++;
         setState(() {
           _controller.clear();
           if (created != null) {
@@ -235,22 +299,27 @@ class _CommunityPostDetailScreenState
       } else {
         final created = await _service.createReply(replyTarget.id, text);
         if (!mounted) return;
+        _commentsGeneration++;
         setState(() {
           _controller.clear();
           _replyTarget = null;
-          if (created != null) {
-            _comments = _comments.map((comment) {
-              if (comment.id != replyTarget.id) return comment;
-              return comment.copyWith(
-                replyCount: comment.replyCount + 1,
-                replies: [...comment.replies, created],
-              );
-            }).toList();
-            _expandedReplyIds.add(replyTarget.id);
-          }
+          _comments = [
+            for (final comment in _comments)
+              if (comment.id == replyTarget.id)
+                comment.copyWith(
+                  replyCount: comment.replyCount + 1,
+                  replies: created == null
+                      ? comment.replies
+                      : [...comment.replies, created],
+                )
+              else
+                comment,
+          ];
           _bumpCommentCount();
           _isSubmitting = false;
         });
+        // 펼치지 않았던 기존 답글과 다른 사람의 새 답글까지 다시 받아 함께 보여줍니다.
+        await _loadReplies(replyTarget.id);
       }
       await _fetchComments();
       await _refreshDetailCounts();
@@ -258,7 +327,9 @@ class _CommunityPostDetailScreenState
       debugPrint('댓글 등록 오류: $e');
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      _showSnackBar('댓글 등록에 실패했습니다. 다시 시도해주세요.');
+      _showSnackBar(
+        communityErrorMessage(e, fallback: '댓글 등록에 실패했습니다. 다시 시도해주세요.'),
+      );
     }
   }
 
@@ -278,28 +349,119 @@ class _CommunityPostDetailScreenState
       setState(() => _expandedReplyIds.remove(comment.id));
       return;
     }
-    if (comment.replies.isNotEmpty) {
+    // 불러온 답글 수가 서버의 답글 수와 같을 때만 저장된 목록을 그대로 펼칩니다.
+    if (comment.replies.isNotEmpty &&
+        comment.replies.length >= comment.replyCount) {
       setState(() => _expandedReplyIds.add(comment.id));
       return;
     }
-    if (_replyLoadingIds.contains(comment.id)) return;
+    await _loadReplies(comment.id);
+  }
 
-    setState(() => _replyLoadingIds.add(comment.id));
+  Future<void> _loadReplies(String commentId, {bool quiet = false}) async {
+    if (_replyLoadingIds.contains(commentId)) return;
+    setState(() => _replyLoadingIds.add(commentId));
     try {
-      final replies = await _service.fetchReplies(comment.id);
+      final replies = await _service.fetchReplies(commentId);
       if (!mounted) return;
       setState(() {
-        _comments = _comments.map((item) {
-          return item.id == comment.id ? item.copyWith(replies: replies) : item;
-        }).toList();
-        _replyLoadingIds.remove(comment.id);
-        _expandedReplyIds.add(comment.id);
+        _comments = [
+          for (final item in _comments)
+            if (item.id == commentId)
+              item.copyWith(replies: replies, replyCount: replies.length)
+            else
+              item,
+        ];
+        _expandedReplyIds.add(commentId);
       });
     } catch (e) {
       debugPrint('답글 목록 조회 오류: $e');
       if (!mounted) return;
-      setState(() => _replyLoadingIds.remove(comment.id));
-      _showSnackBar('답글을 불러오지 못했어요. 다시 시도해주세요.');
+      final hasLoadedReplies = _comments.any(
+        (item) => item.id == commentId && item.replies.isNotEmpty,
+      );
+      if (hasLoadedReplies) {
+        setState(() => _expandedReplyIds.add(commentId));
+      }
+      if (!quiet) _showSnackBar('답글을 불러오지 못했어요. 다시 시도해주세요.');
+    } finally {
+      if (mounted) setState(() => _replyLoadingIds.remove(commentId));
+    }
+  }
+
+  Future<void> _confirmDeleteComment(
+    CommunityComment comment, {
+    bool isReply = false,
+    String? parentId,
+  }) async {
+    if (_deletingCommentIds.contains(comment.id)) return;
+    final hasReplies = !isReply && comment.replyCount > 0;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => HowmuchDialog(
+        title: isReply ? '답글을 삭제할까요?' : '댓글을 삭제할까요?',
+        description: hasReplies
+            ? '이 댓글에 달린 답글도 함께 삭제돼요. 삭제한 내용은 복구할 수 없어요.'
+            : '삭제한 내용은 복구할 수 없어요.',
+        confirmLabel: '삭제하기',
+        destructive: true,
+        confirmKey: ValueKey('confirm_delete_comment_${comment.id}'),
+        onConfirm: () => Navigator.of(dialogContext).pop(true),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _deletingCommentIds.add(comment.id));
+    try {
+      await _service.deleteComment(comment.id);
+      if (!mounted) return;
+      _commentsGeneration++;
+      setState(() {
+        final data = _postData;
+        if (data != null) {
+          final next = Map<String, dynamic>.from(data);
+          final removedCount = isReply ? 1 : 1 + comment.replyCount;
+          next['comments'] = math.max(
+            0,
+            ((next['comments'] as num?)?.toInt() ?? 0) - removedCount,
+          );
+          _postData = next;
+        }
+        if (isReply && parentId != null) {
+          _comments = [
+            for (final item in _comments)
+              if (item.id == parentId)
+                item.copyWith(
+                  replies: item.replies
+                      .where((reply) => reply.id != comment.id)
+                      .toList(growable: false),
+                  replyCount: math.max(0, item.replyCount - 1),
+                )
+              else
+                item,
+          ];
+        } else {
+          _comments = _comments
+              .where((item) => item.id != comment.id)
+              .toList(growable: false);
+          _expandedReplyIds.remove(comment.id);
+          if (_replyTarget?.id == comment.id) _replyTarget = null;
+        }
+      });
+      await Future.wait([_fetchComments(), _refreshDetailCounts()]);
+      if (!mounted) return;
+      _showSnackBar(isReply ? '답글을 삭제했어요.' : '댓글을 삭제했어요.');
+    } catch (error) {
+      debugPrint('댓글 삭제 오류: $error');
+      if (!mounted) return;
+      _showSnackBar(
+        communityErrorMessage(
+          error,
+          fallback: '댓글을 삭제하지 못했어요. 잠시 후 다시 시도해주세요.',
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _deletingCommentIds.remove(comment.id));
     }
   }
 
@@ -345,6 +507,15 @@ class _CommunityPostDetailScreenState
               child: _CommentCard(
                 comment: comment,
                 onReply: () => setState(() => _replyTarget = comment),
+                onDelete: comment.isMine
+                    ? () => _confirmDeleteComment(comment)
+                    : null,
+                onDeleteReply: (reply) => _confirmDeleteComment(
+                  reply,
+                  isReply: true,
+                  parentId: comment.id,
+                ),
+                deletingCommentIds: _deletingCommentIds,
                 repliesExpanded: _expandedReplyIds.contains(comment.id),
                 repliesLoading: _replyLoadingIds.contains(comment.id),
                 onToggleReplies: () => _toggleReplies(comment),
@@ -388,11 +559,21 @@ class _CommunityPostDetailScreenState
 
   Future<void> _toggleLike() async {
     if (_likeInFlight || _postData == null) return;
-    if (!_requireAuthentication()) return;
-    final currentCount = (_postData!['likes'] as num?)?.toInt() ?? 0;
+    // 누른 순간 보이던 상태로 할 일을 정해 둡니다. 로그인 뒤 다시 불러온 계정이
+    // 이미 그 상태면 보내지 않아, 전에 누른 도움이 돼요가 취소되지 않습니다.
     final nextLiked = !_likedByMe;
+    if (!await _continueWithAccount(
+      "로그인하면 '도움이 돼요'가 바로 반영돼요.",
+      () => _likeInFlight = true,
+    )) {
+      return;
+    }
+    if (_likedByMe == nextLiked) {
+      setState(() => _likeInFlight = false);
+      return;
+    }
+    final currentCount = (_postData!['likes'] as num?)?.toInt() ?? 0;
 
-    setState(() => _likeInFlight = true);
     try {
       final result = await _service.setLike(
         postId: widget.postId,
@@ -416,10 +597,19 @@ class _CommunityPostDetailScreenState
 
   Future<void> _toggleNotification() async {
     if (_notificationInFlight || _postData == null) return;
-    if (!_requireAuthentication()) return;
+    // 도움이 돼요와 같이, 로그인 뒤 다시 불러온 상태를 뒤집지 않습니다.
     final nextEnabled = !_notificationEnabled;
+    if (!await _continueWithAccount(
+      '로그인하면 새 댓글 알림을 바로 받을 수 있어요.',
+      () => _notificationInFlight = true,
+    )) {
+      return;
+    }
+    if (_notificationEnabled == nextEnabled) {
+      setState(() => _notificationInFlight = false);
+      return;
+    }
 
-    setState(() => _notificationInFlight = true);
     try {
       final enabled = await _service.setNotification(
         postId: widget.postId,
@@ -439,10 +629,23 @@ class _CommunityPostDetailScreenState
     }
   }
 
-  bool _requireAuthentication() {
-    if (ApiClient.isAuthenticated) return true;
-    _showSnackBar('로그인이 필요해요.');
-    return false;
+  /// 게스트에게 [message]로 로그인을 권하고, 이어 갈 수 있으면 true를 돌려줍니다.
+  /// 방금 로그인했다면 게스트 화면에는 없던 그 계정의 도움이 돼요·알림 상태와
+  /// 내 댓글을 먼저 다시 불러옵니다. 그동안 [markBusy]로 진행 중임을 보여
+  /// 같은 동작이 두 번 시작되지 않게 합니다.
+  Future<bool> _continueWithAccount(
+    String message,
+    VoidCallback markBusy,
+  ) async {
+    final wasGuest = !ApiClient.isAuthenticated;
+    if (!await requireLogin(context, message: message) || !mounted) {
+      return false;
+    }
+    setState(markBusy);
+    if (wasGuest) {
+      await Future.wait([_refreshDetailCounts(), _fetchComments()]);
+    }
+    return mounted;
   }
 
   @override
@@ -456,18 +659,21 @@ class _CommunityPostDetailScreenState
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom > 12 ? safePadding.bottom : 12.0;
-    final designScale = FigmaMobileCanvas.designScaleFor(context);
-    final keyboardInset = designScale <= 0
+    // FigmaMobileCanvas already resizes for the keyboard. Do not add its
+    // height again to the composer inside the resized viewport.
+    final composerBottomGap = MediaQuery.viewInsetsOf(context).bottom > 0
         ? 0.0
-        : MediaQuery.viewInsetsOf(context).bottom / designScale;
-    final composerBottomGap = keyboardInset > 0 ? keyboardInset : bottomOffset;
+        : bottomOffset;
     const composerTopPadding = 14.0;
     const composerHeight = 52.0;
     final replyTarget = _replyTarget;
     final replyBannerHeight = replyTarget == null ? 0.0 : 24.0;
+    final lengthHintVisible = _composerLength >= _lengthHintThreshold;
+    final lengthHintHeight = lengthHintVisible ? 18.0 : 0.0;
     final bottomBarHeight =
         composerTopPadding +
         replyBannerHeight +
+        lengthHintHeight +
         composerHeight +
         composerBottomGap;
     final inputHint = replyTarget == null
@@ -518,32 +724,36 @@ class _CommunityPostDetailScreenState
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
-                            Icons.cloud_off_outlined,
+                          Icon(
+                            _notFound
+                                ? Icons.search_off_rounded
+                                : Icons.cloud_off_outlined,
                             color: CommunityPostDetailScreen.muted,
                             size: 36,
                           ),
                           const SizedBox(height: 10),
-                          const Text(
-                            '게시글을 불러오지 못했어요',
-                            style: TextStyle(
+                          Text(
+                            _notFound ? '게시글을 찾을 수 없어요' : '게시글을 불러오지 못했어요',
+                            style: const TextStyle(
                               color: CommunityPostDetailScreen.ink,
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                           const SizedBox(height: 4),
-                          const Text(
-                            '네트워크 상태를 확인하고 다시 시도해주세요',
-                            style: TextStyle(
+                          Text(
+                            _notFound
+                                ? '삭제되었거나 더 이상 볼 수 없는 제보예요'
+                                : '네트워크 상태를 확인하고 다시 시도해주세요',
+                            style: const TextStyle(
                               color: CommunityPostDetailScreen.muted,
                               fontSize: 11,
                             ),
                           ),
                           const SizedBox(height: 12),
                           OutlinedButton(
-                            onPressed: _fetchDetail,
-                            child: const Text('다시 시도'),
+                            onPressed: _notFound ? goBack : _fetchDetail,
+                            child: Text(_notFound ? '목록으로' : '다시 시도'),
                           ),
                         ],
                       ),
@@ -621,18 +831,44 @@ class _CommunityPostDetailScreenState
                                 ),
                               ),
                             ),
-                            GestureDetector(
-                              onTap: () => setState(() => _replyTarget = null),
-                              behavior: HitTestBehavior.opaque,
-                              child: const Icon(
-                                Icons.close_rounded,
-                                size: 16,
-                                color: CommunityPostDetailScreen.muted,
+                            // The bare X had no name (QA 10/7 #50).
+                            Semantics(
+                              container: true,
+                              button: true,
+                              label: '답글 취소',
+                              child: GestureDetector(
+                                onTap: () =>
+                                    setState(() => _replyTarget = null),
+                                behavior: HitTestBehavior.opaque,
+                                child: const Icon(
+                                  Icons.close_rounded,
+                                  size: 16,
+                                  color: CommunityPostDetailScreen.muted,
+                                ),
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 6),
+                      ],
+                      if (lengthHintVisible) ...[
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '$_composerLength/$communityCommentMaxLength',
+                            key: const ValueKey('comment-length-hint'),
+                            style: TextStyle(
+                              color:
+                                  _composerLength >= communityCommentMaxLength
+                                  ? CommunityPostDetailScreen.orange
+                                  : CommunityPostDetailScreen.muted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              height: 1.2,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
                       ],
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -671,6 +907,11 @@ class _CommunityPostDetailScreenState
                                     enableSuggestions: false,
                                     autocorrect: false,
                                     enabled: !_isSubmitting,
+                                    inputFormatters: [
+                                      LengthLimitingTextInputFormatter(
+                                        communityCommentMaxLength,
+                                      ),
+                                    ],
                                     style: const TextStyle(
                                       color: CommunityPostDetailScreen.ink,
                                       fontFamily:
@@ -718,30 +959,36 @@ class _CommunityPostDetailScreenState
                             width: 52,
                             height: composerHeight,
                             child: FilledButton(
-                              onPressed: _isSubmitting ? null : _submitComment,
+                              onPressed: _isSubmitting || !_composerHasText
+                                  ? null
+                                  : _submitComment,
                               style: FilledButton.styleFrom(
                                 padding: EdgeInsets.zero,
                                 backgroundColor: CommunityPostDetailScreen.blue,
-                                disabledBackgroundColor:
-                                    CommunityPostDetailScreen.muted,
+                                disabledBackgroundColor: _isSubmitting
+                                    ? CommunityPostDetailScreen.muted
+                                    : AppColors.disabledSurface,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                               ),
-                              child: _isSubmitting
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
+                              child: Semantics(
+                                label: replyTarget == null ? '댓글 등록' : '답글 등록',
+                                child: _isSubmitting
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.arrow_upward_rounded,
+                                        size: 18,
                                         color: Colors.white,
                                       ),
-                                    )
-                                  : const Icon(
-                                      Icons.arrow_upward_rounded,
-                                      size: 18,
-                                      color: Colors.white,
-                                    ),
+                              ),
                             ),
                           ),
                         ],
@@ -807,6 +1054,7 @@ class _PostCard extends StatelessWidget {
     final String location = postData!['location']?.toString() ?? '알 수 없음';
     final String createdAt = postData!['createdAt']?.toString() ?? '';
     final String rawStatus = postData!['status']?.toString() ?? 'PENDING';
+    final bool isPriceChange = isCommunityPriceChange(postData!['changeType']);
     final int likes = (postData!['likes'] as num?)?.toInt() ?? 0;
     final int comments = (postData!['comments'] as num?)?.toInt() ?? 0;
     final String? serverAuthorImg =
@@ -838,7 +1086,7 @@ class _PostCard extends StatelessWidget {
     final bool checkedMenuPrice = postData!['checkedMenuPrice'] == true;
     final Object? imageUrls = postData!['imageUrls'];
 
-    final String authorInitial = author.isNotEmpty ? author[0] : '알';
+    final String authorInitial = displayInitial(author, fallback: '알');
     final Color avatarBg = rawStatus.toUpperCase() == 'PENDING'
         ? CommunityPostDetailScreen.softBlue
         : CommunityPostDetailScreen.softOrange;
@@ -912,7 +1160,7 @@ class _PostCard extends StatelessWidget {
                   location: location,
                 ),
               ),
-              _PostStatusBadge(status: rawStatus),
+              _PostStatusBadge(status: rawStatus, isPriceChange: isPriceChange),
             ],
           ),
           const SizedBox(height: 16),
@@ -1104,7 +1352,7 @@ class _PostCard extends StatelessWidget {
                         ),
                         SizedBox(width: 4),
                         Text(
-                          '최근 방문 인증',
+                          '제보자 최근 방문',
                           style: TextStyle(
                             fontSize: 11.5,
                             color: Color(0xFF2563EB),
@@ -1135,7 +1383,7 @@ class _PostCard extends StatelessWidget {
                         ),
                         SizedBox(width: 4),
                         Text(
-                          '메뉴판 직접 확인',
+                          '제보자 메뉴판 확인',
                           style: TextStyle(
                             fontSize: 11.5,
                             color: Color(0xFF2563EB),
@@ -1154,66 +1402,83 @@ class _PostCard extends StatelessWidget {
           const SizedBox(height: 4),
           Row(
             children: [
-              _PostMetric(
-                icon: likedByMe
-                    ? Icons.thumb_up_alt_rounded
-                    : Icons.thumb_up_alt_outlined,
-                label: '도움이 돼요 $likes',
-                active: likedByMe,
-                busy: likeInFlight,
-                onTap: onLikeTap,
+              // 좁은 화면에서는 반응 수가 다음 줄로 내려가 알림 버튼을 밀어내지 않습니다.
+              Expanded(
+                child: Wrap(
+                  spacing: AppSizes.itemSpacing,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _PostMetric(
+                      icon: likedByMe
+                          ? Icons.thumb_up_alt_rounded
+                          : Icons.thumb_up_alt_outlined,
+                      label: '도움이 돼요 $likes',
+                      active: likedByMe,
+                      busy: likeInFlight,
+                      onTap: onLikeTap,
+                    ),
+                    _PostMetric(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      label: '댓글 $comments',
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: AppSizes.itemSpacing),
-              _PostMetric(
-                icon: Icons.chat_bubble_outline_rounded,
-                label: '댓글 $comments',
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: notificationInFlight ? null : onNotifyTap,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: notificationEnabled
-                        ? const Color(0xFFEFF4FF)
-                        : const Color(0xFFFFFFFF),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
+              const SizedBox(width: 8),
+              // An on/off button like IconButton(isSelected), not plain
+              // text (QA 10/7 #54).
+              Semantics(
+                container: true,
+                button: true,
+                selected: notificationEnabled,
+                enabled: !notificationInFlight,
+                child: GestureDetector(
+                  onTap: notificationInFlight ? null : onNotifyTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
                       color: notificationEnabled
                           ? const Color(0xFFEFF4FF)
-                          : const Color(0xFFE5E7EB),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        notificationEnabled
-                            ? Icons.notifications_active_rounded
-                            : Icons.notifications_none_rounded,
-                        size: 14,
+                          : const Color(0xFFFFFFFF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
                         color: notificationEnabled
-                            ? CommunityPostDetailScreen.blue
-                            : CommunityPostDetailScreen.muted,
+                            ? const Color(0xFFEFF4FF)
+                            : const Color(0xFFE5E7EB),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        notificationEnabled ? '알림 켜짐' : '새 댓글 알림',
-                        style: TextStyle(
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          notificationEnabled
+                              ? Icons.notifications_active_rounded
+                              : Icons.notifications_none_rounded,
+                          size: 14,
                           color: notificationEnabled
                               ? CommunityPostDetailScreen.blue
                               : CommunityPostDetailScreen.muted,
-                          fontFamily: CommunityPostDetailScreen.fontFamily,
-                          fontFamilyFallback:
-                              CommunityPostDetailScreen.fontFallback,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Text(
+                          notificationEnabled ? '알림 켜짐' : '새 댓글 알림',
+                          style: TextStyle(
+                            color: notificationEnabled
+                                ? CommunityPostDetailScreen.blue
+                                : CommunityPostDetailScreen.muted,
+                            fontFamily: CommunityPostDetailScreen.fontFamily,
+                            fontFamilyFallback:
+                                CommunityPostDetailScreen.fontFallback,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1459,6 +1724,8 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
                         Icons.close_rounded,
                         color: Colors.white,
                         size: 28,
+                        // The bare X had no name (QA 10/7 #50).
+                        semanticLabel: '사진 닫기',
                       ),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
@@ -1544,41 +1811,47 @@ class _AuthorMeta extends StatelessWidget {
 }
 
 class _PostStatusBadge extends StatelessWidget {
-  const _PostStatusBadge({required this.status});
+  const _PostStatusBadge({required this.status, required this.isPriceChange});
 
   final String status;
+  final bool isPriceChange;
 
   @override
   Widget build(BuildContext context) {
-    if (status.toUpperCase() == 'APPROVED') {
-      return const SizedBox.shrink();
-    }
+    final pending = status.toUpperCase() == 'PENDING';
+    if (!pending && !isPriceChange) return const SizedBox.shrink();
+    // 가격 변동 제보는 검토 상태와 함께 '가격 변동' 배지로 일반 제보와 구분합니다.
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (isPriceChange)
+          _badge(
+            label: '가격 변동',
+            color: CommunityPostDetailScreen.orange,
+            border: const Color(0xFFFFF3EA),
+          ),
+        if (isPriceChange && pending) const SizedBox(width: 6),
+        if (pending)
+          _badge(
+            label: '검토 중',
+            color: const Color(0xFFC2410C),
+            border: const Color(0xFFFDE68A),
+          ),
+      ],
+    );
+  }
 
-    final String label = switch (status.toUpperCase()) {
-      'PENDING' => '검토 중',
-      _ => '가격 변동',
-    };
-
-    final Color color = switch (status.toUpperCase()) {
-      'PENDING' => const Color(0xFFC2410C),
-      _ => CommunityPostDetailScreen.orange,
-    };
-
-    final Color bgColor = switch (status.toUpperCase()) {
-      'PENDING' => const Color(0xFFFFF3EA),
-      _ => const Color(0xFFFFF3EA),
-    };
-
+  Widget _badge({
+    required String label,
+    required Color color,
+    required Color border,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
       decoration: BoxDecoration(
-        color: bgColor,
+        color: const Color(0xFFFFF3EA),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: status.toUpperCase() == 'PENDING'
-              ? const Color(0xFFFDE68A)
-              : const Color(0xFFFFF3EA),
-        ),
+        border: Border.all(color: border),
       ),
       child: Text(
         label,
@@ -1637,10 +1910,11 @@ class _PostMetric extends StatelessWidget {
         ? CommunityPostDetailScreen.blue
         : CommunityPostDetailScreen.muted;
 
-    return GestureDetector(
+    final metric = GestureDetector(
       onTap: busy ? null : onTap,
       behavior: HitTestBehavior.opaque,
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           if (busy)
             const SizedBox(
@@ -1668,6 +1942,16 @@ class _PostMetric extends StatelessWidget {
         ],
       ),
     );
+    if (onTap == null) return metric;
+    // The reaction toggles: a button that says whether it is on, like
+    // IconButton(isSelected), not plain text (QA 10/7 #54).
+    return Semantics(
+      container: true,
+      button: true,
+      selected: active,
+      enabled: !busy,
+      child: metric,
+    );
   }
 }
 
@@ -1675,6 +1959,9 @@ class _CommentCard extends StatelessWidget {
   const _CommentCard({
     required this.comment,
     required this.onReply,
+    required this.onDelete,
+    required this.onDeleteReply,
+    required this.deletingCommentIds,
     required this.repliesExpanded,
     required this.repliesLoading,
     required this.onToggleReplies,
@@ -1684,6 +1971,9 @@ class _CommentCard extends StatelessWidget {
 
   final CommunityComment comment;
   final VoidCallback onReply;
+  final VoidCallback? onDelete;
+  final ValueChanged<CommunityComment> onDeleteReply;
+  final Set<String> deletingCommentIds;
   final bool repliesExpanded;
   final bool repliesLoading;
   final VoidCallback onToggleReplies;
@@ -1762,6 +2052,15 @@ class _CommentCard extends StatelessWidget {
                             ),
                           ),
                         ],
+                        if (onDelete != null) ...[
+                          const SizedBox(width: 2),
+                          _DeleteCommentButton(
+                            key: ValueKey('delete_comment_${comment.id}'),
+                            label: '댓글 삭제',
+                            deleting: deletingCommentIds.contains(comment.id),
+                            onPressed: onDelete!,
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 2),
@@ -1778,15 +2077,19 @@ class _CommentCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    GestureDetector(
-                      onTap: onReply,
-                      behavior: HitTestBehavior.opaque,
-                      child: const Text(
-                        '답글',
-                        style: TextStyle(
-                          color: CommunityPostDetailScreen.blue,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                    Semantics(
+                      container: true,
+                      button: true,
+                      child: GestureDetector(
+                        onTap: onReply,
+                        behavior: HitTestBehavior.opaque,
+                        child: const Text(
+                          '답글',
+                          style: TextStyle(
+                            color: CommunityPostDetailScreen.blue,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -1802,6 +2105,8 @@ class _CommentCard extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 36, top: 6),
                 child: _ReplyCard(
                   reply: reply,
+                  onDelete: reply.isMine ? () => onDeleteReply(reply) : null,
+                  deleting: deletingCommentIds.contains(reply.id),
                   myProfileImageUrl: myProfileImageUrl,
                   myNickname: myNickname,
                 ),
@@ -1858,11 +2163,15 @@ class _CommentCard extends StatelessWidget {
 class _ReplyCard extends StatelessWidget {
   const _ReplyCard({
     required this.reply,
+    required this.onDelete,
+    required this.deleting,
     this.myProfileImageUrl,
     this.myNickname,
   });
 
   final CommunityComment reply;
+  final VoidCallback? onDelete;
+  final bool deleting;
   final String? myProfileImageUrl;
   final String? myNickname;
 
@@ -1919,6 +2228,15 @@ class _ReplyCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                  if (onDelete != null) ...[
+                    const SizedBox(width: 2),
+                    _DeleteCommentButton(
+                      key: ValueKey('delete_reply_${reply.id}'),
+                      label: '답글 삭제',
+                      deleting: deleting,
+                      onPressed: onDelete!,
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 2),
@@ -1935,6 +2253,41 @@ class _ReplyCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DeleteCommentButton extends StatelessWidget {
+  const _DeleteCommentButton({
+    super.key,
+    required this.label,
+    required this.deleting,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool deleting;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: label,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+      padding: EdgeInsets.zero,
+      onPressed: deleting ? null : onPressed,
+      icon: deleting
+          ? const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 1.8),
+            )
+          : const Icon(
+              Icons.delete_outline_rounded,
+              size: 17,
+              color: CommunityPostDetailScreen.muted,
+            ),
     );
   }
 }
@@ -1988,7 +2341,8 @@ String _formatCommentDate(String value) {
     final parsed = DateTime.parse(value).toLocal();
     final now = DateTime.now();
     final diff = now.difference(parsed);
-    if (diff.inSeconds < 45) return '방금 전';
+    // QA #40: 45-59 seconds used to read '0분 전'.
+    if (diff.inMinutes < 1) return '방금 전';
     if (diff.inMinutes < 60) return '${diff.inMinutes}분 전';
     if (diff.inHours < 24) return '${diff.inHours}시간 전';
     if (diff.inDays < 7) return '${diff.inDays}일 전';

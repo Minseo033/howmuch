@@ -1,6 +1,7 @@
 package com.howmuch.controller;
 
 import com.howmuch.service.FirebaseService;
+import com.howmuch.diagnostics.CatalogTiming;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,6 +14,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Collections;
+import java.util.AbstractMap;
+import java.util.AbstractSet;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.Objects;
 
 /**
  * 착한가격업소(공공데이터) + 사용자 제보 매장 조회 API.
@@ -23,15 +31,20 @@ import java.util.Map;
 @Slf4j
 public class StoresController {
 
+    /** 범위 조회 결과가 상한으로 잘렸음을 알리는 응답 헤더(CORS 노출은 WebConfig에서 설정) */
+    public static final String STORES_TRUNCATED_HEADER = "X-Stores-Truncated";
+
     private final FirebaseService firebaseService;
+    private volatile MapCatalog cachedMapCatalog;
+
+    private record MapCatalog(String sourceEtag, List<Map<String, Object>> source,
+                              List<Map<String, Object>> stores, String etag) {}
 
     public StoresController(FirebaseService firebaseService) {
         this.firebaseService = firebaseService;
     }
 
     /** 전체 매장 데이터 (인메모리 캐시, gzip 압축 응답) */
-    public ResponseEntity<?> getAllStores() { return getAllStores(null); }
-
     @GetMapping("/all")
     public ResponseEntity<?> getAllStores(@RequestHeader(value = "If-None-Match", required = false) String ifNoneMatch) {
         try {
@@ -54,6 +67,102 @@ public class StoresController {
         }
     }
 
+    /** Nationwide map/search data; source-backed hours load with the existing detail endpoint. */
+    @GetMapping("/catalog")
+    public ResponseEntity<?> getMapCatalog(@RequestHeader(value = "If-None-Match", required = false) String ifNoneMatch) {
+        try {
+            MapCatalog catalog = mapCatalog(firebaseService.getPublicStoreCatalog());
+            String etag = catalog.etag();
+            if (etag != null && ifNoneMatch != null && java.util.Arrays.stream(ifNoneMatch.split(","))
+                    .map(String::trim).map(value -> value.startsWith("W/") ? value.substring(2) : value)
+                    .anyMatch(value -> value.equals(etag) || value.equals("*"))) {
+                return ResponseEntity.status(304).eTag(etag).cacheControl(CacheControl.noCache().cachePublic()).build();
+            }
+            return ResponseEntity.ok().cacheControl(CacheControl.noCache().cachePublic())
+                    .eTag(etag).body(catalog.stores());
+        } catch (Exception exception) {
+            log.warn("지도 매장 목록 조회 실패: {}", exception.getClass().getSimpleName());
+            return ResponseEntity.status(503).body(Map.of(
+                    "success", false, "message", "매장 목록을 불러오지 못했습니다."));
+        }
+    }
+
+    private MapCatalog mapCatalog(FirebaseService.PublicStoreCatalog source) {
+        MapCatalog cached = cachedMapCatalog;
+        if (cached != null && cached.source() == source.stores()
+                && Objects.equals(cached.sourceEtag(), source.etag())) {
+            CatalogTiming.map("hit");
+            return cached;
+        }
+        long waitStarted = System.nanoTime();
+        synchronized (this) {
+            CatalogTiming.record("map_wait", waitStarted);
+            cached = cachedMapCatalog;
+            if (cached != null && cached.source() == source.stores()
+                    && Objects.equals(cached.sourceEtag(), source.etag())) {
+                CatalogTiming.map("shared");
+                return cached;
+            }
+            long buildStarted = System.nanoTime();
+            // The canonical snapshot is already deeply immutable. A read-only view avoids
+            // rebuilding 11k hash tables just to hide one detail-only field.
+            List<Map<String, Object>> stores = source.stores().stream()
+                    .<Map<String, Object>>map(MapStoreView::new).toList();
+            String etag = source.etag() == null ? null
+                    : source.etag().substring(0, source.etag().length() - 1) + "-map-v1\"";
+            cached = new MapCatalog(source.etag(), source.stores(), stores, etag);
+            cachedMapCatalog = cached;
+            CatalogTiming.record("map_build", buildStarted);
+            CatalogTiming.map("miss");
+            return cached;
+        }
+    }
+
+    /** Read-only projection of a deeply immutable canonical store, preserving JSON entry order. */
+    private static final class MapStoreView extends AbstractMap<String, Object> {
+        private static final String DETAIL_FIELD = "openingHours";
+        private final Map<String, Object> source;
+        private final Set<Entry<String, Object>> entries;
+
+        MapStoreView(Map<String, Object> source) {
+            this.source = Collections.unmodifiableMap(source);
+            this.entries = Collections.unmodifiableSet(new AbstractSet<>() {
+                @Override public int size() { return MapStoreView.this.size(); }
+
+                @Override public Iterator<Entry<String, Object>> iterator() {
+                    Iterator<Entry<String, Object>> original = MapStoreView.this.source.entrySet().iterator();
+                    return new Iterator<>() {
+                        private Entry<String, Object> next;
+
+                        @Override public boolean hasNext() {
+                            while (next == null && original.hasNext()) {
+                                Entry<String, Object> candidate = original.next();
+                                if (!DETAIL_FIELD.equals(candidate.getKey())) next = candidate;
+                            }
+                            return next != null;
+                        }
+
+                        @Override public Entry<String, Object> next() {
+                            if (!hasNext()) throw new NoSuchElementException();
+                            Entry<String, Object> result = next;
+                            next = null;
+                            // Canonical entries, including setValue, are unmodifiable.
+                            return result;
+                        }
+                    };
+                }
+            });
+        }
+
+        @Override public Set<Entry<String, Object>> entrySet() { return entries; }
+        @Override public int size() { return source.size() - (source.containsKey(DETAIL_FIELD) ? 1 : 0); }
+        @Override public Object get(Object key) { return DETAIL_FIELD.equals(key) ? null : source.get(key); }
+        @Override public boolean containsKey(Object key) { return !DETAIL_FIELD.equals(key) && source.containsKey(key); }
+        @Override public Object put(String key, Object value) { throw new UnsupportedOperationException(); }
+        @Override public Object remove(Object key) { throw new UnsupportedOperationException(); }
+        @Override public void clear() { throw new UnsupportedOperationException(); }
+    }
+
     /** 화면 범위(Bounds) 내 매장 조회: /api/stores/bounds?minLat=37.5&maxLat=37.6&minLng=126.9&maxLng=127.0 */
     @GetMapping("/{storeId}")
     public ResponseEntity<?> getStore(@PathVariable String storeId) {
@@ -62,6 +171,11 @@ public class StoresController {
         }
         try {
             Map<String, Object> store = firebaseService.getStoreById(storeId);
+            if (store == null && firebaseService.isStoreCatalogWarmingUp()) {
+                // BE-CORE-7: 시작 직후 목록을 불러오는 중에는 "없음"으로 확정하지 않습니다.
+                return ResponseEntity.status(503).header("Retry-After", "5").body(Map.of(
+                        "success", false, "message", "매장 정보를 준비하고 있어요. 잠시 후 다시 시도해주세요."));
+            }
             return store == null ? ResponseEntity.status(404).body(Map.of("success", false, "message", "매장을 찾을 수 없습니다."))
                     : ResponseEntity.ok().cacheControl(CacheControl.noCache()).body(store);
         } catch (Exception exception) {
@@ -80,7 +194,14 @@ public class StoresController {
                     "message", "지도 조회 범위가 올바르지 않습니다."));
         }
         try {
-            return ResponseEntity.ok(firebaseService.getStoresInBounds(minLat, maxLat, minLng, maxLng));
+            // 계약 C6: 중심 거리순 1,200곳 제한. 잘렸으면 X-Stores-Truncated: true 헤더로 알립니다.
+            FirebaseService.BoundsResult result = firebaseService.getStoresInBoundsPage(minLat, maxLat, minLng, maxLng);
+            if (result == null) {
+                return ResponseEntity.ok(List.of());
+            }
+            ResponseEntity.BodyBuilder response = ResponseEntity.ok();
+            if (result.truncated()) response.header(STORES_TRUNCATED_HEADER, "true");
+            return response.body(result.stores());
         } catch (Exception e) {
             log.error("[StoresController] 지도 범위 매장 조회 오류", e);
             return ResponseEntity.status(500).body(Map.of(

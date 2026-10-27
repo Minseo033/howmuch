@@ -103,7 +103,7 @@ public class AiController {
         // Generated prose is not a source of store identity or menu facts. Both
         // provider-success and provider-failure paths use the same validation.
         if (recommendationRequest) {
-            aiResponse = geminiService.verifiedRecommendationText(recommendations, radiusMeters, fallback);
+            aiResponse = geminiService.verifiedRecommendationText(message, recommendations, radiusMeters, fallback);
         } else if (fallback) {
             aiResponse = "현재 AI 연결이 원활하지 않아요. 찾으시는 메뉴와 예산을 말씀해 주시면 "
                     + "선택한 거리 안의 실제 매장을 확인해 드릴게요.";

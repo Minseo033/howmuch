@@ -6,6 +6,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -80,15 +82,39 @@ class _NotificationSettingsScreenState
     if (mounted) context.pop();
   }
 
+  /// Login opens on top of this screen and comes back here, as a member or
+  /// still as a guest. The settings follow the account and load by
+  /// themselves on every login state change; a load that failed while login
+  /// was still finishing is asked for again.
+  Future<void> _logIn() async {
+    await openLoginFlow(context);
+    if (!mounted || !ApiClient.isAuthenticated) return;
+    if (ref.read(notificationSettingsProvider).hasError) {
+      ref.read(notificationSettingsProvider.notifier).loadSettings();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // A login state change loads another account's settings (or none), so
+    // the next settings shown become the saved ones.
+    ref.listen(
+      notificationSettingsProvider.notifier,
+      (_, _) => _savedSettings = null,
+    );
     final settingsAsync = ref.watch(notificationSettingsProvider);
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
     final saveFooterHeight = _StickySaveButton.heightFor(bottomOffset);
+    final quietHoursTextExtra =
+        math.max(0.0, MediaQuery.textScalerOf(context).scale(11) - 11) * 1.5;
     final scrollContentHeight =
-        715.5341796875 + topOffset + saveFooterHeight + 36;
+        715.5341796875 +
+        quietHoursTextExtra +
+        topOffset +
+        saveFooterHeight +
+        36;
 
     void update(NotificationSettings value) {
       if (_isSaving) return;
@@ -284,10 +310,10 @@ class _NotificationSettingsScreenState
                   ),
                 ),
                 error: (err, stack) {
-                  final unauthorized =
-                      err is NotificationSettingsApiException &&
-                      err.isUnauthorized;
-                  if (unauthorized) {
+                  // Only a guest can fix an error by logging in. A member
+                  // turned down (403) would come straight back from login,
+                  // so they get the retry below.
+                  if (!ApiClient.isAuthenticated) {
                     return Padding(
                       padding: EdgeInsets.only(
                         top: 48.877838134765625 + topOffset,
@@ -296,7 +322,7 @@ class _NotificationSettingsScreenState
                       child: LoginRequiredState(
                         description: '로그인한 뒤 알림 설정을 변경할 수 있어요.',
                         actionLabel: '로그인하기',
-                        onAction: () => context.go(AppRoutes.login),
+                        onAction: _logIn,
                       ),
                     );
                   }
@@ -452,7 +478,7 @@ class _NotificationSettingsScreenState
                             left: 20,
                             right: 20,
                             top: 571.5341796875 + topOffset,
-                            height: 144,
+                            height: 144 + quietHoursTextExtra,
                             child: _QuietHoursCard(
                               settings: settings,
                               onToggle: () => update(
@@ -597,20 +623,25 @@ class _Header extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: 48.877838134765625,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  hoverColor: AppColors.primaryLight,
-                  onTap: onBack,
-                  child: const Padding(
-                    padding: EdgeInsets.zero,
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.arrow_back_rounded,
-                        size: 24,
-                        color: NotificationSettingsScreen.ink,
+              // The bare arrow had no name (QA 10/7 #50).
+              child: Semantics(
+                button: true,
+                label: '뒤로가기',
+                child: Material(
+                  color: AppColors.transparent,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    hoverColor: AppColors.primaryLight,
+                    onTap: onBack,
+                    child: const Padding(
+                      padding: EdgeInsets.zero,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          size: 24,
+                          color: NotificationSettingsScreen.ink,
+                        ),
                       ),
                     ),
                   ),
@@ -667,7 +698,9 @@ class _AllNotificationCard extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: _TitleSubtitle(
                   title: '전체 알림',
-                  subtitle: '모든 알림을 켜고 끌 수 있어요',
+                  // 아래 알림 유형을 한꺼번에 바꾸는 스위치입니다. 이 기기로 푸시를
+                  // 받을지는 마이의 '이 기기 푸시 알림'이 따로 정합니다.
+                  subtitle: '알림 유형을 한 번에 켜고 꺼요',
                 ),
               ),
             ),
@@ -713,6 +746,8 @@ class _NotificationTypeCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Each toggle names the notifications the server actually gates
+          // with it (contract C3).
           _NotificationRow(
             title: '가격 변동 알림',
             subtitle: '찜한 매장의 가격 변동 제보를 알려드려요.',
@@ -721,22 +756,25 @@ class _NotificationTypeCard extends StatelessWidget {
           ),
           const _CardDivider(lineKey: ValueKey('notification-type-divider')),
           _NotificationRow(
-            title: '제보 상태 알림',
-            subtitle: '내 제보가 승인되거나 보완 요청되면 알려드려요.',
+            title: '제보·문의 알림',
+            subtitle: '제보 승인·반려와 문의 답변을 알려드려요.',
             value: settings.report,
             onTap: onReportTap,
           ),
           const _CardDivider(),
+          // Nothing sends this notification yet, so it is shown as upcoming
+          // instead of a switch that changes nothing.
           _NotificationRow(
             title: '오늘의 픽 추천',
-            subtitle: '날씨와 위치에 맞는 추천 매장을 알려드려요.',
+            subtitle: '아직 보내지 않는 알림이에요.',
             value: settings.todayPick,
             onTap: onTodayPickTap,
+            available: false,
           ),
           const _CardDivider(),
           _NotificationRow(
-            title: '리뷰 반응 알림',
-            subtitle: '내 리뷰에 반응이 있을 때 알려드려요.',
+            title: '댓글 알림',
+            subtitle: '내 글·알림 받는 글의 댓글을 알려드려요.',
             value: settings.review,
             onTap: onReviewTap,
           ),
@@ -752,17 +790,19 @@ class _NotificationRow extends StatelessWidget {
     required this.subtitle,
     required this.value,
     required this.onTap,
+    this.available = true,
   });
 
   final String title;
   final String subtitle;
   final bool value;
   final VoidCallback onTap;
+  final bool available;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: available ? onTap : null,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
         height: 66.9602279663086,
@@ -779,7 +819,17 @@ class _NotificationRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              _HowmuchToggle(semanticLabel: title, value: value, onTap: onTap),
+              if (available)
+                _HowmuchToggle(semanticLabel: title, value: value, onTap: onTap)
+              else
+                const SizedBox(
+                  width: 52,
+                  height: 36,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text('준비 중', style: _muted11),
+                  ),
+                ),
             ],
           ),
         ),
@@ -799,10 +849,10 @@ class _PriceAlertEntryCard extends ConsumerWidget {
     final subtitle = settings.when(
       data: (value) {
         final enabled = value.stores.where((store) => store.enabled).toList();
-        final menuCount = enabled
-            .where((store) => store.menuName.trim().isNotEmpty)
-            .length;
-        return '매장 ${enabled.length}곳 · 메뉴 $menuCount개 관리';
+        // Alerts are per store, so a menu count only repeated the store count.
+        return enabled.isEmpty
+            ? '알림 받는 매장이 없어요'
+            : '매장 ${enabled.length}곳 알림 받는 중';
       },
       loading: () => '가격 알림 정보를 불러오는 중',
       error: (_, _) => '가격 알림에서 구독 현황 확인',
@@ -923,13 +973,13 @@ class _TimeBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 66,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 66),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 11.988),
+            padding: const EdgeInsets.only(left: 10),
             child: Text(
               label,
               key: ValueKey('quiet-time-label-$label'),
@@ -952,15 +1002,19 @@ class _TimeBox extends StatelessWidget {
               child: SizedBox(
                 height: 41.9886360168457,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 11.988),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: Row(
                     children: [
-                      Text(
-                        _displayTime(value),
-                        key: ValueKey('quiet-time-value-$label'),
-                        style: _semi13,
+                      Expanded(
+                        child: Text(
+                          _displayTime(value),
+                          key: ValueKey('quiet-time-value-$label'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _semi13,
+                        ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: 4),
                       const Icon(
                         Icons.keyboard_arrow_down_rounded,
                         size: 14,
@@ -1041,6 +1095,10 @@ class _StickySaveButton extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: NotificationSettingsScreen.blue,
                   foregroundColor: AppColors.white,
+                  // The button turns off while saving; it keeps its color so
+                  // the white spinner stays visible.
+                  disabledBackgroundColor: NotificationSettingsScreen.blue,
+                  disabledForegroundColor: AppColors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(22),
@@ -1088,9 +1146,12 @@ class _HowmuchToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Without an enabled flag iOS reads the switch as disabled even when it
+    // is on and works (QA 10/7 #50).
     return Semantics(
       button: true,
       toggled: value,
+      enabled: true,
       label: semanticLabel ?? '알림 설정',
       child: GestureDetector(
         onTap: onTap,
@@ -1183,7 +1244,12 @@ class _TitleSubtitle extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: compact ? _bold13 : _bold14),
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: compact ? _bold13 : _bold14,
+        ),
         SizedBox(height: compact ? 3.0 : 2.0),
         Text(
           subtitle,

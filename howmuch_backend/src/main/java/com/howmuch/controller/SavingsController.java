@@ -59,10 +59,6 @@ public class SavingsController {
         }
     }
 
-    public ResponseEntity<?> getSavingsHistory(HttpServletRequest request) {
-        return getSavingsHistory(null, null, request);
-    }
-
     /**
      * 절약 통계 및 차트 데이터 조회 (GET /api/savings/stats?period=this_month|last_month|this_year)
      * 세션 토큰으로 인증된 유저의 visits 데이터를 기반으로 기간별 총 절약 금액 및 주차/월별 차트 집계 데이터를 반환합니다.

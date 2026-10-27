@@ -5,15 +5,33 @@ import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/app/startup_location.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
-  const ProfileSetupScreen({super.key});
+  const ProfileSetupScreen({
+    super.key,
+    this.onSaved,
+    this.onBack,
+    this.onSaving,
+  });
+
+  /// Inside the login flow opened on top of a screen: called once the
+  /// profile is saved, instead of moving on to the address requested before
+  /// sign-up.
+  final VoidCallback? onSaved;
+
+  /// Inside that login flow: the back button leaves sign-up.
+  final VoidCallback? onBack;
+
+  /// Inside that login flow: told when the profile save starts, with whether
+  /// the server stored the profile.
+  final void Function(Future<bool> saved)? onSaving;
 
   @override
   ConsumerState<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
@@ -198,11 +216,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   void _showErrorSnackBar(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      HowmuchSnackBar.error(
-        content: Text(message),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(HowmuchSnackBar.error(content: Text(message)));
   }
 
   @override
@@ -223,24 +239,37 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     try {
       final authState = ref.read(authStateProvider);
       final email = authState.email;
+      final nickname = _nicknameController.text.trim();
+      final region = _regionController.text.trim();
+      final categories = _selectedCategories.toList();
 
-      final service = UserProfileApiService();
-      await service.saveProfile(
-        nickname: _nicknameController.text.trim(),
-        email: email,
-        region: _regionController.text.trim(),
-        favoriteCategories: _selectedCategories.toList(),
-        profileImageUrl: authState.profileImageUrl,
-      );
+      final saving = ref
+          .read(userProfileApiServiceProvider)
+          .saveProfile(
+            nickname: nickname,
+            email: email,
+            region: region,
+            favoriteCategories: categories,
+            profileImageUrl: authState.profileImageUrl,
+          );
+      widget.onSaving?.call(saving);
+      final saved = await saving;
+      if (!saved) {
+        // Without a stored profile the next launch sends the user back to
+        // login, so stay here and let them retry instead of entering the app.
+        _showErrorSnackBar('프로필을 저장하지 못했어요. 네트워크 상태를 확인하고 다시 시도해 주세요.');
+        return;
+      }
+      if (!mounted) return;
 
       ref
           .read(userProfileProvider.notifier)
           .update(
             (state) => state.copyWith(
-              nickname: _nicknameController.text.trim(),
+              nickname: nickname,
               email: email,
-              region: _regionController.text.trim(),
-              favoriteCategories: _selectedCategories.toList(),
+              region: region,
+              favoriteCategories: categories,
               profileImageUrl: authState.profileImageUrl,
             ),
           );
@@ -262,7 +291,14 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         }
       }
 
-      if (mounted) context.go(AppRoutes.home);
+      // A new member also reaches the address requested before sign-up.
+      if (!mounted) return;
+      final onSaved = widget.onSaved;
+      if (onSaved != null) {
+        onSaved();
+      } else {
+        context.go(ref.read(startupLocationProvider).take());
+      }
     } catch (e) {
       _showErrorSnackBar('저장 중 오류가 발생했어요. 다시 시도해 주세요.');
     } finally {
@@ -277,16 +313,20 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     return FigmaMobileCanvas(
       child: Scaffold(
         backgroundColor: const Color(0xFFF4F6FA),
-        appBar: _buildAppBar(),
         body: SafeArea(
           child: Column(
             children: [
+              // The same bar as the login step before it.
+              SizedBox(
+                height: HowmuchTopBar.height,
+                child: HowmuchTopBar(title: '프로필 설정', onBack: _handleBack),
+              ),
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.only(
                     left: 20,
                     right: 20,
-                    top: 8,
+                    top: 16,
                     bottom: 24,
                   ),
                   child: Column(
@@ -319,36 +359,15 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     );
   }
 
-  // ─── AppBar
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: const Color(0xFFF4F6FA),
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      centerTitle: true,
-      leading: IconButton(
-        onPressed: () {
-          if (context.canPop()) context.pop();
-        },
-        icon: const Icon(Icons.arrow_back_rounded, size: 18, color: _ink),
-        splashRadius: 20,
-      ),
-      title: const Text(
-        '프로필 설정',
-        style: TextStyle(
-          fontFamily: _font,
-          fontFamilyFallback: _fontFallback,
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: _ink,
-          letterSpacing: -0.2,
-        ),
-      ),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: const Color(0xFFF4F6FA)),
-      ),
-    );
+  void _handleBack() {
+    // Leaving while the profile saves could drop a stored account.
+    if (_isLoading) return;
+    final onBack = widget.onBack;
+    if (onBack != null) {
+      onBack();
+    } else if (context.canPop()) {
+      context.pop();
+    }
   }
 
   // ─── STEP 뱃지
@@ -675,9 +694,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           Container(
             margin: const EdgeInsets.only(top: 4),
             decoration: BoxDecoration(
-              color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _border),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.04),
@@ -686,39 +703,52 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 ),
               ],
             ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 200),
-              child: ListView.separated(
-                shrinkWrap: true,
-                padding: EdgeInsets.zero,
-                itemCount: _regionSuggestions.length,
-                separatorBuilder: (context, index) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final address = _regionSuggestions[index];
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                    title: Text(
-                      address,
-                      style: const TextStyle(
-                        fontFamily: _font,
-                        fontFamilyFallback: _fontFallback,
-                        fontSize: 14,
-                        color: _ink,
+            // The white Material under the rows shows their tap ripple, which
+            // an opaque box would cover.
+            child: Material(
+              color: Colors.white,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: _border),
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 200),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: _regionSuggestions.length,
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final address = _regionSuggestions[index];
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
                       ),
-                    ),
-                    onTap: () {
-                      _regionController.text = address;
-                      setState(() => _regionSuggestions.clear());
-                      FocusScope.of(context).unfocus();
-                    },
-                  );
-                },
+                      title: Text(
+                        address,
+                        style: const TextStyle(
+                          fontFamily: _font,
+                          fontFamilyFallback: _fontFallback,
+                          fontSize: 14,
+                          color: _ink,
+                        ),
+                      ),
+                      onTap: () {
+                        _regionController.text = address;
+                        setState(() => _regionSuggestions.clear());
+                        FocusScope.of(context).unfocus();
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ),
         const SizedBox(height: 6),
         const Text(
-          '선택한 지역은 내 프로필에 저장되며 나중에 변경할 수 있어요.',
+          '선택한 동네는 내 프로필에 저장돼요. 바꾸려면 1:1 문의로 요청해 주세요.',
           style: TextStyle(
             fontFamily: _font,
             fontFamilyFallback: _fontFallback,
@@ -771,56 +801,67 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           runSpacing: 8,
           children: _allCategories.map((cat) {
             final selected = _selectedCategories.contains(cat);
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  if (selected) {
-                    _selectedCategories.remove(cat);
-                  } else {
-                    _selectedCategories.add(cat);
-                  }
-                });
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 9,
-                ),
-                decoration: BoxDecoration(
-                  color: selected ? _chipSelected : _chipUnselected,
-                  borderRadius: BorderRadius.circular(99),
-                  border: Border.all(
-                    color: selected ? _chipSelected : _chipUnselectedBorder,
-                    width: 1,
+            void toggle() {
+              setState(() {
+                if (selected) {
+                  _selectedCategories.remove(cat);
+                } else {
+                  _selectedCategories.add(cat);
+                }
+              });
+            }
+
+            // The chip is drawn by hand, so expose its checked state to
+            // screen readers the way a FilterChip would.
+            return Semantics(
+              button: true,
+              checked: selected,
+              label: cat,
+              onTap: toggle,
+              excludeSemantics: true,
+              child: GestureDetector(
+                onTap: toggle,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 9,
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (selected) ...[
-                      const Icon(
-                        Icons.check_rounded,
-                        size: 13,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 4),
-                    ],
-                    Text(
-                      cat,
-                      style: TextStyle(
-                        fontFamily: _font,
-                        fontFamilyFallback: _fontFallback,
-                        fontSize: 13,
-                        fontWeight: selected
-                            ? FontWeight.w600
-                            : FontWeight.w500,
-                        color: selected
-                            ? _chipSelectedText
-                            : _chipUnselectedText,
-                      ),
+                  decoration: BoxDecoration(
+                    color: selected ? _chipSelected : _chipUnselected,
+                    borderRadius: BorderRadius.circular(99),
+                    border: Border.all(
+                      color: selected ? _chipSelected : _chipUnselectedBorder,
+                      width: 1,
                     ),
-                  ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (selected) ...[
+                        const Icon(
+                          Icons.check_rounded,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(
+                        cat,
+                        style: TextStyle(
+                          fontFamily: _font,
+                          fontFamilyFallback: _fontFallback,
+                          fontSize: 13,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          color: selected
+                              ? _chipSelectedText
+                              : _chipUnselectedText,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -828,7 +869,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         ),
         const SizedBox(height: 8),
         const Text(
-          '관심 업종은 내 프로필에 저장되며 나중에 변경할 수 있어요.',
+          '관심 업종은 내 프로필에 저장돼요. 바꾸려면 1:1 문의로 요청해 주세요.',
           style: TextStyle(
             fontFamily: _font,
             fontFamilyFallback: _fontFallback,
@@ -1004,7 +1045,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           ),
           const SizedBox(height: 10),
           const Text(
-            '입력 정보는 추천 정확도 향상에만 사용되며\n언제든 마이페이지에서 수정할 수 있어요.',
+            '닉네임은 리뷰와 커뮤니티에 표시되며\n마이페이지 > 프로필 수정에서 바꿀 수 있어요.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: _font,

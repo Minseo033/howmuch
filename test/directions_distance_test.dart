@@ -4,7 +4,111 @@ import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
 import 'package:howmuch/features/store/presentation/screens/directions_external_app_screen.dart';
 import 'package:geolocator/geolocator.dart';
 
+Position _position(double latitude, DateTime timestamp) => Position(
+  latitude: latitude,
+  longitude: 126.9780,
+  timestamp: timestamp,
+  accuracy: 5,
+  altitude: 0,
+  altitudeAccuracy: 0,
+  heading: 0,
+  headingAccuracy: 0,
+  speed: 0,
+  speedAccuracy: 0,
+);
+
+class _CachedThenCurrentGeolocator extends GeolocatorPlatform {
+  _CachedThenCurrentGeolocator({required this.lastKnown, required this.current});
+
+  final Position lastKnown;
+  final Position current;
+  int currentRequests = 0;
+
+  @override
+  Future<bool> isLocationServiceEnabled() async => true;
+
+  @override
+  Future<LocationPermission> checkPermission() async =>
+      LocationPermission.whileInUse;
+
+  @override
+  Future<Position?> getLastKnownPosition({
+    bool forceLocationManager = false,
+  }) async => lastKnown;
+
+  @override
+  Future<Position> getCurrentPosition({
+    LocationSettings? locationSettings,
+  }) async {
+    currentRequests++;
+    return current;
+  }
+}
+
 void main() {
+  group('directions start position freshness', () {
+    late GeolocatorPlatform original;
+    setUp(() => original = GeolocatorPlatform.instance);
+    tearDown(() {
+      GeolocatorPlatform.instance = original;
+      HomeMapScreen.globalUserPosition = null;
+    });
+
+    test('only a fix from the last two minutes counts as fresh', () {
+      final now = DateTime(2026, 10, 6, 12);
+      expect(
+        isFreshLastKnownPosition(
+          _position(37.5, now.subtract(const Duration(seconds: 90))),
+          now,
+        ),
+        isTrue,
+      );
+      expect(
+        isFreshLastKnownPosition(
+          _position(37.5, now.subtract(const Duration(minutes: 10))),
+          now,
+        ),
+        isFalse,
+      );
+      expect(isFreshLastKnownPosition(null, now), isFalse);
+    });
+
+    for (final stale in [true, false]) {
+      testWidgets(
+        stale
+            ? 'a stale cached fix is replaced by a current one'
+            : 'a recent cached fix is used without waiting for GPS',
+        (tester) async {
+          final now = DateTime.now();
+          final geolocator = _CachedThenCurrentGeolocator(
+            // About 3.7km from the store when stale, about 56m when recent.
+            lastKnown: stale
+                ? _position(37.6000, now.subtract(const Duration(minutes: 30)))
+                : _position(37.5665, now.subtract(const Duration(seconds: 30))),
+            current: _position(37.5665, now),
+          );
+          GeolocatorPlatform.instance = geolocator;
+
+          await tester.pumpWidget(
+            const MaterialApp(
+              home: DirectionsExternalAppScreen(
+                storeName: '착한식당',
+                address: '서울시 중구 세종대로 110',
+                distanceLabel: '거리 정보 확인 중',
+                latitude: 37.5670,
+                longitude: 126.9780,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(find.text('56m'), findsOneWidget);
+          expect(geolocator.currentRequests, stale ? 1 : 0);
+        },
+      );
+    }
+  });
+
   group('DirectionsExternalAppScreen distance resolution', () {
     tearDown(() {
       HomeMapScreen.globalUserPosition = null;

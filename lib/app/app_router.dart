@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/app/app_route_observer.dart';
+import 'package:howmuch/app/startup_location.dart';
 import 'package:howmuch/features/auth/presentation/screens/login_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/auth_terms_screen.dart';
+import 'package:howmuch/features/auth/presentation/screens/login_flow_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/permission_setup_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/splash_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/community_feed_screen.dart';
@@ -64,21 +66,27 @@ import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final routeObserver = ref.watch(appRouteObserverProvider);
+  final navigationTracker = ref.watch(appNavigationTrackerProvider);
+  // Read before the router reports the splash address to the browser.
+  final startupLocation = ref.watch(startupLocationProvider);
   final platformUri = Uri.tryParse(
     WidgetsBinding.instance.platformDispatcher.defaultRouteName,
   );
   final isOauthCallback =
       platformUri?.host == 'oauth' || platformUri?.path == '/oauth';
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: AppRoutes.splash,
-    observers: [routeObserver],
+    observers: [routeObserver, navigationTracker],
     // 웹 하위 경로 새로고침도 반드시 세션 검증을 거치게 합니다.
     // 카카오 OAuth 콜백은 SDK가 처리할 수 있도록 원래 경로를 보존합니다.
+    // 요청한 주소는 startupLocation이 보관했다가 세션 확인·로그인 뒤 엽니다.
+    // 탭 위에 push한 화면은 탭 주소를 유지하므로 새로고침하면 그 탭으로 돌아갑니다.
     overridePlatformDefaultLocation: !isOauthCallback,
     redirect: (context, state) {
       if (state.uri.host == 'oauth' || state.uri.path == '/oauth') {
         return '/oauth_loading';
       }
+      if (!isStartupPath(state.uri.path)) startupLocation.clear();
       return null;
     },
     routes: [
@@ -95,21 +103,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.reviewList,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: ReviewListScreen(store: state.extra as Store?),
         ),
       ),
       GoRoute(
         path: AppRoutes.reviewWrite,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: ReviewWriteScreen(store: state.extra as Store?),
         ),
       ),
       GoRoute(
         path: AppRoutes.priceHistory,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: PriceHistoryScreen(
             store: state.extra is PriceHistoryTarget
@@ -125,12 +133,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.priceChangeReport,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: PriceChangeReportScreen(
-            store: state.extra is Store ? state.extra as Store : null,
-            storeName: state.extra is Store
+            store: state.extra is PriceChangeReportTarget
+                ? (state.extra as PriceChangeReportTarget).store
+                : state.extra is Store
+                ? state.extra as Store
+                : null,
+            initialMenuIndex: state.extra is PriceChangeReportTarget
+                ? (state.extra as PriceChangeReportTarget).menuIndex
+                : null,
+            initialReport: state.extra is UserReportStatus
+                ? state.extra as UserReportStatus
+                : null,
+            storeName: state.extra is PriceChangeReportTarget
+                ? (state.extra as PriceChangeReportTarget).store.storeName
+                : state.extra is Store
                 ? (state.extra as Store).storeName
+                : state.extra is UserReportStatus
+                ? (state.extra as UserReportStatus).store
                 : state.extra is String
                 ? state.extra as String
                 : '매장 정보 없음',
@@ -139,10 +161,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.storeInfoReport,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: StoreInfoReportScreen(
-            store: state.extra is Store ? state.extra as Store : null,
+            store: state.extra is StoreInfoReportTarget
+                ? (state.extra as StoreInfoReportTarget).store
+                : state.extra is Store
+                ? state.extra as Store
+                : null,
+            initialReport: state.extra is StoreInfoReportTarget
+                ? (state.extra as StoreInfoReportTarget).initialReport
+                : null,
           ),
         ),
       ),
@@ -150,7 +179,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.visitVerification,
         pageBuilder: (_, state) {
           final extra = state.extra;
-          return CupertinoPage<void>(
+          return _fastPage<void>(
             key: state.pageKey,
             child: VisitVerificationScreen(
               store: extra is Store ? extra : null,
@@ -163,7 +192,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.visitVerificationComplete,
         pageBuilder: (_, state) {
           final extra = state.extra is Map ? state.extra as Map : const {};
-          return CupertinoPage<void>(
+          return _fastPage<void>(
             key: state.pageKey,
             child: VisitVerificationCompleteScreen(
               savedAmount: (extra['savedAmount'] as num?)?.toInt() ?? 0,
@@ -178,7 +207,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.directionsExternalApp,
         pageBuilder: (_, state) {
           final extra = state.extra is Map ? state.extra as Map : const {};
-          return CupertinoPage<void>(
+          return _fastPage<void>(
             key: state.pageKey,
             child: DirectionsExternalAppScreen(
               storeName: extra['storeName']?.toString() ?? '선택한 매장',
@@ -199,7 +228,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.favoriteCancelConfirm,
         pageBuilder: (_, state) {
           final extra = state.extra is Map ? state.extra as Map : const {};
-          return CupertinoPage<void>(
+          return _fastPage<void>(
             key: state.pageKey,
             child: FavoriteCancelConfirmScreen(
               storeId: extra['storeId']?.toString() ?? '',
@@ -221,25 +250,61 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       _route(AppRoutes.authTerms, const AuthTermsScreen()),
       _route(AppRoutes.login, const LoginScreen()),
-      _route(AppRoutes.permissionSetup, const PermissionSetupScreen()),
-      _route(AppRoutes.profileSetup, const ProfileSetupScreen()),
+      // Terms, login and profile setup in one screen, opened on top of a
+      // screen that needs an account.
+      _route(AppRoutes.loginFlow, const LoginFlowScreen()),
       GoRoute(
-        path: AppRoutes.home,
-        pageBuilder: (_, state) => NoTransitionPage<void>(
+        path: AppRoutes.permissionSetup,
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
-          child: HomeMapScreen(
-            initialRecommendation: state.extra is AiMapRecommendationResult
-                ? state.extra as AiMapRecommendationResult
-                : null,
+          child: PermissionSetupScreen(
+            backTo: state.extra is String
+                ? state.extra as String
+                : AppRoutes.onboardingStoreReport,
           ),
         ),
       ),
+      _route(AppRoutes.profileSetup, const ProfileSetupScreen()),
+      // Branches are built on first visit and kept mounted afterwards. The
+      // default container also disables tickers for the offstage branches.
+      StatefulShellRoute.indexedStack(
+        pageBuilder: (_, state, shell) =>
+            NoTransitionPage<void>(key: state.pageKey, child: shell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.home,
+                pageBuilder: (_, state) => NoTransitionPage<void>(
+                  key: state.pageKey,
+                  child: buildHomeMapScreenForExtra(state.extra),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              _tabRoute(AppRoutes.communityFeed, const CommunityFeedScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              _tabRoute(
+                AppRoutes.savingsReportDashboard,
+                const SavingsReportDashboardScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [_tabRoute(AppRoutes.mypage, const MypageScreen())],
+          ),
+        ],
+      ),
       _route(AppRoutes.homeAiFab, const HomeMapScreen(showAiSpotlight: true)),
       _route(AppRoutes.aiRecommend, const AiRecommendChatScreen()),
-      _tabRoute(AppRoutes.communityFeed, const CommunityFeedScreen()),
       GoRoute(
         path: AppRoutes.reportCreate,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: ReportCreateScreen(
             initialReport: state.extra is UserReportStatus
@@ -248,11 +313,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ),
       ),
-      _route(AppRoutes.reportComplete, const ReportCompleteScreen()),
+      GoRoute(
+        path: AppRoutes.reportComplete,
+        pageBuilder: (_, state) => _fastPage<void>(
+          key: state.pageKey,
+          child: ReportCompleteScreen(
+            reportId: state.uri.queryParameters['id'],
+          ),
+        ),
+      ),
       _route(AppRoutes.myReportsV2, const MyReportsV2Screen()),
       GoRoute(
         path: AppRoutes.reportDetailV2,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: ReportDetailV2Screen(
             reportId: state.uri.queryParameters['id'],
@@ -264,14 +337,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.communityPostDetail,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: CommunityPostDetailScreen(
             postId: state.uri.queryParameters['id'] ?? '',
           ),
         ),
       ),
-      _tabRoute(AppRoutes.mypage, const MypageScreen()),
       _route(
         AppRoutes.notificationSettings,
         const NotificationSettingsScreen(),
@@ -295,7 +367,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.networkError, const NetworkErrorScreen()),
       GoRoute(
         path: AppRoutes.reportDeleteConfirm,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: ReportDeleteConfirmScreen(
             report: state.extra is UserReportStatus
@@ -305,13 +377,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       _route(AppRoutes.sessionExpired, const SessionExpiredScreen()),
-      _tabRoute(
-        AppRoutes.savingsReportDashboard,
-        const SavingsReportDashboardScreen(),
-      ),
       GoRoute(
         path: AppRoutes.savingsDetail,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: SavingsDetailScreen(
             startDate: state.uri.queryParameters['startDate'],
@@ -326,38 +394,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.notifications, const NotificationsScreen()),
       GoRoute(
         path: AppRoutes.searchResult,
-        pageBuilder: (_, state) {
-          final extra = state.extra;
-          String query = '';
-          bool openFilter = false;
-          SearchFilter? initialFilter;
-
-          if (extra is String) {
-            query = extra;
-          } else if (extra is Map<String, dynamic>) {
-            query = extra['query'] as String? ?? '';
-            openFilter = extra['openFilter'] as bool? ?? false;
-            initialFilter = extra['filter'] is SearchFilter
-                ? extra['filter'] as SearchFilter
-                : null;
-          }
-
-          return CupertinoPage<void>(
-            key: state.pageKey,
-            child: SearchResultScreen(
-              initialQuery: query,
-              autoOpenFilter: openFilter,
-              initialFilter: initialFilter,
-            ),
-          );
-        },
+        pageBuilder: (_, state) => _fastPage<void>(
+          key: state.pageKey,
+          child: buildSearchResultScreenForExtra(state.extra),
+        ),
       ),
       GoRoute(
         path: AppRoutes.storeDetail,
         redirect: (_, state) => state.extra is Store ? null : AppRoutes.home,
         pageBuilder: (_, state) {
           final store = state.extra as Store;
-          return CupertinoPage<void>(
+          return _fastPage<void>(
             key: state.pageKey,
             child: StoreDetailScreen(store: store),
           );
@@ -365,13 +412,68 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  void trackLocation() =>
+      navigationTracker.locationChanged(visibleAppPath(router));
+  router.routerDelegate.addListener(trackLocation);
+  ref.onDispose(() => router.routerDelegate.removeListener(trackLocation));
+  return router;
 });
+
+Page<T> _fastPage<T>({required LocalKey key, required Widget child}) {
+  return _FastCupertinoPage<T>(key: key, child: child);
+}
+
+class _FastCupertinoPage<T> extends CupertinoPage<T> {
+  const _FastCupertinoPage({required super.key, required super.child});
+
+  @override
+  Route<T> createRoute(BuildContext context) {
+    return _FastCupertinoPageRoute<T>(page: this);
+  }
+}
+
+class _FastCupertinoPageRoute<T> extends CupertinoPageRoute<T> {
+  _FastCupertinoPageRoute({required _FastCupertinoPage<T> page})
+    : super(builder: (context) => page.child, settings: page);
+
+  @override
+  Duration get transitionDuration => const Duration(milliseconds: 180);
+
+  @override
+  Duration get reverseTransitionDuration => const Duration(milliseconds: 150);
+}
 
 GoRoute _route(String path, Widget child) {
   return GoRoute(
     path: path,
     pageBuilder: (_, state) =>
-        CupertinoPage<void>(key: state.pageKey, child: child),
+        _fastPage<void>(key: state.pageKey, child: child),
+  );
+}
+
+/// `/home` accepts either a map recommendation (AI, approved report, today's
+/// pick) or a search result handed over by a search screen that was opened
+/// outside home. Any other extra opens the plain map.
+HomeMapScreen buildHomeMapScreenForExtra(Object? extra) {
+  return HomeMapScreen(
+    initialRecommendation: extra is AiMapRecommendationResult ? extra : null,
+    initialSearchResult: extra is Map<String, dynamic> ? extra : null,
+  );
+}
+
+/// `/search/result` takes a query string or a map from the home map. Only
+/// home sets returnToMap: it awaits the result and applies it to its map.
+SearchResultScreen buildSearchResultScreenForExtra(Object? extra) {
+  if (extra is String) return SearchResultScreen(initialQuery: extra);
+  if (extra is! Map<String, dynamic>) {
+    return const SearchResultScreen(initialQuery: '');
+  }
+  final filter = extra['filter'];
+  return SearchResultScreen(
+    initialQuery: extra['query'] as String? ?? '',
+    autoOpenFilter: extra['openFilter'] as bool? ?? false,
+    initialFilter: filter is SearchFilter ? filter : null,
+    returnsResultToMap: extra['returnToMap'] == true,
   );
 }
 

@@ -36,25 +36,24 @@ class HowmuchTopBar extends StatelessWidget {
       ),
       child: Stack(
         children: [
+          // Each IconButton is named by its tooltip alone. A Semantics label
+          // around it formed a second node, so screen readers announced the
+          // button twice (QA 10/7 #51).
           if (onBack != null)
             Positioned(
               left: AppSizes.horizontalPadding - 12,
               top: 0,
               width: actionSize,
               height: height,
-              child: Semantics(
-                button: true,
-                label: '뒤로가기',
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  alignment: Alignment.center,
-                  tooltip: '뒤로가기',
-                  onPressed: onBack,
-                  icon: const Icon(
-                    Icons.arrow_back_rounded,
-                    size: iconSize,
-                    color: Color(0xFF0F172A),
-                  ),
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                alignment: Alignment.center,
+                tooltip: '뒤로가기',
+                onPressed: onBack,
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  size: iconSize,
+                  color: Color(0xFF0F172A),
                 ),
               ),
             ),
@@ -86,19 +85,15 @@ class HowmuchTopBar extends StatelessWidget {
               top: 0,
               width: actionSize,
               height: height,
-              child: Semantics(
-                button: true,
-                label: trailingTooltip,
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  alignment: Alignment.center,
-                  tooltip: trailingTooltip,
-                  onPressed: onTrailingTap,
-                  icon: Icon(
-                    trailingIcon,
-                    size: iconSize,
-                    color: const Color(0xFF0F172A),
-                  ),
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                alignment: Alignment.center,
+                tooltip: trailingTooltip,
+                onPressed: onTrailingTap,
+                icon: Icon(
+                  trailingIcon,
+                  size: iconSize,
+                  color: const Color(0xFF0F172A),
                 ),
               ),
             ),

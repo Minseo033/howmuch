@@ -5,7 +5,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/features/recommendation/presentation/screens/optimal_route_screen.dart';
 import 'package:howmuch/features/recommendation/presentation/screens/todays_pick_screen.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_failure.dart';
 import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
+import 'package:howmuch/features/store/store_model.dart';
 
 void main() {
   setUp(() {
@@ -25,6 +27,140 @@ void main() {
 
   tearDown(() {
     HomeMapScreen.globalUserPosition = null;
+    HomeMapScreen.setSearchCatalog(const []);
+    HomeMapScreen.setMapStores(const []);
+  });
+
+  testWidgets('today pick names a timeout instead of a generic failure', (
+    tester,
+  ) async {
+    await _setMobileViewport(tester, const Size(360, 800));
+    final service = _FakeTodaysPickService(
+      todaysPick: recommendationError(RecommendationFailure.timeout),
+    );
+
+    await tester.pumpWidget(
+      _app(
+        service,
+        TodaysPickScreen(fallbackCatalogLoader: () async => const []),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('서버 응답이 늦어지고 있어요'), findsOneWidget);
+    expect(find.text('오늘의 픽을 불러오지 못했어요'), findsNothing);
+    expect(find.text('설정 열기'), findsNothing);
+    expect(find.text('다시 시도'), findsOneWidget);
+    _expectNoFlutterError(tester);
+  });
+
+  testWidgets('today pick asks for location permission when none is known', (
+    tester,
+  ) async {
+    await _setMobileViewport(tester, const Size(360, 800));
+    HomeMapScreen.globalUserPosition = null;
+    final service = _FakeTodaysPickService();
+
+    await tester.pumpWidget(_app(service, const TodaysPickScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('현재 위치를 확인할 수 없어요'), findsOneWidget);
+    expect(find.text('주변 추천을 보려면 위치 권한을 허용해주세요.'), findsOneWidget);
+    expect(find.text('설정 열기'), findsOneWidget);
+    expect(service.todaysPickCalls, 0);
+    _expectNoFlutterError(tester);
+  });
+
+  testWidgets(
+    'today pick loads the catalog for the local fallback when memory is empty',
+    (tester) async {
+      await _setMobileViewport(tester, const Size(360, 800));
+      final service = _FakeTodaysPickService(
+        todaysPick: recommendationError(
+          RecommendationFailure.server,
+          statusCode: 500,
+        ),
+      );
+      var catalogRequests = 0;
+
+      await tester.pumpWidget(
+        _app(
+          service,
+          TodaysPickScreen(
+            fallbackCatalogLoader: () async {
+              catalogRequests++;
+              return [_store('근처 백반집', 37.5666, 126.9781)];
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(catalogRequests, 1);
+      expect(find.text('근처 백반집'), findsOneWidget);
+      expect(find.text('추천 서버에 문제가 생겼어요'), findsNothing);
+      // The loaded catalog is kept, so a retry does not download it again.
+      expect(HomeMapScreen.globalSearchCatalog, hasLength(1));
+      _expectNoFlutterError(tester);
+    },
+  );
+
+  testWidgets('route screen explains the hourly request limit', (tester) async {
+    await _setMobileViewport(tester, const Size(360, 800));
+    final service = _FakeTodaysPickService(
+      route: recommendationError(
+        RecommendationFailure.rateLimited,
+        statusCode: 429,
+      ),
+    );
+
+    await tester.pumpWidget(_app(service, const OptimalRouteScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('요청이 너무 많아요'), findsOneWidget);
+    expect(find.text('추천 경로를 불러오지 못했어요'), findsNothing);
+    _expectNoFlutterError(tester);
+  });
+
+  testWidgets('distance-ordered routes are not labelled as AI routes', (
+    tester,
+  ) async {
+    await _setMobileViewport(tester, const Size(360, 800));
+    Map<String, dynamic> routeWith(String text) => {
+      'route': text,
+      'picks': [
+        {
+          'storeName': '좌표 없는 국숫집',
+          'menu1': '잔치국수',
+          'price1': '5000',
+          'distanceMeters': 300,
+        },
+      ],
+    };
+
+    await tester.pumpWidget(
+      _app(
+        _FakeTodaysPickService(
+          route: routeWith('현재는 거리순으로 추천 루트를 안내합니다.\n1. 좌표 없는 국숫집'),
+        ),
+        const OptimalRouteScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('총 이동 거리가 짧도록 정한 동선'), findsOneWidget);
+    expect(find.text('동선 안내'), findsOneWidget);
+    expect(find.textContaining('AI 추천'), findsNothing);
+
+    await tester.pumpWidget(
+      _app(
+        _FakeTodaysPickService(route: routeWith('1. 좌표 없는 국숫집 - 비 오는 날 국물')),
+        const OptimalRouteScreen(key: ValueKey('ai-route')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('AI 추천 동선'), findsOneWidget);
+    expect(find.text('AI 추천 이유'), findsOneWidget);
+    _expectNoFlutterError(tester);
   });
 
   testWidgets('user reports are not labelled government certified', (
@@ -50,6 +186,61 @@ void main() {
     expect(find.text('착한가격업소'), findsNothing);
     _expectNoFlutterError(tester);
   });
+
+  testWidgets('a store with an unknown source is not labelled certified', (
+    tester,
+  ) async {
+    await _setMobileViewport(tester, const Size(360, 800));
+    final service = _FakeTodaysPickService(
+      todaysPick: {
+        'picks': [
+          {
+            'storeName': '출처 미상 식당',
+            'menu1': '백반',
+            'price1': '6500',
+            'source': 'UNKNOWN',
+            'distanceMeters': 120,
+          },
+        ],
+      },
+    );
+    await tester.pumpWidget(_app(service, const TodaysPickScreen()));
+    await tester.pumpAndSettle();
+    expect(find.text('출처 확인 필요'), findsOneWidget);
+    expect(find.text('착한가격업소'), findsNothing);
+    _expectNoFlutterError(tester);
+  });
+
+  testWidgets(
+    'today pick explains unavailable weather without a broken degree label',
+    (tester) async {
+      await _setMobileViewport(tester, const Size(360, 800));
+      final service = _FakeTodaysPickService(
+        todaysPick: {
+          'weatherAvailable': false,
+          'weather': '알 수 없음',
+          'temp': null,
+          'picks': [
+            {
+              'storeName': '근처 국숫집',
+              'menu1': '칼국수',
+              'price1': '5000',
+              'distanceMeters': 120,
+            },
+          ],
+        },
+      );
+
+      await tester.pumpWidget(_app(service, const TodaysPickScreen()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('날씨 정보를 확인하지 못했어요'), findsOneWidget);
+      expect(find.text('정보 없음'), findsOneWidget);
+      expect(find.text('✨ 거리와 가격으로 추천했어요'), findsOneWidget);
+      expect(find.text('-°'), findsNothing);
+      _expectNoFlutterError(tester);
+    },
+  );
 
   testWidgets(
     'today pick hides distant entries and handles long names at 360px',
@@ -157,7 +348,111 @@ void main() {
     expect(find.textContaining('삼겹살 · 10,000원'), findsNothing);
     _expectNoFlutterError(tester);
   });
+
+  testWidgets('the route guide follows the card order (QA #6, #27)', (
+    tester,
+  ) async {
+    await _setMobileViewport(tester, const Size(360, 800));
+    final service = _FakeTodaysPickService(
+      route: {
+        // The server text sorts the stops by distance from the current
+        // location, while the picks come in the route order.
+        'route':
+            '현재는 거리순으로 추천 루트를 안내합니다.\n'
+            '1. 등촌샤브칼국수 (버섯칼국수, 10000원) - 현재 위치에서 가까운 순서\n'
+            '2. 온밥 (제육덮밥, 7500원) - 현재 위치에서 가까운 순서\n'
+            '3. 아콘스톨 (김밥, 3000원) - 현재 위치에서 가까운 순서',
+        'picks': [
+          _routePick('온밥', '제육덮밥', '7500', 615),
+          _routePick('등촌샤브칼국수', '버섯칼국수', '10000', 542),
+          _routePick('아콘스톨', '김밥', '3000', 688),
+        ],
+      },
+    );
+
+    await tester.pumpWidget(_app(service, const OptimalRouteScreen()));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('route-step-1')),
+        matching: find.text('온밥'),
+      ),
+      findsOneWidget,
+    );
+    final guide = tester.widget<Text>(find.textContaining('1. 온밥')).data!;
+    expect(
+      guide.split('\n').where((line) => RegExp(r'^\d+\. ').hasMatch(line)),
+      [
+        '1. 온밥 (제육덮밥, 7,500원)',
+        '2. 등촌샤브칼국수 (버섯칼국수, 10,000원)',
+        '3. 아콘스톨 (김밥, 3,000원)',
+      ],
+    );
+    expect(find.textContaining('1. 등촌샤브칼국수'), findsNothing);
+    expect(find.textContaining('10000원'), findsNothing);
+    expect(find.text('가까운 순서로 정한 동선'), findsNothing);
+    _expectNoFlutterError(tester);
+  });
+
+  for (final (stops, picks, subtitle) in [
+    (
+      'three meals',
+      [
+        _routePick('국숫집', '잔치국수', '5000', 100),
+        _routePick('백반집', '백반', '7000', 200),
+        _routePick('김밥집', '김밥', '3000', 300),
+      ],
+      '저렴한 음식점 3곳을 들르는 동선을 추천해요',
+    ),
+    (
+      'a meal and a cafe',
+      [
+        _routePick('백반집', '백반', '7000', 200),
+        _routePick('동네카페', '아메리카노', '2000', 300, industry: '카페'),
+      ],
+      '식사부터 카페까지 저렴한 동선을 추천해요',
+    ),
+    (
+      'two dessert places',
+      [
+        _routePick('동네카페', '아메리카노', '2000', 300, industry: '카페'),
+        _routePick('소금빵집', '소금빵', '2500', 400, industry: '제과점'),
+      ],
+      '저렴한 카페·디저트 2곳을 들르는 동선을 추천해요',
+    ),
+  ]) {
+    testWidgets('the route subtitle describes $stops (QA #25)', (tester) async {
+      await _setMobileViewport(tester, const Size(360, 800));
+      await tester.pumpWidget(
+        _app(
+          _FakeTodaysPickService(
+            route: {'route': '현재는 거리순으로 추천 루트를 안내합니다.', 'picks': picks},
+          ),
+          const OptimalRouteScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(subtitle), findsOneWidget);
+      _expectNoFlutterError(tester);
+    });
+  }
 }
+
+Map<String, dynamic> _routePick(
+  String name,
+  String menu,
+  String price,
+  int distanceMeters, {
+  String industry = '한식',
+}) => {
+  'storeName': name,
+  'industry': industry,
+  'menu1': menu,
+  'price1': price,
+  'distanceMeters': distanceMeters,
+};
 
 Widget _app(TodaysPickService service, Widget child) {
   return ProviderScope(
@@ -184,13 +479,24 @@ class _FakeTodaysPickService extends TodaysPickService {
 
   final Map<String, dynamic> todaysPick;
   final Map<String, dynamic> route;
+  int todaysPickCalls = 0;
 
   @override
   Future<Map<String, dynamic>> getTodaysPick({
     double? lat,
     double? lng,
+    bool forceRefresh = false,
     int radiusMeters = 3000,
-  }) async => todaysPick;
+  }) async {
+    todaysPickCalls++;
+    return todaysPick;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getDeviceWeather({
+    required double lat,
+    required double lng,
+  }) async => null;
 
   @override
   Future<Map<String, dynamic>> getRoute({
@@ -199,3 +505,22 @@ class _FakeTodaysPickService extends TodaysPickService {
     int radiusMeters = 3000,
   }) async => route;
 }
+
+Store _store(String name, double lat, double lng) => Store(
+  id: name,
+  storeName: name,
+  address: '서울',
+  phoneNumber: '',
+  industry: '한식',
+  menu1: '백반',
+  price1: '7000',
+  menu2: '',
+  price2: '',
+  menu3: '',
+  price3: '',
+  menu4: '',
+  price4: '',
+  latitude: lat,
+  longitude: lng,
+  source: 'GOV',
+);

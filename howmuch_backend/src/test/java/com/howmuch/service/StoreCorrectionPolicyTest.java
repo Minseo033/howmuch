@@ -73,4 +73,34 @@ class StoreCorrectionPolicyTest {
         assertThatThrownBy(() -> StoreCorrectionPolicy.decide(info, twoMenus, request))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("이미 등록");
     }
+
+    @Test void refusesToApproveACorrectionThatChangesNothing() {
+        assertThatThrownBy(() -> StoreCorrectionPolicy.decide(info, store, approval("PRICE", Map.of(
+                "menuSlot", 1, "menu", "국밥", "price", "6,000원", "free", false))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("변경 없음");
+        assertThatThrownBy(() -> StoreCorrectionPolicy.decide(info, store, approval("LOCATION", Map.of(
+                "address", "서울 중구", "latitude", 37.5, "longitude", 127.0))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("변경 없음");
+        var closed = new HashMap<String, Object>(store); closed.put("isClosed", true);
+        var closeAgain = approval("CLOSED", Map.of("isClosed", true)); closeAgain.setBefore(closed);
+        assertThatThrownBy(() -> StoreCorrectionPolicy.decide(info, closed, closeAgain))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("변경 없음");
+        // Renaming the menu at the same price is still a real change.
+        assertThat(StoreCorrectionPolicy.decide(info, store, approval("PRICE", Map.of(
+                "menuSlot", 1, "menu", "순대국밥", "price", "6000", "free", false))).fields())
+                .containsEntry("menu1", "순대국밥");
+    }
+
+    @Test void locationMustStayInsideKorea() {
+        // Swapped latitude and longitude is the typical review mistake.
+        assertThatThrownBy(() -> StoreCorrectionPolicy.decide(info, store, approval("LOCATION", Map.of(
+                "address", "서울 종로구", "latitude", 127.1, "longitude", 37.6))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("국내 좌표");
+        assertThatThrownBy(() -> StoreCorrectionPolicy.decide(info, store, approval("LOCATION", Map.of(
+                "address", "도쿄", "latitude", 35.68, "longitude", 139.76))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("국내 좌표");
+        assertThat(StoreCorrectionPolicy.decide(info, store, approval("LOCATION", Map.of(
+                "address", "제주 서귀포시 대정읍 마라로", "latitude", 33.12, "longitude", 126.27))).fields())
+                .containsEntry("latitude", 33.12);
+    }
 }

@@ -45,6 +45,67 @@ class ReceiptOcrServiceTest {
     }
 
     @Test
+    void rejectsAutoApprovalWhenSubmittedMenuDoesNotMatchReceiptText() {
+        ReceiptOcrService.Result mismatch = service.analyzeText(
+                "캠퍼스분식\n2026-10-14\n김밥 4,000원\n합계 4,000원",
+                "캠퍼스분식",
+                "삼계탕",
+                4_000L,
+                LocalDate.of(2026, 10, 16));
+
+        assertThat(mismatch.storeMatch()).isTrue();
+        assertThat(mismatch.priceMatch()).isTrue();
+        assertThat(mismatch.menuMatch()).isFalse();
+        assertThat(mismatch.score()).isLessThan(100);
+        assertThat(mismatch.status()).isEqualTo("MANUAL_REVIEW_MENU_MISMATCH");
+        assertThat(mismatch.shouldAutoApprove()).isFalse();
+
+        ReceiptOcrService.Result matched = service.analyzeText(
+                "캠퍼스분식\n2026-10-14\n김밥 4,000원\n합계 4,000원",
+                "캠퍼스분식",
+                "김밥",
+                4_000L,
+                LocalDate.of(2026, 10, 16));
+
+        assertThat(matched.menuMatch()).isTrue();
+        assertThat(matched.score()).isEqualTo(100);
+        assertThat(matched.shouldAutoApprove()).isTrue();
+
+        ReceiptOcrService.Result promoBypassAttempt = service.analyzeText(
+                "캠퍼스분식\n2026-10-14\n김밥 4,000원\n합계 4,000원\n다음주 삼계탕 행사",
+                "캠퍼스분식",
+                "삼계탕",
+                4_000L,
+                LocalDate.of(2026, 10, 16));
+        assertThat(promoBypassAttempt.menuMatch()).isFalse();
+        assertThat(promoBypassAttempt.shouldAutoApprove()).isFalse();
+    }
+
+    @Test
+    void prioritizesActualApprovedOrPaidAmountOverPreDiscountTotal() {
+        ReceiptOcrService.Result result = service.analyzeText(
+                "캠퍼스분식\n2026-10-14\n합계 10,000원\n할인 2,000원\n승인금액 8,000원",
+                "캠퍼스분식",
+                "돈까스",
+                8_000L,
+                LocalDate.of(2026, 10, 16));
+
+        assertThat(result.detectedPrice()).isEqualTo(8_000L);
+        assertThat(result.labeledPrice()).isTrue();
+        assertThat(result.priceMatch()).isTrue();
+
+        ReceiptOcrService.Result cashReceipt = service.analyzeText(
+                "캠퍼스분식\n2026-10-14\n돈까스 8,000원\n결제액 8,000원\n받은 돈 10,000원\n거스름돈 2,000원",
+                "캠퍼스분식",
+                "돈까스",
+                8_000L,
+                LocalDate.of(2026, 10, 16));
+        assertThat(cashReceipt.detectedPrice()).isEqualTo(8_000L);
+        assertThat(cashReceipt.priceMatch()).isTrue();
+        assertThat(cashReceipt.shouldAutoApprove()).isTrue();
+    }
+
+    @Test
     void keepsUnlabeledNumberMatchesForManualReview() {
         ReceiptOcrService.Result result = service.analyzeText(
                 "테스트 식당\n사업자번호 123456",

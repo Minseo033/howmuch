@@ -77,7 +77,8 @@ class AiChatService {
               const [],
         );
       } else if (response.statusCode == 401) {
-        return const AiChatReply(text: '로그인이 필요한 기능입니다. 다시 로그인해주세요.');
+        // Worded for a guest as well as for an expired session.
+        return const AiChatReply(text: '로그인이 필요한 기능이에요. 로그인한 뒤 다시 시도해 주세요.');
       } else if (response.statusCode == 429) {
         return const AiChatReply(
           text: 'AI 채팅 사용 횟수를 모두 사용했어요. 잠시 후 다시 시도해주세요.',
@@ -246,11 +247,15 @@ class VerifiedAiRecommendation {
 
 /// Only server-provided identities and matching menu slots can become cards.
 /// Rechecking coordinates protects the map from a stale or malformed distance.
+///
+/// The server already applied the menu intent and budget rules when it chose
+/// these stores. Re-filtering them here with different rules made the answer
+/// text and the "지도에서 찾기" cards disagree, so only identity, menu slot,
+/// coordinates and radius are checked.
 List<({Store store, RecommendationMenuSelection selection})>
 resolveVerifiedAiRecommendations({
   required List<VerifiedAiRecommendation> recommendations,
   required List<Store> catalog,
-  required String query,
   required double? latitude,
   required double? longitude,
   required int radiusMeters,
@@ -259,23 +264,14 @@ resolveVerifiedAiRecommendations({
       !validRecommendationRadius(radiusMeters)) {
     return const [];
   }
-  final budget = parseRequestedBudgetWon(query);
   final seen = <String>{};
   final results = <({Store store, RecommendationMenuSelection selection})>[];
   for (final item in recommendations) {
     if (item.distanceMeters > radiusMeters || seen.contains(item.storeId)) {
       continue;
     }
-    final price = parsePriceValue(item.rawPrice);
     final store = item.resolveStore(catalog);
     if (store == null ||
-        price == null ||
-        (budget != null && price.maximum > budget) ||
-        !menuMatchesRecommendationQuery(
-          item.menu,
-          query,
-          industry: store.industry,
-        ) ||
         _haversineDistance(
               latitude!,
               longitude!,
@@ -361,18 +357,22 @@ class LocalAiRecommendation {
   final List<RecommendationMenuSelection> menuSelections;
 }
 
+enum MapResultOrigin { aiRecommendation, approvedReport, todaysPick }
+
 class AiMapRecommendationResult {
   const AiMapRecommendationResult({
     required this.storeIds,
     this.stores = const [],
     this.menuSelections = const [],
     this.queryText = '',
+    this.origin = MapResultOrigin.aiRecommendation,
   });
 
   final List<String> storeIds;
   final List<Store> stores;
   final List<RecommendationMenuSelection> menuSelections;
   final String queryText;
+  final MapResultOrigin origin;
 
   RecommendationMenuSelection? selectionFor(Store store) {
     for (final selection in menuSelections) {
@@ -445,28 +445,54 @@ int parseRequestedRecommendationCount(
   return defaultCount.clamp(minCount, maxCount);
 }
 
+/// Mirrors GeminiService.requestedBudgetWon so the local fallback reads a
+/// budget exactly like the server ("1만 5천원" is 15,000, "오만원" is 50,000).
+/// Keep both in sync; test/ai_shared_rules_test.dart holds the shared table.
 int? parseRequestedBudgetWon(String query) {
-  final normalized = query.replaceAll(',', '').replaceAll(' ', '');
-  final manWon = RegExp(r'(\d+(?:\.\d+)?)만원').firstMatch(normalized);
+  final text = query.replaceAll(',', '').replaceAll(' ', '');
+  if (text.contains('무료')) return 0;
+  final mixed = RegExp(r'(\d+)만(\d+)천원').firstMatch(text);
+  if (mixed != null) {
+    final man = int.tryParse(mixed.group(1)!);
+    final cheon = int.tryParse(mixed.group(2)!);
+    if (man == null || cheon == null) return null;
+    return _boundedBudget(man * 10000 + cheon * 1000);
+  }
+  final manWon = RegExp(r'(\d+(?:\.\d+)?)만원').firstMatch(text);
   if (manWon != null) {
-    final units = double.tryParse(manWon.group(1) ?? '');
-    if (units != null && units > 0) return (units * 10000).round();
+    final units = double.tryParse(manWon.group(1)!);
+    return units == null ? null : _boundedBudget((units * 10000).round());
   }
-  if (normalized.contains('만원')) return 10000;
-
-  final thousandWon = RegExp(r'(\d+(?:\.\d+)?)천원').firstMatch(normalized);
-  if (thousandWon != null) {
-    final units = double.tryParse(thousandWon.group(1) ?? '');
-    if (units != null && units > 0) return (units * 1000).round();
+  const koreanDigits = {
+    '일': 1,
+    '이': 2,
+    '삼': 3,
+    '사': 4,
+    '오': 5,
+    '육': 6,
+    '칠': 7,
+    '팔': 8,
+    '구': 9,
+    '십': 10,
+  };
+  for (final entry in koreanDigits.entries) {
+    if (text.contains('${entry.key}만원')) return entry.value * 10000;
   }
-
-  final won = RegExp(r'(\d{3,6})원').firstMatch(normalized);
-  if (won != null) {
-    final amount = int.tryParse(won.group(1) ?? '');
-    if (amount != null && amount > 0) return amount;
+  if (text.contains('만원')) return 10000;
+  final cheonWon = RegExp(r'(\d+)천원').firstMatch(text);
+  if (cheonWon != null) {
+    final units = int.tryParse(cheonWon.group(1)!);
+    return units == null ? null : _boundedBudget(units * 1000);
   }
+  if (text.contains('천원')) return 1000;
+  final won = RegExp(r'(\d{1,7})원').firstMatch(text);
+  if (won != null) return int.tryParse(won.group(1)!);
   return null;
 }
+
+/// Same upper bound as the server price parser (WonPrice.MAX_AMOUNT).
+int? _boundedBudget(int amount) =>
+    amount < 0 || amount > 10000000 ? null : amount;
 
 List<({String menu, Object? price, bool free})> _storeMenuEntries(Store store) {
   return [
@@ -506,70 +532,237 @@ List<({String menu, Object? price, bool free})> _storeMenuEntries(Store store) {
   return eligible.isEmpty ? null : eligible.first;
 }
 
+/// 음식점이 아닌 업종(공공데이터 기타비요식업·미용업·이용업·세탁업·숙박업·목욕업,
+/// 제보 업종 생활서비스·숙박·교통·주차). 음식을 찾는 요청에서는 메뉴와 상관없이 뺀다.
+const _nonFoodIndustries = [
+  '비요식',
+  '미용',
+  '이용업',
+  '이발',
+  '헤어',
+  '네일',
+  '세탁',
+  '수선',
+  '목욕',
+  '사우나',
+  '숙박',
+  '생활서비스',
+  '교통',
+  '주차',
+];
+
+/// 분식으로 보는 메뉴. 순대국·쌀국수는 순대·국수가 들어 있어도 분식이 아니다.
+const _bunsikMenus = [
+  '분식',
+  '김밥',
+  '떡볶이',
+  '라볶이',
+  '순대',
+  '튀김',
+  '어묵',
+  '오뎅',
+  '라면',
+  '쫄면',
+  '우동',
+  '국수',
+  '수제비',
+  '만두',
+  '돈가스',
+  '돈까스',
+  '주먹밥',
+  '유부초밥',
+  '핫도그',
+  '떡꼬치',
+  '토스트',
+  '컵밥',
+  '오므라이스',
+];
+const _notBunsikMenus = ['순대국', '순댓국', '쌀국수'];
+
+/// 분식 메뉴가 있어도 분식집으로 보지 않는 다른 음식 업종(중식당의 우동·만두 등).
+const _notBunsikVenues = [
+  '중식',
+  '중화',
+  '일식',
+  '양식',
+  '카페',
+  '커피',
+  '베이커리',
+  '제과',
+  '치킨',
+  '패스트푸드',
+  '고기',
+];
+
+/// 음식 종류를 말한 요청: (질문 단어, 그 종류로 보는 업종, 분식 메뉴로도 판단하는지).
+/// '중화'만으로는 찾지 않는다(중화역·중화동 같은 지명).
+const _cuisineRequests = <(List<String>, List<String>, bool)>[
+  (['분식'], ['분식'], true),
+  (['한식'], ['한식'], false),
+  (['중식', '중국집', '중화요리'], ['중식', '중화'], false),
+  (['일식'], ['일식'], false),
+  (['양식'], ['양식'], false),
+];
+
+bool _matchesCuisine(
+  (List<String>, List<String>, bool) cuisine,
+  String item,
+  String venue,
+) {
+  final (_, venueWords, bunsikMenus) = cuisine;
+  if (venueWords.any(venue.contains)) return true;
+  return bunsikMenus &&
+      _bunsikMenus.any(item.contains) &&
+      !_notBunsikMenus.any(item.contains) &&
+      !_notBunsikVenues.any(venue.contains);
+}
+
+/// Mirrors GeminiService.menuMatchesIntent, which decides the server's AI and
+/// fallback recommendations. The local fallback (server unreachable) must pick
+/// stores by the same rules; test/ai_shared_rules_test.dart holds the shared
+/// table. "혼밥 분식 추천" keeps 분식 menus such as 칼국수 and 김밥 but not
+/// 삼겹살 or a photo studio (QA 2026-10-07 #1). Soup requests also exclude
+/// 콩국수 and 탕수육 (FE-STORE-12).
+const _intentTerms =
+    '아메리카노|베이커리|중화요리|비빔국수|삼계탕|설렁탕|갈비탕|돈까스|돈가스|삼겹살|칼국수|수제비|국밥|김밥|백반|짜장|짬뽕|냉면|라떼|우동|라면|탕수육|디저트|커피|카페|중국집|분식|한식|중식|일식|양식|미용|세탁|목욕|이발|수선|빵';
+final _excludedIntent = RegExp(
+  '((?:$_intentTerms)(?:[랑와과,/](?:$_intentTerms))*)'
+  '(?:는|은|을|를|도|만)?(?:빼(?!지)|제외(?!하지)|말고|싫어|안먹|안마실|안갈)',
+);
+final _intentTermPattern = RegExp(_intentTerms);
+
 bool menuMatchesRecommendationQuery(
   String menu,
   String query, {
   String industry = '',
 }) {
-  final text = menu.toLowerCase();
-  final q = query.toLowerCase();
-  if (q.contains('국물')) {
-    const soup = [
-      '국수',
-      '국밥',
-      '탕',
-      '찌개',
-      '전골',
-      '수제비',
-      '우동',
-      '라멘',
-      '라면',
-      '짬뽕',
-      '국',
-    ];
-    if (['비빔국수', '콩국수', '냉국수', '냉면', '김밥', '볶음'].any(text.contains)) {
+  final rawQuery = query.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+  final exclusions = _excludedIntent
+      .allMatches(rawQuery)
+      .expand(
+        (match) => _intentTermPattern
+            .allMatches(match.group(1)!)
+            .map((term) => term.group(0)!),
+      );
+  final q = rawQuery.replaceAll(_excludedIntent, '');
+  final item = menu.toLowerCase().replaceAll(' ', '');
+  final venue = industry.toLowerCase();
+  for (final excluded in exclusions) {
+    if ('$item$venue'.contains(excluded)) return false;
+    if (const ['카페', '커피'].contains(excluded) &&
+        const [
+          '카페',
+          '커피',
+          '베이커리',
+          '아메리카노',
+          '라떼',
+          '카푸치노',
+          '에스프레소',
+        ].any('$item$venue'.contains)) {
       return false;
     }
-    return soup.any(text.contains);
+    if (_cuisineRequests.any(
+      (cuisine) =>
+          cuisine.$1.contains(excluded) &&
+          _matchesCuisine(cuisine, item, venue),
+    )) {
+      return false;
+    }
   }
-  const specific = [
+  final soup = const [
+    '국물',
+    '뜨끈',
+    '따뜻한',
+    '국밥',
+    '찌개',
+    '삼계탕',
+    '설렁탕',
+    '갈비탕',
+    '짬뽕',
+  ].any(q.contains);
+  if (soup &&
+      !const [
+        '국수',
+        '수제비',
+        '국밥',
+        '탕',
+        '찌개',
+        '짬뽕',
+        '우동',
+        '라면',
+        '전골',
+        '국',
+      ].any(item.contains)) {
+    return false;
+  }
+  if (soup && const ['비빔', '냉', '볶음', '김밥', '콩국수', '탕수육'].any(item.contains)) {
+    return false;
+  }
+  // Specific dishes are matched against a menu, never a common store name.
+  final dishes = const [
     '칼국수',
     '수제비',
     '국밥',
-    '찌개',
     '김밥',
-    '떡볶이',
-    '짬뽕',
+    '백반',
     '짜장',
-    '자장',
-    '우동',
-    '라멘',
-    '라면',
+    '짬뽕',
     '돈까스',
     '돈가스',
-    '초밥',
     '삼겹살',
-    '비빔밥',
-    '백반',
+    '냉면',
+    '비빔국수',
     '아메리카노',
-  ];
-  final requested = specific.where(q.contains).toList();
-  if (requested.isNotEmpty) return requested.any(text.contains);
-  final meal = [
-    '점심',
-    '저녁',
-    '아침',
-    '식사',
-    '밥',
-    '음식',
-    '맛집',
-    '국수',
-    '분식',
-  ].any(q.contains);
-  final cafe = ['카페', '커피', '디저트', '빵', '베이커리'].any(q.contains);
+    '라떼',
+    '우동',
+    '라면',
+    '탕수육',
+    '삼계탕',
+    '설렁탕',
+    '갈비탕',
+  ].where(q.contains).toList();
+  if (dishes.isNotEmpty && !dishes.any(item.contains)) return false;
+  final cafe = const ['카페', '커피', '디저트', '빵', '베이커리'].any(q.contains);
+  if (cafe &&
+      !item.endsWith('차') &&
+      !const [
+        '커피',
+        '아메리카노',
+        '라떼',
+        '카푸치노',
+        '음료',
+        '빵',
+        '케이크',
+        '디저트',
+      ].any(item.contains)) {
+    return false;
+  }
+  // '분식'·'중식'처럼 음식 종류를 말하면 그 종류의 메뉴·업종만 맞는다.
+  final cuisines = _cuisineRequests
+      .where((cuisine) => cuisine.$1.any(q.contains))
+      .toList(growable: false);
+  if (cuisines.isNotEmpty &&
+      !cuisines.any((cuisine) => _matchesCuisine(cuisine, item, venue))) {
+    return false;
+  }
+  final meal =
+      soup ||
+      cuisines.isNotEmpty ||
+      const [
+        '점심',
+        '저녁',
+        '아침',
+        '식사',
+        '밥',
+        '음식',
+        '맛집',
+        '국수',
+        '분식',
+      ].any(q.contains);
+  // A nearby cheap drink is not a meal. A cafe's actual food menu still is.
   final drink =
-      text.endsWith('차') ||
-      [
+      item.endsWith('차') ||
+      const [
         '커피',
         '아메리카노',
         '라떼',
@@ -579,13 +772,10 @@ bool menuMatchesRecommendationQuery(
         '에이드',
         '주스',
         '스무디',
-      ].any(text.contains);
-  if (cafe && !drink && !['빵', '케이크', '디저트'].any(text.contains)) {
-    return false;
-  }
+      ].any(item.contains);
   if (meal && !cafe && drink) return false;
-  final cafeVenue = ['카페', '커피', '베이커리'].any(industry.contains);
-  final cafeFood = [
+  final cafeVenue = const ['카페', '커피', '베이커리'].any(venue.contains);
+  final cafeFood = const [
     '샌드위치',
     '샐러드',
     '토스트',
@@ -603,10 +793,15 @@ bool menuMatchesRecommendationQuery(
     '찌개',
     '빵',
     '베이글',
-  ].any(text.contains);
+  ].any(item.contains);
+  // Unknown cafe menu names can be branded drinks (e.g. 메가리카노).
   if (meal && !cafe && cafeVenue && !cafeFood) return false;
+  // 음식을 찾는 요청(식사·카페·메뉴·코스)에서는 음식점이 아닌 업종을 뺀다.
+  final foodRequest = meal || cafe || dishes.isNotEmpty || q.contains('코스');
+  if (foodRequest && _nonFoodIndustries.any(venue.contains)) return false;
+  final serviceText = '$venue $item';
   if (meal &&
-      [
+      const [
         '미용',
         '헤어',
         '이발',
@@ -615,52 +810,13 @@ bool menuMatchesRecommendationQuery(
         '네일',
         '목욕',
         '숙박',
-      ].any(('$industry $text').contains)) {
+      ].any(serviceText.contains)) {
     return false;
   }
-  const categoryTerms = {
-    '분식': ['김밥', '떡볶이', '라면', '순대', '만두', '튀김'],
-    '카페': ['커피', '아메리카노', '라떼', '차', '에이드', '주스'],
-    '세탁': ['세탁', '빨래', '드라이'],
-    '미용': ['커트', '컷', '염색', '파마', '헤어'],
-  };
-  for (final entry in categoryTerms.entries) {
-    if (q.contains(entry.key)) {
-      return industry.contains(entry.key) || entry.value.any(text.contains);
-    }
+  for (final service in const ['미용', '세탁', '목욕', '이발', '수선']) {
+    if (q.contains(service) && !serviceText.contains(service)) return false;
   }
   return true;
-}
-
-bool storeMatchesRequestedBudget(Store store, int? budgetWon) {
-  return budgetWon == null ||
-      preferredStoreMenu(store, budgetWon: budgetWon) != null;
-}
-
-String buildStructuredAiRecommendationText({
-  required List<Store> stores,
-  required String intro,
-  int? budgetWon,
-  double? lat,
-  double? lng,
-}) {
-  final lines = <String>[intro];
-  for (var index = 0; index < stores.length; index++) {
-    final store = stores[index];
-    final menu = preferredStoreMenu(store, budgetWon: budgetWon);
-    final distance = lat != null && lng != null
-        ? formatRecommendationDistance(
-            _haversineDistance(lat, lng, store.latitude, store.longitude),
-          )
-        : '';
-    final detail = [
-      menu?.menu ?? store.industry,
-      formatRecommendationPrice(menu?.price, free: menu?.free ?? false),
-      distance,
-    ].where((value) => value.isNotEmpty).join(' · ');
-    lines.add('${index + 1}. ${store.storeName} — $detail');
-  }
-  return lines.join('\n');
 }
 
 double _haversineDistance(double lat1, double lng1, double lat2, double lng2) {
@@ -726,7 +882,7 @@ LocalAiRecommendation? buildLocalAiFallbackResult({
   }
   final lines = <String>[
     'AI 연결 대신 확인된 매장 정보를 안내해요. ${radiusMeters ~/ 1000}km 안에서 조건에 맞는 매장 ${selected.length}곳이에요.',
-    if (selected.length < count) '조건에 맞는 매장이 부족해 먼 매장으로 채우지 않았어요.',
+    if (selected.length < count) '조건에 맞는 매장이 부족해 다른 매장으로 채우지 않았어요.',
     for (var index = 0; index < selected.length; index++)
       '${index + 1}. ${selected[index].store.storeName} — ${selected[index].menu} · ${formatRecommendationPrice(selected[index].price, free: selected[index].free)} · ${formatRecommendationDistance(selected[index].distance)}',
   ];
@@ -746,17 +902,3 @@ LocalAiRecommendation? buildLocalAiFallbackResult({
         .toList(growable: false),
   );
 }
-
-String? buildLocalAiFallback({
-  required List<Store> stores,
-  String? query,
-  double? lat,
-  double? lng,
-  int radiusMeters = defaultRecommendationRadiusMeters,
-}) => buildLocalAiFallbackResult(
-  stores: stores,
-  query: query,
-  lat: lat,
-  lng: lng,
-  radiusMeters: radiusMeters,
-)?.text;

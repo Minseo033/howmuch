@@ -7,6 +7,7 @@ import com.howmuch.service.ReceiptOcrEvidenceException;
 import com.howmuch.service.ReceiptVerificationNotFoundException;
 import com.howmuch.service.SimpleRateLimiter;
 import com.howmuch.service.SessionTokenService;
+import com.howmuch.service.AccountWithdrawalService;
 import com.howmuch.config.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -48,17 +49,27 @@ public class AdminController {
     private final SimpleRateLimiter rateLimiter;
     private final SessionTokenService sessionTokenService;
     private final ClientIpResolver clientIpResolver;
+    private final AccountWithdrawalService accountWithdrawalService;
 
     @Autowired
     public AdminController(FirebaseService firebaseService, ReportImageStorage reportImageStorage,
                            PublicDataService publicDataService, SimpleRateLimiter rateLimiter,
-                           SessionTokenService sessionTokenService, ClientIpResolver clientIpResolver) {
+                           SessionTokenService sessionTokenService, ClientIpResolver clientIpResolver,
+                           AccountWithdrawalService accountWithdrawalService) {
         this.firebaseService = firebaseService;
         this.reportImageStorage = reportImageStorage;
         this.publicDataService = publicDataService;
         this.rateLimiter = rateLimiter;
         this.sessionTokenService = sessionTokenService;
         this.clientIpResolver = clientIpResolver;
+        this.accountWithdrawalService = accountWithdrawalService;
+    }
+
+    public AdminController(FirebaseService firebaseService, ReportImageStorage reportImageStorage,
+                           PublicDataService publicDataService, SimpleRateLimiter rateLimiter,
+                           SessionTokenService sessionTokenService, ClientIpResolver clientIpResolver) {
+        this(firebaseService, reportImageStorage, publicDataService, rateLimiter,
+                sessionTokenService, clientIpResolver, null);
     }
 
     public AdminController(FirebaseService firebaseService, ReportImageStorage reportImageStorage,
@@ -184,21 +195,40 @@ public class AdminController {
     }
 
     /** 영수증 인증 승인 및 방문 기록 생성 */
+    public ResponseEntity<?> approveReceipt(
+            String id, HttpServletRequest httpRequest) {
+        return approveReceipt(id, null, httpRequest);
+    }
+
     @PostMapping("/receipts/{id}/approve")
     public ResponseEntity<?> approveReceipt(
-            @PathVariable String id, HttpServletRequest httpRequest) {
+            @PathVariable String id,
+            @RequestBody(required = false) Map<String, ?> body,
+            HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
         ResponseEntity<?> invalidId = validateDocumentId(id);
         if (invalidId != null) return invalidId;
         try {
-            return ResponseEntity.ok(firebaseService.approveReceiptVerification(id, "ADMIN"));
+            Long expectedVersion = parseOptionalVersion(body == null ? null : body.get("submissionVersion"));
+            String expectedCreatedAt = body != null && body.get("createdAt") instanceof String s && !s.isBlank()
+                    ? s.trim() : null;
+            if (expectedVersion == null && expectedCreatedAt == null) {
+                return ResponseEntity.ok(firebaseService.approveReceiptVerification(id, "ADMIN"));
+            }
+            return ResponseEntity.ok(firebaseService.approveReceiptVerification(
+                    id, "ADMIN", expectedVersion, expectedCreatedAt));
         } catch (ReceiptVerificationNotFoundException e) {
             return ResponseEntity.status(404).body(Map.of(
                     "success", false, "message", e.getMessage()));
         } catch (ReceiptOcrEvidenceException e) {
             return ResponseEntity.unprocessableEntity().body(Map.of(
                     "success", false, "message", e.getMessage()));
+        } catch (com.howmuch.service.DuplicateVisitException e) {
+            // 같은 날 같은 매장의 방문이 이미 있으면 승인하지 않고 반려 사유와 함께 알립니다.
+            return ResponseEntity.status(409).body(Map.of(
+                    "success", false, "message", e.getMessage() + " 중복 방문으로 반려해주세요.",
+                    "reason", "DUPLICATE_VISIT"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(409).body(Map.of(
                     "success", false, "message", e.getMessage()));
@@ -213,13 +243,13 @@ public class AdminController {
     @PostMapping("/receipts/{id}/reject")
     public ResponseEntity<?> rejectReceipt(
             @PathVariable String id,
-            @RequestBody(required = false) Map<String, String> body,
+            @RequestBody(required = false) Map<String, ?> body,
             HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
         ResponseEntity<?> invalidId = validateDocumentId(id);
         if (invalidId != null) return invalidId;
-        String reason = body == null ? null : body.get("reason");
+        String reason = body != null && body.get("reason") != null ? body.get("reason").toString() : null;
         if (reason == null || reason.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", "반려 사유(reason)는 필수입니다."));
@@ -229,7 +259,15 @@ public class AdminController {
                     "success", false, "message", "반려 사유는 500자 이내로 입력해주세요."));
         }
         try {
-            firebaseService.rejectReceiptVerification(id, reason.trim(), "ADMIN");
+            Long expectedVersion = parseOptionalVersion(body == null ? null : body.get("submissionVersion"));
+            String expectedCreatedAt = body != null && body.get("createdAt") instanceof String s && !s.isBlank()
+                    ? s.trim() : null;
+            if (expectedVersion == null && expectedCreatedAt == null) {
+                firebaseService.rejectReceiptVerification(id, reason.trim(), "ADMIN");
+            } else {
+                firebaseService.rejectReceiptVerification(
+                        id, reason.trim(), "ADMIN", expectedVersion, expectedCreatedAt);
+            }
             return ResponseEntity.ok(Map.of("success", true, "id", id, "status", "REJECTED"));
         } catch (ReceiptVerificationNotFoundException e) {
             return ResponseEntity.status(404).body(Map.of(
@@ -358,6 +396,11 @@ public class AdminController {
         if (invalidId != null) return invalidId;
 
         try {
+            if (accountWithdrawalService != null) {
+                var job = accountWithdrawalService.submitAdminWithdrawal(uid);
+                log.warn("[AdminController] 회원 강제 탈퇴 작업 등록 완료: state={}", job.state());
+                return ResponseEntity.status(job.completed() ? 200 : 202).body(job.response());
+            }
             // Persist the shared cutoff before deletion. Reversing this order would let a
             // still-running token through another instance if the revocation write failed.
             if (sessionTokenService != null) {
@@ -417,10 +460,6 @@ public class AdminController {
     }
 
     /** 제보 승인 (POST /api/admin/reports/{id}/approve) */
-    public ResponseEntity<?> approveReport(String id, HttpServletRequest httpRequest) {
-        return approveReport(id, null, httpRequest);
-    }
-
     @PostMapping("/reports/{id}/approve")
     public ResponseEntity<?> approveReport(@PathVariable String id,
                                            @RequestBody(required = false) com.howmuch.dto.ReportApprovalRequest approval,
@@ -553,6 +592,11 @@ public class AdminController {
         } catch (java.util.NoSuchElementException | IllegalArgumentException e) {
             return ResponseEntity.status(404).body(Map.of(
                     "success", false, "message", e.getMessage()));
+        } catch (FirebaseService.InquiryImageOwnerUnknownException e) {
+            // WEB-ADM-15: 저장소 장애가 아니라 첨부 사진 작성자 정보가 없는 문의입니다. 다시 시도해도 결과가 같습니다.
+            return ResponseEntity.status(409).body(Map.of(
+                    "success", false,
+                    "message", "첨부 사진의 작성자 정보가 없어 사진을 안전하게 지울 수 없으므로 문의를 삭제하지 않았어요. 저장소 장애가 아니라서 다시 시도해도 결과가 같아요."));
         } catch (IllegalStateException e) {
             log.warn("[AdminController] 문의 사진 저장소가 설정되지 않아 삭제를 중단했습니다. id={}", id);
             return ResponseEntity.status(503).body(Map.of(
@@ -635,9 +679,12 @@ public class AdminController {
         if (invalidId != null) return invalidId;
 
         try {
-            firebaseService.deleteComment(id);
-            log.warn("[AdminController] 댓글 삭제 - id: {}", id);
-            return ResponseEntity.ok(Map.of("success", true, "id", id));
+            List<String> deletedIds = firebaseService.deleteComment(id);
+            log.warn("[AdminController] 댓글 삭제 - id: {}, 함께 삭제한 답글: {}", id,
+                    deletedIds == null ? 0 : Math.max(0, deletedIds.size() - 1));
+            // QA 2026-10-07 #57: 함께 지운 답글 ID까지 돌려줘 관리자 목록에서 바로 뺄 수 있게 합니다.
+            return ResponseEntity.ok(Map.of("success", true, "id", id,
+                    "deletedIds", deletedIds == null ? List.of(id) : deletedIds));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(404).body(Map.of("success", false, "message", e.getMessage()));
         } catch (Exception e) {
@@ -649,7 +696,7 @@ public class AdminController {
         }
     }
 
-    /** 알림 발송 (POST /api/admin/notifications, body: {audience: ALL|USER, title, body, type?, targetUid?}). */
+    /** 알림 발송 (POST /api/admin/notifications, body: {audience: ALL|USER, title, body, type?, targetUid?, requestId?}). */
     @PostMapping("/notifications")
     public ResponseEntity<?> sendNotification(@RequestBody Map<String, String> body,
                                               HttpServletRequest httpRequest) {
@@ -661,6 +708,7 @@ public class AdminController {
         String type = body != null ? body.get("type") : null;
         String targetUid = body != null ? body.get("targetUid") : null;
         String audience = body != null ? body.get("audience") : null;
+        String requestId = body != null ? trimToNullValue(body.get("requestId")) : null;
 
         if (title == null || title.isBlank() || content == null || content.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -697,15 +745,22 @@ public class AdminController {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", "대상 사용자 ID 형식이 올바르지 않습니다."));
         }
+        if (requestId != null && !FirebaseService.isValidAdminRequestId(requestId)) {
+            return invalidRequestId();
+        }
 
         try {
+            // WEB-ADM-2: 같은 requestId로 다시 보내면 이미 받은 회원은 건너뜁니다(skipped).
             Map<String, Object> result = firebaseService.sendAdminNotification(
                     userAudience ? targetUid.trim() : null,
-                    title.trim(), content.trim(), type == null ? null : type.trim());
+                    title.trim(), content.trim(), type == null ? null : type.trim(), requestId);
             log.warn("[AdminController] 알림 발송 완료 - 발송 수: {}", result.get("sent"));
             return ResponseEntity.ok(result);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(404).body(Map.of(
+                    "success", false, "message", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(Map.of(
                     "success", false, "message", e.getMessage()));
         } catch (Exception e) {
             log.error("[AdminController] 알림 발송 중 오류 발생: ", e);
@@ -716,7 +771,30 @@ public class AdminController {
         }
     }
 
-    /** 공지사항 등록 (POST /api/admin/notices, body: {title, body}) — 전체 회원 알림함/웹 팝업, 푸시 제외. */
+    private static String trimToNullValue(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static Long parseOptionalVersion(Object raw) {
+        if (raw == null) return null;
+        if (raw instanceof Number n) return n.longValue();
+        String s = raw.toString().trim();
+        if (s.isEmpty()) return null;
+        try {
+            return Long.parseLong(s);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("영수증 제출 버전 정보가 올바르지 않습니다.");
+        }
+    }
+
+    private ResponseEntity<?> invalidRequestId() {
+        return ResponseEntity.badRequest().body(Map.of(
+                "success", false, "message", "요청 ID(requestId)는 영문·숫자·-·_ 8~64자로 보내주세요."));
+    }
+
+    /** 공지사항 등록 (POST /api/admin/notices, body: {title, body, requestId?}) — 전체 회원 알림함/웹 팝업, 푸시 제외. */
     @PostMapping("/notices")
     public ResponseEntity<?> publishNotice(@RequestBody Map<String, String> body,
                                            HttpServletRequest httpRequest) {
@@ -725,6 +803,7 @@ public class AdminController {
 
         String title = body != null ? body.get("title") : null;
         String content = body != null ? body.get("body") : null;
+        String requestId = body != null ? trimToNullValue(body.get("requestId")) : null;
         if (title == null || title.isBlank() || content == null || content.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
@@ -737,18 +816,85 @@ public class AdminController {
                     "message", "제목은 100자, 내용은 500자 이내로 입력해주세요."
             ));
         }
+        if (requestId != null && !FirebaseService.isValidAdminRequestId(requestId)) {
+            return invalidRequestId();
+        }
 
         try {
             Map<String, Object> result = firebaseService.publishAdminNotice(
-                    title.trim(), content.trim());
+                    title.trim(), content.trim(), requestId);
             log.warn("[AdminController] 공지사항 등록 완료 - 대상 수: {}", result.get("sent"));
             return ResponseEntity.ok(result);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(Map.of(
+                    "success", false, "message", e.getMessage()));
         } catch (Exception e) {
             log.error("[AdminController] 공지사항 등록 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
                     "message", "공지사항 등록 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
+        }
+    }
+
+    /** 등록한 공지 목록 (GET /api/admin/notices) — 회원 알림함에 복제된 공지를 발송 단위로 묶어 보여줍니다(QA 2026-10-07 #3). */
+    @GetMapping("/notices")
+    public ResponseEntity<?> getNotices(HttpServletRequest httpRequest) {
+        return listAdminMessages(FirebaseService.AdminMessageKind.NOTICE, httpRequest,
+                "공지 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+    }
+
+    /** 공지 회수 (DELETE /api/admin/notices/{id}) — 모든 회원의 알림함과 웹 접속 팝업에서 지웁니다. */
+    @DeleteMapping("/notices/{id}")
+    public ResponseEntity<?> recallNotice(@PathVariable String id, HttpServletRequest httpRequest) {
+        return recallAdminMessage(FirebaseService.AdminMessageKind.NOTICE, id, httpRequest,
+                "공지를 회수하지 못했습니다. 잠시 후 다시 시도해주세요.");
+    }
+
+    /** 보낸 일반 알림 목록 (GET /api/admin/notifications) — 알림 발송 화면에서 회수할 수 있게 발송 단위로 묶습니다. */
+    @GetMapping("/notifications")
+    public ResponseEntity<?> getSentNotifications(HttpServletRequest httpRequest) {
+        return listAdminMessages(FirebaseService.AdminMessageKind.GENERAL, httpRequest,
+                "보낸 알림 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+    }
+
+    /** 일반 알림 회수 (DELETE /api/admin/notifications/{id}) — 회원 알림함에서 지웁니다. 이미 도착한 기기 푸시는 남습니다. */
+    @DeleteMapping("/notifications/{id}")
+    public ResponseEntity<?> recallNotification(@PathVariable String id, HttpServletRequest httpRequest) {
+        return recallAdminMessage(FirebaseService.AdminMessageKind.GENERAL, id, httpRequest,
+                "알림을 회수하지 못했습니다. 잠시 후 다시 시도해주세요.");
+    }
+
+    private ResponseEntity<?> listAdminMessages(FirebaseService.AdminMessageKind kind,
+                                                HttpServletRequest httpRequest, String failureMessage) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+        try {
+            return ResponseEntity.ok(firebaseService.listAdminMessages(kind));
+        } catch (Exception e) {
+            log.error("[AdminController] 보낸 공지·알림 목록 조회 중 오류 발생: kind={}", kind, e);
+            return ResponseEntity.status(500).body(Map.of("success", false, "message", failureMessage));
+        }
+    }
+
+    private ResponseEntity<?> recallAdminMessage(FirebaseService.AdminMessageKind kind, String id,
+                                                 HttpServletRequest httpRequest, String failureMessage) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+        ResponseEntity<?> invalidId = validateDocumentId(id);
+        if (invalidId != null) return invalidId;
+        try {
+            Map<String, Object> result = firebaseService.recallAdminMessage(kind, id);
+            log.warn("[AdminController] 보낸 공지·알림 회수 - kind: {}, id: {}, 삭제 알림: {}",
+                    kind, id, result.get("deleted"));
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (java.util.NoSuchElementException e) {
+            return ResponseEntity.status(404).body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("[AdminController] 보낸 공지·알림 회수 중 오류 발생: kind={}, id={}", kind, id, e);
+            return ResponseEntity.status(500).body(Map.of("success", false, "message", failureMessage));
         }
     }
 

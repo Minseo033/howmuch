@@ -9,6 +9,8 @@ class AppRoutes {
   static const onboardingStoreReport = '/onboarding/store-report';
   static const authTerms = '/auth/terms';
   static const login = '/login';
+  // Login opened on top of a screen that needs an account (openLoginFlow).
+  static const loginFlow = '/login/flow';
   static const permissionSetup = '/permissions';
   static const profileSetup = '/auth/profile-setup';
   static const home = '/home';

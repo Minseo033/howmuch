@@ -3,8 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:howmuch/shared/widgets/custom_app_bar.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 
+import 'support/screen_reader.dart';
+
 void main() {
-  testWidgets('top bar exposes back and trailing action names', (tester) async {
+  // QA 10/7 #51: each button is one element, named once.
+  testWidgets('top bar reads back and trailing actions once', (tester) async {
     final semantics = tester.ensureSemantics();
 
     await tester.pumpWidget(
@@ -21,14 +24,17 @@ void main() {
       ),
     );
 
-    expect(find.bySemanticsLabel('뒤로가기'), findsOneWidget);
-    expect(find.bySemanticsLabel('검색'), findsOneWidget);
+    for (final name in ['뒤로가기', '검색']) {
+      expect(readerElements(name), findsOne);
+      expect(
+        readerElements(name),
+        isSemantics(tooltip: name, isButton: true, hasTapAction: true),
+      );
+    }
     semantics.dispose();
   });
 
-  testWidgets('custom app bar back button exposes an accessible name', (
-    tester,
-  ) async {
+  testWidgets('custom app bar reads its back button once', (tester) async {
     final semantics = tester.ensureSemantics();
     await tester.pumpWidget(
       MaterialApp(
@@ -52,7 +58,11 @@ void main() {
     await tester.tap(find.text('상세 열기'));
     await tester.pumpAndSettle();
 
-    expect(find.bySemanticsLabel('뒤로가기'), findsOneWidget);
+    expect(readerElements('뒤로가기'), findsOne);
+    expect(
+      readerElements('뒤로가기'),
+      isSemantics(tooltip: '뒤로가기', isButton: true, hasTapAction: true),
+    );
     semantics.dispose();
   });
 }

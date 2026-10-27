@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +25,7 @@ import java.util.Map;
  * POST /api/community/feed/{postId}/comments      댓글 작성
  * GET  /api/community/comments/{commentId}/replies 답글 목록
  * POST /api/community/comments/{commentId}/replies 답글 작성
+ * DELETE /api/community/comments/{commentId}       본인 댓글/답글 삭제
  */
 @Slf4j
 @RestController
@@ -144,6 +146,34 @@ public class CommunityCommentsController {
             log.error("[CommunityCommentsController] 답글 작성 오류: ", e);
             return ResponseEntity.status(500).body(Map.of(
                     "success", false, "message", "답글 등록 중 오류가 발생했습니다."));
+        }
+    }
+
+    /** 로그인한 사용자가 자신이 작성한 댓글이나 답글만 삭제합니다. */
+    @DeleteMapping("/comments/{commentId}")
+    public ResponseEntity<?> deleteMyComment(@PathVariable String commentId,
+                                              HttpServletRequest httpRequest) {
+        ResponseEntity<?> invalidId = validateDocumentId(commentId, "댓글");
+        if (invalidId != null) return invalidId;
+        String uid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
+        if (uid == null || uid.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "success", false, "message", "로그인이 필요합니다."));
+        }
+        try {
+            List<String> deletedIds = firebaseService.deleteOwnedComment(commentId, uid);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "id", commentId,
+                    "deletedIds", deletedIds));
+        } catch (java.util.NoSuchElementException e) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("[CommunityCommentsController] 내 댓글 삭제 오류: id={}", commentId, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "댓글 삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."));
         }
     }
 

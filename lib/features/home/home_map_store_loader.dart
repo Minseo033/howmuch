@@ -43,29 +43,36 @@ class HomeMapStoreLoadResult {
   const HomeMapStoreLoadResult({
     required this.stores,
     required this.hasFreshResponse,
+    this.truncated = false,
   });
 
   final List<Store> stores;
   final bool hasFreshResponse;
+
+  /// The server kept only the stores nearest the viewport center
+  /// (X-Stores-Truncated: true). Zooming in shows the rest.
+  final bool truncated;
+}
+
+/// Loads stores for one map viewport, falling back to [cachedStores].
+typedef HomeMapStoreLoader =
+    Future<HomeMapStoreLoadResult> Function({
+      required Map<String, double> bounds,
+      required List<Store> cachedStores,
+    });
+
+bool isHomeMapStoreResponseTruncated(http.Response response) {
+  // Platform clients lowercase header names; injected responses may not.
+  for (final header in response.headers.entries) {
+    if (header.key.toLowerCase() == 'x-stores-truncated') {
+      return header.value.trim().toLowerCase() == 'true';
+    }
+  }
+  return false;
 }
 
 /// An unavailable bounds endpoint must not erase stores already loaded from
 /// the server. The caller applies viewport and user filters to either source.
-Future<List<Store>> loadHomeMapStores({
-  required Map<String, double> bounds,
-  required List<Store> cachedStores,
-  Future<http.Response> Function(Uri)? request,
-  Duration timeout = const Duration(seconds: 5),
-}) async {
-  final result = await loadHomeMapStoresWithStatus(
-    bounds: bounds,
-    cachedStores: cachedStores,
-    request: request,
-    timeout: timeout,
-  );
-  return result.stores;
-}
-
 Future<HomeMapStoreLoadResult> loadHomeMapStoresWithStatus({
   required Map<String, double> bounds,
   required List<Store> cachedStores,
@@ -91,7 +98,11 @@ Future<HomeMapStoreLoadResult> loadHomeMapStoresWithStatus({
           .map((item) => Store.fromJson(Map<String, dynamic>.from(item as Map)))
           .where(isHomeMapStoreVisible)
           .toList();
-      return HomeMapStoreLoadResult(stores: stores, hasFreshResponse: true);
+      return HomeMapStoreLoadResult(
+        stores: stores,
+        hasFreshResponse: true,
+        truncated: isHomeMapStoreResponseTruncated(response),
+      );
     }
   } catch (_) {
     // Transport errors, timeouts, and malformed responses share the same

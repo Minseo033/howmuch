@@ -18,6 +18,7 @@ public class VisitResponseDto {
     private String storeId;     // 매장 ID
     private String storeName;   // 매장명
     private String visitedAt;   // 방문 일시 (ISO 8601 String)
+    private String visitDate;   // 영수증 거래일 또는 방문 기준일 (YYYY-MM-DD)
     private Long savedAmount;   // 절약 금액 (원)
     private String menu;        // 이용 메뉴
     private Long price;         // 결제/이용 금액
