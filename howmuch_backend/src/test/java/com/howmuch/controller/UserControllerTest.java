@@ -117,6 +117,20 @@ class UserControllerTest {
     }
 
     @Test
+    void completedWithdrawalRetryReturnsOkRatherThanAccepted() throws Exception {
+        FirebaseService service = mock(FirebaseService.class);
+        AccountWithdrawalService withdrawals = mock(AccountWithdrawalService.class);
+        UserController controller = new UserController(service, withdrawals);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute(SessionAuthFilter.UID_ATTRIBUTE, "user-1");
+        String id = "00000000-0000-4000-8000-000000000001";
+        when(withdrawals.submit("user-1", id)).thenReturn(
+                new WithdrawalJobStore.Job("user-1", id, "COMPLETED", 1, 0, 0, ""));
+        assertEquals(200, controller.deleteUser(request, id).getStatusCode().value());
+        verifyNoInteractions(service);
+    }
+
+    @Test
     void neverAcknowledgesAJobThatCouldNotBePersisted() throws Exception {
         FirebaseService service = mock(FirebaseService.class);
         AccountWithdrawalService withdrawals = mock(AccountWithdrawalService.class);

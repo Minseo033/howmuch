@@ -247,11 +247,11 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                           Container(
                             width: 40,
                             height: 40,
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               color: AppColors.surface,
                               shape: BoxShape.circle,
                             ),
-                            child: Center(
+                            child: const Center(
                               child: Icon(
                                 Icons.add,
                                 color: AppColors.ink,
@@ -259,8 +259,8 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                               ),
                             ),
                           ),
-                          SizedBox(width: 12),
-                          Expanded(
+                          const SizedBox(width: 12),
+                          const Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [

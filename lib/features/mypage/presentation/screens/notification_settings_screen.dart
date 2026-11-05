@@ -224,7 +224,7 @@ class _NotificationSettingsScreenState
                       ),
                       Text(
                         title,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: NotificationSettingsScreen.ink,
@@ -519,7 +519,7 @@ class _NotificationSettingsScreenState
                         settings.quietStart == settings.quietEnd) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         HowmuchSnackBar(
-                          content: Text('방해 금지 시작·종료 시간을 다르게 선택해 주세요.'),
+                          content: const Text('방해 금지 시작·종료 시간을 다르게 선택해 주세요.'),
                         ),
                       );
                       return;
@@ -547,7 +547,7 @@ class _NotificationSettingsScreenState
                           router.go(AppRoutes.mypage);
                         }
                         messenger.showSnackBar(
-                          HowmuchSnackBar(content: Text('알림 설정을 저장했어요.')),
+                          HowmuchSnackBar(content: const Text('알림 설정을 저장했어요.')),
                         );
                       } else {
                         messenger.showSnackBar(
@@ -607,7 +607,7 @@ class _Header extends StatelessWidget {
       right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.white,
           border: Border(
             bottom: BorderSide(
@@ -656,7 +656,7 @@ class _Header extends StatelessWidget {
                 child: Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: NotificationSettingsScreen.black,
                     fontFamily: NotificationSettingsScreen.fontFamily,
                     fontFamilyFallback: NotificationSettingsScreen.fontFallback,
@@ -1072,7 +1072,7 @@ class _StickySaveButton extends StatelessWidget {
     final effectiveBottom = effectiveSafeBottom(safeBottom);
 
     return DecoratedBox(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.white,
         border: Border(
           top: BorderSide(
@@ -1189,7 +1189,7 @@ class _HowmuchToggle extends StatelessWidget {
                           BoxShadow(
                             color: AppColors.black.withValues(alpha: 0.2),
                             blurRadius: 3,
-                            offset: Offset(0, 1),
+                            offset: const Offset(0, 1),
                           ),
                         ],
                       ),

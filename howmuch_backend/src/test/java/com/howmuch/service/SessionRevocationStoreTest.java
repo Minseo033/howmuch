@@ -22,6 +22,46 @@ import static org.mockito.Mockito.when;
 class SessionRevocationStoreTest {
 
     @Test
+    @SuppressWarnings("unchecked")
+    void interruptedReadFailsClosedAndPreservesInterrupt() throws Exception {
+        Firestore db = mock(Firestore.class);
+        CollectionReference collection = mock(CollectionReference.class);
+        DocumentReference reference = mock(DocumentReference.class);
+        com.google.api.core.ApiFuture<DocumentSnapshot> future = mock(com.google.api.core.ApiFuture.class);
+        when(db.collection("session_revocations")).thenReturn(collection);
+        when(collection.document(anyString())).thenReturn(reference);
+        when(reference.get()).thenReturn(future);
+        when(future.get(org.mockito.ArgumentMatchers.anyLong(), any(java.util.concurrent.TimeUnit.class)))
+                .thenThrow(new InterruptedException("cancelled"));
+        try {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> new SessionRevocationStore(db, 1000).getRevocation("uid"))
+                    .isInstanceOf(SessionRevocationStore.UnavailableException.class)
+                    .hasCauseInstanceOf(InterruptedException.class);
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally { Thread.interrupted(); }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void interruptedRevocationWritesNeverReportSuccess() throws Exception {
+        Firestore db = mock(Firestore.class);
+        com.google.api.core.ApiFuture<Object> future = mock(com.google.api.core.ApiFuture.class);
+        when(db.runTransaction(any())).thenReturn(future);
+        when(future.get(org.mockito.ArgumentMatchers.anyLong(), any(java.util.concurrent.TimeUnit.class)))
+                .thenThrow(new InterruptedException("cancelled"));
+        SessionRevocationStore store = new SessionRevocationStore(db, 1000);
+        try {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> store.revokeAt("uid", 100L))
+                    .isInstanceOf(SessionRevocationStore.UnavailableException.class);
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+            Thread.interrupted();
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> store.revokeToken("uid", 100L, 200L))
+                    .isInstanceOf(SessionRevocationStore.UnavailableException.class);
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally { Thread.interrupted(); }
+    }
+
+    @Test
     void usesStableOpaqueDocumentIdsForFirebaseStyleUids() {
         String kakaoUid = "kakao:123456789";
 

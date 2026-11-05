@@ -122,7 +122,7 @@ public class VisitController {
             // 계약 C9: 공개 목록에 있는 매장인지 먼저 확인하고, 정규 매장 ID·이름으로 저장합니다.
             Optional<Map<String, Object>> visitableStore =
                     firebaseService.findVisitableStore(normalizedStoreId, normalizedStoreName);
-            if (visitableStore == null || visitableStore.isEmpty()) {
+            if (visitableStore.isEmpty()) {
                 if (firebaseService.isStoreCatalogWarmingUp()) return catalogWarmingUp();
                 return ResponseEntity.status(422).body(Map.of(
                         "success", false,
@@ -166,7 +166,10 @@ public class VisitController {
                     normalizedMenu, price, receiptFingerprint, uploaded, ocrResult, locationEvidence);
             String status = "PENDING";
             String visitId = null;
-            if (ocrResult != null && ocrResult.shouldAutoApprove()) {
+            // A committed submission may defer old-image cleanup after cancellation.
+            // Keep its accepted PENDING response; do not start another asynchronous write.
+            if (ocrResult != null && ocrResult.shouldAutoApprove()
+                    && !Thread.currentThread().isInterrupted()) {
                 try {
                     Map<String, Object> approval = firebaseService.approveReceiptVerification(id, "AUTO_OCR");
                     status = String.valueOf(approval.get("status"));
@@ -209,10 +212,18 @@ public class VisitController {
 
     private void cleanupUploadedReceipt(String firebaseUid, List<String> uploaded) {
         if (uploaded == null || uploaded.isEmpty()) return;
+        // These uploads were never accepted by a receipt. Give required compensation
+        // one attempt even if cancellation was preserved, then restore that signal.
+        boolean interruptedBeforeCleanup = Thread.interrupted();
         try {
             firebaseService.deleteReportImages(firebaseUid, uploaded);
+        } catch (InterruptedException cleanupInterrupted) {
+            Thread.currentThread().interrupt();
+            log.warn("저장 실패 후 영수증 이미지 정리가 중단되었습니다.", cleanupInterrupted);
         } catch (Exception cleanupError) {
             log.warn("저장 실패 후 영수증 이미지 정리에 실패했습니다.", cleanupError);
+        } finally {
+            if (interruptedBeforeCleanup) Thread.currentThread().interrupt();
         }
     }
 

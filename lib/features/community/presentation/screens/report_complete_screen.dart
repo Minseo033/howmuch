@@ -236,7 +236,7 @@ class _SubmittedReportCard extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _PillBadge(
+                const _PillBadge(
                   label: '사용자 제보',
                   backgroundColor: Color(0xFFFFF3EA),
                   color: ReportCompleteScreen.orange,

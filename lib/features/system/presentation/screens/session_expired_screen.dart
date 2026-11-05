@@ -193,7 +193,7 @@ class _StateIcon extends StatelessWidget {
         color: SessionExpiredScreen.surface,
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, color: Color(0xFF64748B), size: size),
+      child: Icon(icon, color: const Color(0xFF64748B), size: size),
     );
   }
 }

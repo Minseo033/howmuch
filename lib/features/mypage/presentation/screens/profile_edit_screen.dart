@@ -73,7 +73,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     if (!saved) {
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        HowmuchSnackBar(content: Text('프로필 저장에 실패했어요. 다시 시도해주세요.')),
+        HowmuchSnackBar(content: const Text('프로필 저장에 실패했어요. 다시 시도해주세요.')),
       );
       return;
     }
@@ -85,7 +85,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     if (!context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     await _closeOrGoToMypage();
-    messenger.showSnackBar(HowmuchSnackBar(content: Text('프로필을 저장했어요.')));
+    messenger.showSnackBar(HowmuchSnackBar(content: const Text('프로필을 저장했어요.')));
   }
 
   @override
@@ -395,7 +395,7 @@ class _Header extends StatelessWidget {
       right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.white,
           border: Border(
             bottom: BorderSide(color: ProfileEditScreen.border, width: .909),
@@ -467,7 +467,7 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.primaryLight,
         shape: BoxShape.circle,
       ),
@@ -788,7 +788,7 @@ class _Toggle extends StatelessWidget {
                         BoxShadow(
                           color: AppColors.black.withValues(alpha: 0.2),
                           blurRadius: 3,
-                          offset: Offset(0, 1),
+                          offset: const Offset(0, 1),
                         ),
                       ],
                     ),
@@ -832,7 +832,7 @@ class _StickyButton extends StatelessWidget {
     final effectiveBottom = effectiveSafeBottom(safeBottom);
 
     return DecoratedBox(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.white,
         border: Border(
           top: BorderSide(color: ProfileEditScreen.border, width: .909),

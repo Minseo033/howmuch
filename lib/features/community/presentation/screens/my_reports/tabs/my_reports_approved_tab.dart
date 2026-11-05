@@ -94,7 +94,7 @@ class MyReportsApprovedTab extends ConsumerWidget {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         HowmuchSnackBar(
-                          content: Text('대상 매장 정보를 불러오지 못했어요. 다시 시도해주세요.'),
+                          content: const Text('대상 매장 정보를 불러오지 못했어요. 다시 시도해주세요.'),
                         ),
                       );
                     }

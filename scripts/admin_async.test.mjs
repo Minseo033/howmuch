@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
+import { webcrypto } from 'node:crypto';
 
 const html = readFileSync(new URL('../web/admin.html', import.meta.url), 'utf8');
 const source = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
@@ -23,7 +24,7 @@ test('report deletion warning distinguishes public new stores from information r
   assert.doesNotMatch(modal, /승인된 제보는 지도에서도 즉시 제거/);
 });
 
-function harness(fetchImpl, { crypto } = {}) {
+function harness(fetchImpl, { crypto = webcrypto } = {}) {
   const elements = new Map();
   const timers = new Map();
   const storage = new Map([['hm_admin_key', JSON.stringify({ key: 'test-key', savedAt: Date.now() })]]);
@@ -63,7 +64,7 @@ function harness(fetchImpl, { crypto } = {}) {
     renderNoticesView = () => rendered.push('notices');
     globalThis.admin = { api, switchView, loadReports, handleError, rendered, original,
       reportCounts, receiptCounts, loadReceipts, renderReceiptsView,
-      fmtPrice, reportCard, receiptCard, inquiryOriginal, resolutionSummary,
+      fmtDate, fmtPrice, newRequestId, reportCard, receiptCard, inquiryOriginal, resolutionSummary,
       openUserActivity, openDeleteReportModal, doDeleteReport,
       doSendNotification, doPublishNotice, doApprove,
       openReportResolution, approveReportResolution,
@@ -817,3 +818,41 @@ test('report LEGACY filter cannot hide pending receipts and each view retains it
   await admin.switchView('receipts');
   assert.match(el('content').innerHTML, /class="tab active" data-receipt-status="REJECTED"/);
 });
+
+
+test('Sonar date and price guards preserve invalid dates, ranges and long inputs', () => {
+  const { admin } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
+  assert.equal(admin.fmtDate('<invalid>'), '&lt;invalid&gt;');
+  assert.equal(admin.fmtPrice(' 3,000  /  3,500원 '), '3,000 / 3,500원');
+  assert.equal(admin.fmtPrice('3,000 – 3,500'), '3,000 ~ 3,500원');
+  const longInvalid = '1' + ' '.repeat(200000) + 'x';
+  assert.equal(admin.fmtPrice(longInvalid), longInvalid);
+});
+
+test('request IDs use secure crypto APIs and never fall back to Math.random', () => {
+  const noFetch = async () => { throw new Error('unexpected network'); };
+  const uuid = '00000000-0000-4000-8000-000000000001';
+  assert.equal(harness(noFetch, { crypto: { randomUUID: () => uuid } }).admin.newRequestId(), uuid);
+  const bytesOnly = harness(noFetch, { crypto: { getRandomValues: (bytes) => bytes.fill(255) } });
+  assert.equal(bytesOnly.admin.newRequestId(), 'req-' + 'ff'.repeat(16));
+  assert.throws(() => harness(noFetch, { crypto: null }).admin.newRequestId(), /안전한 발송 ID/);
+});
+
+for (const kind of ['notice', 'notification']) {
+  test(kind + ' fails closed without secure crypto and restores its send button', async () => {
+    let calls = 0;
+    const setup = harness(async () => { calls += 1; return { ok: true, status: 200, json: async () => ({}) }; }, { crypto: null });
+    const { admin, el, storage } = setup;
+    const isNotice = kind === 'notice';
+    el(isNotice ? 'noticeTitle' : 'notifTitle').value = '알림 제목';
+    el(isNotice ? 'noticeBody' : 'notifBody').value = '알림 내용';
+    el('notifTargetPicker').hidden = true;
+    const pending = isNotice ? admin.doPublishNotice() : admin.doSendNotification();
+    el('confirmActionAccept').onclick();
+    await pending;
+    assert.equal(calls, 0, 'no request may be sent with a weak ID');
+    assert.equal(el(isNotice ? 'noticePublish' : 'notifSend').disabled, false);
+    assert.match(el('toast').textContent, /안전한 발송 ID/);
+    assert.equal(storage.has('hm_admin_send_drafts'), false);
+  });
+}

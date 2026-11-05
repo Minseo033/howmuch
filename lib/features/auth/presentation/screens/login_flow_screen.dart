@@ -290,9 +290,9 @@ class _Waiting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FigmaMobileCanvas(
-      backgroundColor: const Color(0xFFF4F6FA),
-      child: const Center(
+    return const FigmaMobileCanvas(
+      backgroundColor: Color(0xFFF4F6FA),
+      child: Center(
         child: CircularProgressIndicator(color: LoginScreen.blue),
       ),
     );

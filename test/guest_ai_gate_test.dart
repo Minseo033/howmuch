@@ -131,6 +131,9 @@ class _FakeWebViewPlatform extends WebViewPlatform {
 
 class _FakePlatformWebViewController extends PlatformWebViewController {
   _FakePlatformWebViewController(super.params) : super.implementation();
+  String? _url;
+  @override
+  Future<String?> currentUrl() async => _url;
 
   @override
   Future<void> setJavaScriptMode(JavaScriptMode javaScriptMode) async {}
@@ -147,7 +150,9 @@ class _FakePlatformWebViewController extends PlatformWebViewController {
   Future<void> addJavaScriptChannel(JavaScriptChannelParams params) async {}
 
   @override
-  Future<void> loadHtmlString(String html, {String? baseUrl}) async {}
+  Future<void> loadHtmlString(String html, {String? baseUrl}) async {
+    _url = baseUrl;
+  }
 
   @override
   Future<void> runJavaScript(String javaScript) async {}
@@ -162,6 +167,23 @@ class _FakePlatformWebViewWidget extends PlatformWebViewWidget {
 
 class _FakePlatformNavigationDelegate extends PlatformNavigationDelegate {
   _FakePlatformNavigationDelegate(super.params) : super.implementation();
+
+  NavigationRequestCallback? onNavigationRequest;
+  PageEventCallback? onPageStarted;
+  @override
+  Future<void> setOnNavigationRequest(
+    NavigationRequestCallback callback,
+  ) async {
+    onNavigationRequest = callback;
+  }
+
+  @override
+  Future<void> setOnPageStarted(PageEventCallback callback) async {
+    onPageStarted = callback;
+  }
+
+  @override
+  Future<void> setOnPageFinished(PageEventCallback callback) async {}
 
   @override
   Future<void> setOnWebResourceError(

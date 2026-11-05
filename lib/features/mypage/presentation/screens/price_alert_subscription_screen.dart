@@ -294,7 +294,7 @@ class _PriceAlertSubscriptionScreenState
                   setState(() => _isSaving = false);
                   await _closeOrGoToNotificationSettings();
                   messenger.showSnackBar(
-                    HowmuchSnackBar(content: Text('가격 알림을 저장했어요.')),
+                    HowmuchSnackBar(content: const Text('가격 알림을 저장했어요.')),
                   );
                 },
               ),
@@ -475,7 +475,7 @@ class _Header extends StatelessWidget {
       right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.white,
           border: Border(
             bottom: BorderSide(
@@ -814,7 +814,7 @@ class _StickyButton extends StatelessWidget {
     final topPadding = compact ? 8.0 : topGap;
 
     return DecoratedBox(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.white,
         border: Border(
           top: BorderSide(

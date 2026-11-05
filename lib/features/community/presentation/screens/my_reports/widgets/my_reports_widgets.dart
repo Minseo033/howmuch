@@ -91,7 +91,7 @@ class ReportCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: Color(0xFFE5E7EB), width: .909),
+              border: Border.all(color: const Color(0xFFE5E7EB), width: .909),
             ),
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -582,8 +582,8 @@ class MiniProgressSteps extends StatelessWidget {
                     color: index == 1
                         ? const Color(0xFFF97316)
                         : (items[index].done
-                              ? Color(0xFF0F172A)
-                              : Color(0xFF64748B)),
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFF64748B)),
                     fontSize: 9.5,
                     fontWeight: index == 1 ? FontWeight.w700 : FontWeight.w500,
                   ),

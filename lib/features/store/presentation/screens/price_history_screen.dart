@@ -115,7 +115,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
           ..clearSnackBars()
           ..showSnackBar(
             HowmuchSnackBar(
-              content: Text('가격 이력을 새로고침하지 못했어요. 잠시 후 다시 시도해주세요.'),
+              content: const Text('가격 이력을 새로고침하지 못했어요. 잠시 후 다시 시도해주세요.'),
             ),
           );
         return;

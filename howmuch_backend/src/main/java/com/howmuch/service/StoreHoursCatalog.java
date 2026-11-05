@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -84,6 +85,7 @@ public class StoreHoursCatalog {
         }
     }
 
+    @Autowired
     public StoreHoursCatalog() {
         this(readEntries());
     }

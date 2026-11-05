@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -95,6 +96,20 @@ public class ClientIpResolver {
     }
 
     private record Cidr(byte[] network, int prefixLength) {
+        private Cidr {
+            network = network.clone();
+        }
+
+        @Override public byte[] network() { return network.clone(); }
+        @Override public boolean equals(Object other) {
+            return other instanceof Cidr cidr && prefixLength == cidr.prefixLength
+                    && Arrays.equals(network, cidr.network);
+        }
+        @Override public int hashCode() { return 31 * Arrays.hashCode(network) + prefixLength; }
+        @Override public String toString() {
+            return "Cidr[network=" + Arrays.toString(network) + ", prefixLength=" + prefixLength + "]";
+        }
+
         boolean contains(byte[] candidate) {
             if (candidate.length != network.length) return false;
             int fullBytes = prefixLength / 8;

@@ -69,7 +69,16 @@ public class SessionRevocationStore {
             DocumentSnapshot snapshot = reference(uid).get()
                     .get(timeoutMillis, TimeUnit.MILLISECONDS);
             return revocationOf(snapshot.exists() ? snapshot.getData() : null);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new UnavailableException("세션 폐기 기준을 확인할 수 없습니다.", e);
         } catch (Exception e) {
+            for (Throwable cause = e; cause != null && cause != cause.getCause(); cause = cause.getCause()) {
+                if (cause instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
             throw new UnavailableException("세션 폐기 기준을 확인할 수 없습니다.", e);
         }
     }
@@ -92,7 +101,16 @@ public class SessionRevocationStore {
                         "updatedAt", System.currentTimeMillis()), SetOptions.merge());
                 return cutoff;
             }).get(timeoutMillis, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new UnavailableException("세션 폐기 기준을 저장할 수 없습니다.", e);
         } catch (Exception e) {
+            for (Throwable cause = e; cause != null && cause != cause.getCause(); cause = cause.getCause()) {
+                if (cause instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
             throw new UnavailableException("세션 폐기 기준을 저장할 수 없습니다.", e);
         }
     }
@@ -126,7 +144,16 @@ public class SessionRevocationStore {
                 transaction.set(reference, next, SetOptions.merge());
                 return new Revocation(cutoff, issuedAtValues(tokens), revocationOf(current).withdrawalPending());
             }).get(timeoutMillis, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new UnavailableException("세션 폐기 기준을 저장할 수 없습니다.", e);
         } catch (Exception e) {
+            for (Throwable cause = e; cause != null && cause != cause.getCause(); cause = cause.getCause()) {
+                if (cause instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
             throw new UnavailableException("세션 폐기 기준을 저장할 수 없습니다.", e);
         }
     }

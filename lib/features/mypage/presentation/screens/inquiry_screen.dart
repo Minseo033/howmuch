@@ -426,7 +426,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
     messenger.clearSnackBars();
     ref.invalidate(myInquiriesProvider);
     context.go(AppRoutes.mypage);
-    messenger.showSnackBar(HowmuchSnackBar(content: Text('문의가 접수되었어요.')));
+    messenger.showSnackBar(HowmuchSnackBar(content: const Text('문의가 접수되었어요.')));
   }
 }
 

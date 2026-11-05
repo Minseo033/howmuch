@@ -22,9 +22,9 @@ import java.util.regex.Pattern;
 public class CloudinaryReportImageStorage implements ReportImageStorage {
 
     private static final Pattern SAFE_FOLDER = Pattern.compile(
-            "[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*");
+            "[A-Za-z0-9_-]++(?:/[A-Za-z0-9_-]++)*+");
     private static final Pattern SAFE_PUBLIC_ID = Pattern.compile(
-            "[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*");
+            "[A-Za-z0-9_-]++(?:/[A-Za-z0-9_-]++)*+");
     private static final Pattern VERSION_SEGMENT = Pattern.compile("v[0-9]+");
     private static final Pattern SUPPORTED_EXTENSION = Pattern.compile(
             "(?i)jpe?g|png|webp");
@@ -276,11 +276,19 @@ public class CloudinaryReportImageStorage implements ReportImageStorage {
     private static String normalizeFolder(String value) {
         String folder = value == null || value.isBlank()
                 ? "howmuch/report-images"
-                : value.trim().replaceAll("^/+|/+$", "");
+                : trimSlashes(value.trim());
         if (!SAFE_FOLDER.matcher(folder).matches()) {
             throw new IllegalArgumentException("Invalid Cloudinary report image folder.");
         }
         return folder;
+    }
+
+    private static String trimSlashes(String value) {
+        int start = 0;
+        int end = value.length();
+        while (start < end && value.charAt(start) == '/') start++;
+        while (end > start && value.charAt(end - 1) == '/') end--;
+        return value.substring(start, end);
     }
 
     private static String sha256(String value) {

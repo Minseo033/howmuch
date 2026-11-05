@@ -122,7 +122,7 @@ class _ReportDeleteConfirmScreenState
     } catch (_) {
       if (!mounted) return;
       messenger.showSnackBar(
-        HowmuchSnackBar(content: Text('제보 삭제 중 오류가 발생했습니다.')),
+        HowmuchSnackBar(content: const Text('제보 삭제 중 오류가 발생했습니다.')),
       );
       setState(() => _isDeleting = false);
     }

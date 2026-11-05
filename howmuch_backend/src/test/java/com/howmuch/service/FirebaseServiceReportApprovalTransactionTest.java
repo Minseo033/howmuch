@@ -80,6 +80,30 @@ class FirebaseServiceReportApprovalTransactionTest {
         return request;
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    @SuppressWarnings("unchecked")
+    void committedReportModerationRemainsSuccessfulIfReporterNotificationIsInterrupted(boolean approve) throws Exception {
+        report.put("reporterId", "reporter");
+        when(reportSnapshot.getString("reporterId")).thenReturn("reporter");
+        CollectionReference notifications = mock(CollectionReference.class);
+        DocumentReference notification = mock(DocumentReference.class);
+        com.google.api.core.ApiFuture<WriteResult> future = mock(com.google.api.core.ApiFuture.class);
+        when(db.collection("notifications")).thenReturn(notifications);
+        when(notifications.document(anyString())).thenReturn(notification);
+        when(notification.create(anyMap())).thenReturn(future);
+        when(future.get()).thenThrow(new InterruptedException("notification cancelled"));
+        try {
+            if (approve) service.approveReport("report_a", approval("NO_CHANGE", Map.of()));
+            else service.rejectReport("report_a", "reason");
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+            verify(transaction).update(eq(reportRef), argThat(update ->
+                    (approve ? "APPROVED" : "REJECTED").equals(update.get("status"))));
+            verify(db, never()).collection("favorites");
+            verify(db, never()).collection("device_tokens");
+        } finally { Thread.interrupted(); }
+    }
+
     @Test
     @SuppressWarnings("unchecked")
     void correctionAndModerationAreWrittenInTheSameTransactionBeforeCachePublication() throws Exception {

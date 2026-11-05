@@ -107,6 +107,8 @@ export function createRuntime({ withClusterer = false, native = false } = {}) {
     Print: { postMessage() {} },
   };
   context.window = context;
+  context.top = context;
+  context.location = { origin: 'https://howmuch-zeta.vercel.app' };
   context.kakao = {
     maps: {
       load: (callback) => callback(),
@@ -133,11 +135,28 @@ export function createRuntime({ withClusterer = false, native = false } = {}) {
   let source = mapScript;
   if (native) {
     const dart = readFileSync(new URL('../../lib/features/home/presentation/screens/home_map_screen.dart', import.meta.url), 'utf8');
+    const policy = readFileSync(new URL('../../lib/core/security/kakao_inline_webview_policy.dart', import.meta.url), 'utf8');
+    const bridge = policy.match(/String bridgeScript[\s\S]*?=>\s*'''([\s\S]*?)'''/)[1]
+      .replaceAll('TOKEN_VALUE', JSON.stringify('fixture-document-capability'))
+      .replaceAll('ORIGIN_VALUE', JSON.stringify(context.location.origin))
+      .replaceAll('CHANNEL_VALUE', JSON.stringify('Print'));
     source = [...dart.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
       .map((match) => match[1])
       .find((script) => script.includes('function initializeMap'))
       .replaceAll('$initialLat', '37.5').replaceAll('$initialLng', '127')
-      .replaceAll('$initialLevel', '3');
+      .replaceAll('$initialLevel', '3')
+      .replaceAll("${_mobileWebViewPolicy.bridgeScript('Print')}", bridge)
+      // Test-only introspection keeps production bridge capabilities private.
+      .replace('})();', `
+        window.initializeMap = initializeMap;
+        window.syncStoreOverlays = syncStoreOverlays;
+        Object.defineProperties(window, {
+          map: { get: () => map },
+          customOverlays: { get: () => customOverlays },
+          markerDataCache: { get: () => markerDataCache },
+          pendingMarkerPayload: { get: () => pendingMarkerPayload }
+        });
+      })();`);
   }
   vm.runInContext(source, context, { filename: native ? 'native-map.html' : 'web/index.html' });
   if (native) return { context, overlays, clusterers, listeners, elements };

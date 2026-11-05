@@ -300,10 +300,10 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                         color: const Color(0xFFEFF4FF),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Row(
+                      child: const Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.info_outline_rounded,
                             size: 18,
                             color: Color(0xFF2563EB),

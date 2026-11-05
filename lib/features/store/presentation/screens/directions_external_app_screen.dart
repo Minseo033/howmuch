@@ -199,7 +199,7 @@ class _DirectionsExternalAppScreenState
       if (!mounted) return;
       if (_hasRouteCoordinates) {
         ScaffoldMessenger.of(context).showSnackBar(
-          HowmuchSnackBar(content: Text('출발지를 확인했어요. 지도 열기 버튼을 다시 눌러주세요.')),
+          HowmuchSnackBar(content: const Text('출발지를 확인했어요. 지도 열기 버튼을 다시 눌러주세요.')),
         );
         return;
       }
@@ -247,7 +247,7 @@ class _DirectionsExternalAppScreenState
           if (!kakao && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               HowmuchSnackBar(
-                content: Text('네이버 지도 앱을 설치해 이용할 수도 있어요. 설치 없이 웹 지도로 연결합니다.'),
+                content: const Text('네이버 지도 앱을 설치해 이용할 수도 있어요. 설치 없이 웹 지도로 연결합니다.'),
               ),
             );
           }
@@ -261,20 +261,20 @@ class _DirectionsExternalAppScreenState
       if (!opened) {
         ScaffoldMessenger.of(context).showSnackBar(
           HowmuchSnackBar(
-            content: Text('지도를 열지 못했어요. 브라우저 팝업 설정을 확인하고 다시 눌러주세요.'),
+            content: const Text('지도를 열지 못했어요. 브라우저 팝업 설정을 확인하고 다시 눌러주세요.'),
           ),
         );
       } else if (!_hasRouteCoordinates) {
         ScaffoldMessenger.of(context).showSnackBar(
           HowmuchSnackBar(
-            content: Text('현재 위치를 확인하지 못했어요. 외부 지도에서 출발지와 이동 방식을 선택해주세요.'),
+            content: const Text('현재 위치를 확인하지 못했어요. 외부 지도에서 출발지와 이동 방식을 선택해주세요.'),
           ),
         );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          HowmuchSnackBar(content: Text('지도를 열지 못했어요. 연결 상태를 확인하고 다시 시도해주세요.')),
+          HowmuchSnackBar(content: const Text('지도를 열지 못했어요. 연결 상태를 확인하고 다시 시도해주세요.')),
         );
       }
     }
@@ -373,12 +373,12 @@ class _DirectionsExternalAppScreenState
               children: [
                 Text(
                   widget.storeName,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   widget.address,
-                  style: TextStyle(color: AppColors.muted, fontSize: 13),
+                  style: const TextStyle(color: AppColors.muted, fontSize: 13),
                 ),
                 const SizedBox(height: 8),
                 Container(
@@ -392,7 +392,7 @@ class _DirectionsExternalAppScreenState
                   ),
                   child: Text(
                     _effectiveDistanceLabel,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AppColors.primary,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,

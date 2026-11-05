@@ -1214,16 +1214,16 @@ class _OutlineActionButton extends StatelessWidget {
               ),
             ),
             alignment: Alignment.center,
-            child: Row(
+            child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
+                Icon(
                   Icons.delete_outline_rounded,
                   size: 14,
                   color: Color(0xFFEF4444),
                 ),
-                const SizedBox(width: 6),
-                const Text(
+                SizedBox(width: 6),
+                Text(
                   '삭제하기',
                   style: TextStyle(
                     color: Color(0xFFEF4444),

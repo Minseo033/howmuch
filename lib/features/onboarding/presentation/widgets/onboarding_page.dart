@@ -690,8 +690,8 @@ class _StoreReportArtwork extends StatelessWidget {
                 ),
               ],
             ),
-            child: Stack(
-              children: const [
+            child: const Stack(
+              children: [
                 Positioned(left: 14, top: 14, child: _ReportBadge()),
                 Positioned(
                   right: 15,
@@ -781,9 +781,9 @@ class _MapLegendPill extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
+      child: const Row(
         mainAxisSize: MainAxisSize.min,
-        children: const [
+        children: [
           _Dot(color: OnboardingPage.blue),
           SizedBox(width: 8),
           Text(
@@ -1041,9 +1041,9 @@ class _ReportBadge extends StatelessWidget {
         color: const Color(0xFFFFF3EA),
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Row(
+      child: const Row(
         mainAxisSize: MainAxisSize.min,
-        children: const [
+        children: [
           _Dot(color: OnboardingPage.orange),
           SizedBox(width: 5),
           Text(
@@ -1074,10 +1074,10 @@ class _FigmaMapPainter extends CustomPainter {
       ..strokeCap = StrokeCap.square;
     final park = Paint()..color = const Color(0xFFEFF4FF);
 
-    canvas.drawLine(Offset(0, 116), Offset(size.width, 105), road);
-    canvas.drawLine(Offset(0, 210), Offset(size.width, 194), road);
-    canvas.drawLine(Offset(95, 0), Offset(86, size.height), road);
-    canvas.drawLine(Offset(200, 0), Offset(215, size.height), road);
+    canvas.drawLine(const Offset(0, 116), Offset(size.width, 105), road);
+    canvas.drawLine(const Offset(0, 210), Offset(size.width, 194), road);
+    canvas.drawLine(const Offset(95, 0), Offset(86, size.height), road);
+    canvas.drawLine(const Offset(200, 0), Offset(215, size.height), road);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         const Rect.fromLTWH(140, 160, 80, 80),
@@ -1101,9 +1101,9 @@ class _ReportMapPainter extends CustomPainter {
       ..strokeWidth = 11
       ..strokeCap = StrokeCap.square;
 
-    canvas.drawLine(Offset(0, 96), Offset(size.width, 86), road);
-    canvas.drawLine(Offset(100, 0), Offset(92, size.height), road);
-    canvas.drawLine(Offset(0, 135), Offset(size.width, 124), road);
+    canvas.drawLine(const Offset(0, 96), Offset(size.width, 86), road);
+    canvas.drawLine(const Offset(100, 0), Offset(92, size.height), road);
+    canvas.drawLine(const Offset(0, 135), Offset(size.width, 124), road);
   }
 
   @override

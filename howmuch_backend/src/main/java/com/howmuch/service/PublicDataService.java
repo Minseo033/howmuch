@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -85,7 +86,7 @@ public class PublicDataService {
                                                 .flatMap(this::saveToFirestore)
                                                 .filter(Boolean.TRUE::equals)
                                                 .doOnNext(saved -> totalSaved.incrementAndGet())
-                                                .onErrorResume(e -> {
+                                                .onErrorResume(e -> !(e instanceof CancellationException), e -> {
                                                     log.warn("공공데이터 항목 저장을 건너뜁니다: {}",
                                                             e.getClass().getSimpleName());
                                                     return Mono.empty();
@@ -157,6 +158,13 @@ public class PublicDataService {
             try {
                 firestore.collection("stores").document(finalDocId).set(storeDto).get();
                 return true;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                CancellationException cancellation = new CancellationException("Public data sync interrupted");
+                cancellation.initCause(e);
+                throw cancellation;
+            } catch (CancellationException e) {
+                throw e;
             } catch (Exception e) {
                 log.warn("공공데이터 Firestore 저장 실패: {}", e.getClass().getSimpleName());
                 return false; // 한 항목 실패가 전체 동기화를 중단시키지는 않습니다.

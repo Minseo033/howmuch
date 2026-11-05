@@ -20,6 +20,8 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -79,7 +81,23 @@ public class WeatherService {
     private static final int MAX_CACHE_ENTRIES = 512;
 
     private record CachedWeather(Map<String, Object> value, long expiresAtMillis) {}
-    private record WeatherRequest(double lat, double lng, int[] grid, LocalDateTime base, String key) {}
+    private record WeatherRequest(double lat, double lng, int[] grid, LocalDateTime base, String key) {
+        private WeatherRequest { grid = grid.clone(); }
+        @Override public int[] grid() { return grid.clone(); }
+        @Override public boolean equals(Object other) {
+            return other instanceof WeatherRequest request
+                    && Double.compare(lat, request.lat) == 0 && Double.compare(lng, request.lng) == 0
+                    && Arrays.equals(grid, request.grid) && Objects.equals(base, request.base)
+                    && Objects.equals(key, request.key);
+        }
+        @Override public int hashCode() {
+            return 31 * Objects.hash(lat, lng, base, key) + Arrays.hashCode(grid);
+        }
+        @Override public String toString() {
+            return "WeatherRequest[lat=" + lat + ", lng=" + lng + ", grid=" + Arrays.toString(grid)
+                    + ", base=" + base + ", key=" + key + "]";
+        }
+    }
     private record ForecastFetch(Map<String, Object> value, boolean retryOlderBase) {}
 
     // 테스트용 생성자가 함께 있으므로 Spring이 쓸 생성자를 명시한다(없으면 서버가 시작되지 않는다).

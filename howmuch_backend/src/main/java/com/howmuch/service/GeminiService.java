@@ -476,19 +476,28 @@ public class GeminiService {
 
     private static final String INTENT_TERMS = "아메리카노|베이커리|중화요리|비빔국수|삼계탕|설렁탕|갈비탕|돈까스|돈가스|삼겹살|칼국수|수제비|국밥|김밥|백반|짜장|짬뽕|냉면|라떼|우동|라면|탕수육|디저트|커피|카페|중국집|분식|한식|중식|일식|양식|미용|세탁|목욕|이발|수선|빵";
     private static final Pattern EXCLUDED_INTENT = Pattern.compile(
-            "((?:" + INTENT_TERMS + ")(?:[랑와과,/](?:" + INTENT_TERMS + "))*)"
-                    + "(?:는|은|을|를|도|만)?(?:빼(?!지)|제외(?!하지)|말고|싫어|안먹|안마실|안갈)");
+            "((?:" + INTENT_TERMS + ")(?:[랑와과,/](?:" + INTENT_TERMS + "))*+)"
+                    + "((?:는|은|을|를|도|만)?(?:빼(?!지)|제외(?!하지)|말고|싫어|안먹|안마실|안갈))?");
 
     /** 앱의 menuMatchesRecommendationQuery와 같은 규칙이다(test/ai_shared_rules_test.dart와 같은 표). */
     boolean menuMatchesIntent(String message, String menu, Map<String, Object> store) {
         String rawQuery = message == null ? "" : message.toLowerCase().replaceAll("\\s+", "");
         Matcher negatives = EXCLUDED_INTENT.matcher(rawQuery);
         List<String> exclusions = new ArrayList<>();
+        StringBuilder positiveQuery = new StringBuilder();
+        // Consume every term chain once, including non-excluded chains. Requiring an exclusion
+        // suffix in find() would retry each starting term on a long non-excluded chain.
         while (negatives.find()) {
-            Matcher terms = Pattern.compile(INTENT_TERMS).matcher(negatives.group(1));
-            while (terms.find()) exclusions.add(terms.group());
+            if (negatives.group(2) != null) {
+                Matcher terms = Pattern.compile(INTENT_TERMS).matcher(negatives.group(1));
+                while (terms.find()) exclusions.add(terms.group());
+                negatives.appendReplacement(positiveQuery, "");
+            } else {
+                negatives.appendReplacement(positiveQuery, Matcher.quoteReplacement(negatives.group()));
+            }
         }
-        String query = EXCLUDED_INTENT.matcher(rawQuery).replaceAll("");
+        negatives.appendTail(positiveQuery);
+        String query = positiveQuery.toString();
         String item = menu.toLowerCase().replace(" ", "");
         String industry = safeText(store.get("industry"), "", 100).toLowerCase();
         for (String excluded : exclusions) {
@@ -554,11 +563,11 @@ public class GeminiService {
 
     private int requestedRecommendationCount(String message) {
         String text = message == null ? "" : message;
-        if (text.matches(".*(?:한\\s*곳|한\\s*군데|한\\s*개|하나).*")) return 1;
-        if (text.matches(".*(?:두\\s*곳|두\\s*군데|두\\s*개|둘).*")) return 2;
-        if (text.matches(".*(?:세\\s*곳|세\\s*군데|세\\s*개|셋).*")) return 3;
-        if (text.matches(".*(?:네\\s*곳|네\\s*군데|네\\s*개|넷).*")) return 4;
-        Matcher matcher = Pattern.compile("(\\d+)\\s*(?:곳|군데|개|개소)").matcher(text);
+        if (Pattern.compile("(?:한\\s*곳|한\\s*군데|한\\s*개|하나)").matcher(text).find()) return 1;
+        if (Pattern.compile("(?:두\\s*곳|두\\s*군데|두\\s*개|둘)").matcher(text).find()) return 2;
+        if (Pattern.compile("(?:세\\s*곳|세\\s*군데|세\\s*개|셋)").matcher(text).find()) return 3;
+        if (Pattern.compile("(?:네\\s*곳|네\\s*군데|네\\s*개|넷)").matcher(text).find()) return 4;
+        Matcher matcher = Pattern.compile("(?<![0-9])([0-9]++)\\s*+(?:곳|군데|개|개소)").matcher(text);
         if (matcher.find()) {
             try {
                 return Math.max(1, Math.min(4, Integer.parseInt(matcher.group(1))));
@@ -572,13 +581,13 @@ public class GeminiService {
     private Integer requestedBudgetWon(String message) {
         String text = message == null ? "" : message.replace(",", "").replace(" ", "");
         if (text.contains("무료")) return 0;
-        Matcher mixed = Pattern.compile("(\\d+)만(\\d+)천원").matcher(text);
+        Matcher mixed = Pattern.compile("(?<![0-9])([0-9]++)만([0-9]++)천원").matcher(text);
         if (mixed.find()) {
-            try { return boundedBudget(Long.parseLong(mixed.group(1)) * 10_000L
-                    + Long.parseLong(mixed.group(2)) * 1_000L); }
-            catch (NumberFormatException ignored) { return null; }
+            try { return boundedBudget(Math.addExact(Math.multiplyExact(Long.parseLong(mixed.group(1)), 10_000L),
+                    Math.multiplyExact(Long.parseLong(mixed.group(2)), 1_000L))); }
+            catch (IllegalArgumentException | ArithmeticException ignored) { return null; }
         }
-        Matcher manWon = Pattern.compile("(\\d+(?:\\.\\d+)?)만원").matcher(text);
+        Matcher manWon = Pattern.compile("(?<![0-9])([0-9]++(?:\\.[0-9]++)?)만원").matcher(text);
         if (manWon.find()) {
             try {
                 return boundedBudget(Math.round(Double.parseDouble(manWon.group(1)) * 10_000));
@@ -591,11 +600,11 @@ public class GeminiService {
             if (text.contains(korean.getKey() + "만원")) return korean.getValue() * 10_000;
         }
         if (text.contains("만원")) return 10_000;
-        Matcher cheonWon = Pattern.compile("(\\d+)천원").matcher(text);
+        Matcher cheonWon = Pattern.compile("(?<![0-9])([0-9]++)천원").matcher(text);
         if (cheonWon.find()) {
             try {
-                return boundedBudget(Long.parseLong(cheonWon.group(1)) * 1_000L);
-            } catch (NumberFormatException ignored) {
+                return boundedBudget(Math.multiplyExact(Long.parseLong(cheonWon.group(1)), 1_000L));
+            } catch (IllegalArgumentException | ArithmeticException ignored) {
                 return null;
             }
         }

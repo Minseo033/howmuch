@@ -135,7 +135,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                Text(
+                                const Text(
                                   '알림을 불러오지 못했어요',
                                   style: TextStyle(
                                     fontFamily: 'Noto Sans KR',
@@ -146,7 +146,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 6),
-                                Text(
+                                const Text(
                                   '인터넷 연결 상태를 확인하고 다시 시도해보세요.',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
@@ -732,7 +732,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(
-          HowmuchSnackBar(content: Text('매장 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')),
+          HowmuchSnackBar(content: const Text('매장 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')),
         );
       return;
     }

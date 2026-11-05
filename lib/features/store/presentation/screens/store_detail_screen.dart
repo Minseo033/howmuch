@@ -495,7 +495,7 @@ class _StoreDetailContent extends ConsumerWidget {
                                     child: Text(
                                       store.menuSourceLabel,
                                       textAlign: TextAlign.end,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 11,
                                         color: _sub,
                                       ),
@@ -713,7 +713,7 @@ class _StoreDetailContent extends ConsumerWidget {
               child: Container(
                 decoration: BoxDecoration(
                   color: AppColors.white,
-                  border: Border(top: BorderSide(color: _line)),
+                  border: const Border(top: BorderSide(color: _line)),
                   boxShadow: [
                     BoxShadow(
                       color: AppColors.black.withValues(alpha: 0.06),
@@ -1177,7 +1177,7 @@ class _FavoriteStoreButtonState extends ConsumerState<_FavoriteStoreButton> {
       if (add && notifier.isFavorite(_storeId)) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(HowmuchSnackBar(content: Text('이미 찜한 매장이에요.')));
+        ).showSnackBar(HowmuchSnackBar(content: const Text('이미 찜한 매장이에요.')));
         return;
       }
       if (add) {
@@ -1195,7 +1195,7 @@ class _FavoriteStoreButtonState extends ConsumerState<_FavoriteStoreButton> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        HowmuchSnackBar(content: Text('찜 처리에 실패했어요. 다시 시도해 주세요.')),
+        HowmuchSnackBar(content: const Text('찜 처리에 실패했어요. 다시 시도해 주세요.')),
       );
     } finally {
       if (mounted) setState(() => _busy = false);

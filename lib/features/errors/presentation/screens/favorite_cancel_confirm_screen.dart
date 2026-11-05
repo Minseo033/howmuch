@@ -104,7 +104,7 @@ class _FavoriteCancelConfirmDialogState
       if (!mounted) return;
       setState(() => _busy = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        HowmuchSnackBar(content: Text('찜 해제에 실패했어요. 다시 시도해 주세요.')),
+        HowmuchSnackBar(content: const Text('찜 해제에 실패했어요. 다시 시도해 주세요.')),
       );
     }
   }
